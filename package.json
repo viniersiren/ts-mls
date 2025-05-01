@@ -15,8 +15,7 @@
     }
   },
   "dependencies": {
-    "hpke-js": "^1.6.2",
-    "@noble/ciphers": "^1.2.1"
+    "hpke-js": "^1.6.2"
   },
   "devDependencies": {
     "@types/jest": "^29.5.14",
@@ -34,5 +33,33 @@
   "scripts": {
     "build": "tsc",
     "test": "jest"
-  }
+  },
+  "keywords": [
+    "mls",
+    "messaging-layer-security",
+    "rfc9420",
+    "hpke",
+    "pqc",
+    "post-quantum",
+    "elliptic",
+    "curve",
+    "cryptography",
+    "ed25519",
+    "p256",
+    "p384",
+    "p521",
+    "ed448",
+    "x25519",
+    "ed25519",
+    "ml-kem",
+    "ml-dsa",
+    "slh-dsa",
+    "kyber",
+    "dilithium",
+    "sphincs",
+    "fips203",
+    "fips204",
+    "fips205",
+    "edwards"
+  ]
 }
