@@ -1,6 +1,8 @@
-import { CiphersuiteId, PrivateKey, PublicKey, SecretKey } from "./crypto/ciphersuite"
+import { CiphersuiteId, CiphersuiteName, PrivateKey, PublicKey, SecretKey } from "./crypto/ciphersuite"
 import { Hash, refhash } from "./crypto/hash"
 import { Signature, signWithLabel, verifyWithLabel } from "./crypto/signature"
+import { HPKECiphertext, Welcome } from "./message"
+import { PreSharedKeyID, PSKType } from "./presharedkey"
 
 type SenderIndex = number
 
@@ -198,31 +200,6 @@ type Proposal = Readonly<
 type ProposalOrRefType = "reserved" | "proposal" | "reference"
 type ProposalOrRef = Readonly<{ kind: "proposal"; proposal: Proposal } | { kind: "reference"; reference: ProposalRef }>
 type Commit = Readonly<{ proposals: ProposalOrRef[]; path: UpdatePath | undefined }>
-
-//8.4
-type PSKType = "reserved" | "external" | "resumption"
-
-type ResumptionPSKUsage = "reserved" | "application" | "reinit" | "branch"
-
-type PSKInfo<P extends PSKType> = P extends "external"
-  ? { pskId: ArrayBuffer }
-  : P extends "resumption"
-    ? { usage: ResumptionPSKUsage; pskGroupId: ArrayBuffer; pskEpoch: number }
-    : {}
-
-type PreSharedKeyID<P extends PSKType> = P extends P
-  ? Readonly<{
-      psktype: P
-      pskNonce: ArrayBuffer
-      pskinfo: PSKInfo<P>
-    }>
-  : never
-
-type PSKLabel<P extends PSKType> = Readonly<{
-  id: PreSharedKeyID<P>
-  index: number
-  count: number
-}>
 
 //10
 type KeyPackageTBS = Readonly<{

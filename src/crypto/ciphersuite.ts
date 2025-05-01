@@ -20,10 +20,10 @@ const ciphersuites = {
   MLS_256_DHKEMP384_AES256GCM_SHA384_P384: 7,
 } as const
 
-type CiphersuiteFoo = keyof typeof ciphersuites
-export type CiphersuiteId = (typeof ciphersuites)[CiphersuiteFoo]
+export type CiphersuiteName = keyof typeof ciphersuites
+export type CiphersuiteId = (typeof ciphersuites)[CiphersuiteName]
 
-export function getCiphersuite(name: CiphersuiteFoo): Ciphersuite {
+export function getCiphersuite(name: CiphersuiteName): Ciphersuite {
   return ciphersuiteValues[ciphersuites[name]]
 }
 

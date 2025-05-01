@@ -2,6 +2,7 @@ import { KdfInterface } from "hpke-js"
 import { utf8ToBytes } from "@noble/ciphers/utils"
 import { HkdfSha256, HkdfSha384, HkdfSha512 } from "@hpke/core"
 import { encodeVarLenData } from "../codec/vector"
+import { encodeUint16, encodeUint32 } from "../codec/number"
 
 export interface Kdf {
   extract(salt: ArrayBuffer, ikm: ArrayBuffer): Promise<ArrayBuffer>
@@ -44,26 +45,12 @@ export function expandWithLabel(
   return kdf.expand(
     secret,
     new Uint8Array([
-      ...lengthToBytes(length),
+      ...encodeUint16(length),
       ...encodeVarLenData(utf8ToBytes(`MLS 1.0 ${label}`)),
       ...encodeVarLenData(context),
     ]).buffer,
     length,
   )
-}
-
-function lengthToBytes(length: number): Uint8Array {
-  const buffer = new ArrayBuffer(2)
-  const view = new DataView(buffer)
-  view.setUint16(0, length)
-  return new Uint8Array(buffer)
-}
-
-function generationToBytes(generation: number): Uint8Array {
-  const buffer = new ArrayBuffer(4)
-  const view = new DataView(buffer)
-  view.setUint32(0, generation)
-  return new Uint8Array(buffer)
 }
 
 export function deriveSecret(secret: BufferSource, label: string, kdf: Kdf): Promise<ArrayBuffer> {
@@ -76,5 +63,5 @@ export function deriveTreeSecret(
   generation: number,
   kdf: Kdf,
 ): Promise<ArrayBuffer> {
-  return expandWithLabel(secret, label, generationToBytes(generation), kdf.keysize, kdf)
+  return expandWithLabel(secret, label, encodeUint32(generation), kdf.keysize, kdf)
 }
