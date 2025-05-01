@@ -86,7 +86,7 @@ async function test_encrypt_with_label(
   )
   expect(bytesToHex(new Uint8Array(plaintext))).toBe(o.plaintext)
 }
-test("crypto basics", async () => {
+test("crypto basics test vectors", async () => {
   for (const x of json) {
     const impl = getCiphersuiteImpl(getCiphersuiteFromId(x.cipher_suite as CiphersuiteId))
     await test_ref_hash(impl, x.ref_hash)

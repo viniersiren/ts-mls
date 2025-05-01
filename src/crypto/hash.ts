@@ -8,11 +8,15 @@ export function makeHashImpl(sc: SubtleCrypto, h: HashAlgorithm): Hash {
     digest(data) {
       return sc.digest(h, data)
     },
+    mac(key, data) {
+      return sc.sign("HMAC", key, data)
+    },
   }
 }
 
 export interface Hash {
   digest(data: BufferSource): Promise<ArrayBuffer>
+  mac(key: CryptoKey, data: BufferSource): Promise<ArrayBuffer>
 }
 
 export function refhash(label: string, value: Uint8Array, h: Hash) {

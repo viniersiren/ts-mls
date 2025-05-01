@@ -1,6 +1,6 @@
 import { randomBytes } from "@noble/ciphers/webcrypto"
 import { bytesToHex } from "@noble/ciphers/utils"
-import { decodeVarLenData, encodeVarLenData } from "../src/codec/vector"
+import { decodeVarLenData, encodeVarLenData } from "../../src/codec/vector"
 
 function varLenRoundtrip(source: Uint8Array) {
   const encoded = encodeVarLenData(source)

@@ -128,8 +128,9 @@ type AuthenticatedContentTBM<C extends ContentType, S extends SenderType> = {
 function createMembershipTag<C extends ContentType>(
   membershipKey: SecretKey,
   tbm: AuthenticatedContentTBM<C, "member">,
-): MAC {
-  return new ArrayBuffer() //todo MAC()
+  h: Hash,
+): Promise<MAC> {
+  return h.mac(membershipKey, new ArrayBuffer()) //todo MAC()
 }
 
 type PrivateMessage = Readonly<{
