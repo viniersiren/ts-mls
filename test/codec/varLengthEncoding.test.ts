@@ -1,13 +1,6 @@
 import { randomBytes } from "@noble/ciphers/webcrypto"
 import { decodeVarLenData, encodeVarLenData } from "../../src/codec/variableLength"
-
-function varLenRoundtrip(source: Uint8Array) {
-  const encoded = encodeVarLenData(source)
-
-  const decoded = decodeVarLenData(encoded, 0)?.[0] as Uint8Array
-
-  expect(decoded).toStrictEqual(source)
-}
+import { createRoundtripTest } from "./roundtrip"
 
 test("encode and decode works for 1 random byte", () => {
   varLenRoundtrip(randomBytes(1))
@@ -48,3 +41,5 @@ test("encode and decode works for 1024 random bytes", () => {
 test("encode and decode works for 9999 random bytes", () => {
   varLenRoundtrip(randomBytes(9999))
 })
+
+const varLenRoundtrip = createRoundtripTest(encodeVarLenData, decodeVarLenData)

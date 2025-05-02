@@ -185,7 +185,7 @@ type Proposal = Readonly<
   | { proposalType: "add"; keyPackage: KeyPackage }
   | { proposalType: "update"; leafNode: RatchetLeaf<LeafNodeSource> }
   | { proposalType: "remove"; removed: LeafIndex }
-  | { proposalType: "psk"; preSharedKeyId: PreSharedKeyID<PSKType> }
+  | { proposalType: "psk"; preSharedKeyId: PreSharedKeyID }
   | {
       proposalType: "reinit"
       groupId: GroupId
@@ -229,7 +229,7 @@ type GroupInfoTBS = Readonly<{
 type GroupSecrets = Readonly<{
   joinerSecret: ArrayBuffer
   pathSecret: ArrayBuffer | undefined
-  psks: PreSharedKeyID<PSKType>[]
+  psks: PreSharedKeyID[]
 }>
 
 type ContentTypeSpecificData<C extends ContentType> = C extends "application"

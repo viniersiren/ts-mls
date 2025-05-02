@@ -25,6 +25,36 @@ export function mapDecoderOption<T, U>(dec: Decoder<T>, f: (t: T) => U | undefin
   }
 }
 
+export function orDecoder<T, U>(decT: Decoder<T>, decU: Decoder<U>): Decoder<T | U> {
+  return (b, offset) => {
+    const t = decT(b, offset)
+    return t ? t : decU(b, offset)
+  }
+}
+
+export function flatMapDecoder<T, U>(dec: Decoder<T>, f: (t: T) => Decoder<U>): Decoder<U> {
+  return flatMapDecoderAndMap(dec, f, (_t, u) => u)
+}
+
+export function flatMapDecoderAndMap<T, U, V>(
+  dec: Decoder<T>,
+  f: (t: T) => Decoder<U>,
+  g: (t: T, u: U) => V,
+): Decoder<V> {
+  return (b, offset) => {
+    const decodedT = dec(b, offset)
+    if (decodedT !== undefined) {
+      const [t, len] = decodedT
+      const decoderU = f(t)
+      const decodedU = decoderU(b, offset + len)
+      if (decodedU !== undefined) {
+        const [u, len2] = decodedU
+        return [g(t, u), len + len2]
+      }
+    }
+  }
+}
+
 export function mapDecoders<T extends unknown[], R>(
   decoders: { [K in keyof T]: Decoder<T[K]> },
   f: (...args: T) => R,

@@ -1,5 +1,5 @@
-import json from "../test_vectors/tree-math.json"
-import { left, nodeWidth, parent, right, root, sibling } from "../src/treemath"
+import json from "../../test_vectors/tree-math.json"
+import { left, nodeWidth, parent, right, root, sibling } from "../../src/treemath"
 
 test("tree math test vectors", () => {
   for (const x of json) {
