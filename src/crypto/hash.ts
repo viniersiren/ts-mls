@@ -1,5 +1,5 @@
 import { utf8ToBytes } from "@noble/ciphers/utils"
-import { encodeVarLenData } from "../codec/vector"
+import { encodeVarLenData } from "../codec/variableLength"
 
 export type HashAlgorithm = "SHA-512" | "SHA-384" | "SHA-256"
 

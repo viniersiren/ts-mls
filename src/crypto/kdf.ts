@@ -1,7 +1,7 @@
 import { KdfInterface } from "hpke-js"
 import { utf8ToBytes } from "@noble/ciphers/utils"
 import { HkdfSha256, HkdfSha384, HkdfSha512 } from "@hpke/core"
-import { encodeVarLenData } from "../codec/vector"
+import { encodeVarLenData } from "../codec/variableLength"
 import { encodeUint16, encodeUint32 } from "../codec/number"
 
 export interface Kdf {

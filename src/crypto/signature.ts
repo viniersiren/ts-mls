@@ -2,7 +2,7 @@ import { ed25519 } from "@noble/curves/ed25519"
 import { ed448 } from "@noble/curves/ed448"
 import { p256, p384, p521 } from "@noble/curves/nist"
 import { utf8ToBytes } from "@noble/ciphers/utils"
-import { encodeVarLenData } from "../codec/vector"
+import { encodeVarLenData } from "../codec/variableLength"
 
 export interface Signature {
   sign(signKey: Uint8Array, message: Uint8Array): Uint8Array

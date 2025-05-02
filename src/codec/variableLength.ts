@@ -1,25 +1,8 @@
-export function encodeVarLenData(data: Uint8Array): Uint8Array {
-  const len = data.length
-  let lenBytes: Uint8Array
+import { Decoder } from "./tlsDecoder"
+import { Encoder } from "./tlsEncoder"
 
-  if (len < 64) {
-    // 1-byte length: 00xxxxxx
-    lenBytes = new Uint8Array([len & 0b00111111])
-  } else if (len < 16384) {
-    // 2-byte length: 01xxxxxx xxxxxxxx
-    lenBytes = new Uint8Array(2)
-    lenBytes[0] = ((len >> 8) & 0b00111111) | 0b01000000
-    lenBytes[1] = len & 0xff
-  } else if (len < 0x40000000) {
-    // 4-byte length: 10xxxxxx xxxxxxxx xxxxxxxx xxxxxxxx
-    lenBytes = new Uint8Array(4)
-    lenBytes[0] = ((len >> 24) & 0b00111111) | 0b10000000
-    lenBytes[1] = (len >> 16) & 0xff
-    lenBytes[2] = (len >> 8) & 0xff
-    lenBytes[3] = len & 0xff
-  } else {
-    throw new Error("Length too large to encode (max is 2^30 - 1)")
-  }
+export const encodeVarLenData: Encoder<Uint8Array> = (data) => {
+  const lenBytes: Uint8Array = encodeLength(data.length)
 
   const result = new Uint8Array(lenBytes.length + data.length)
   result.set(lenBytes, 0)
@@ -27,7 +10,22 @@ export function encodeVarLenData(data: Uint8Array): Uint8Array {
   return result
 }
 
-export function determineLength(data: Uint8Array, offset = 0): { length: number; lengthFieldSize: number } {
+function encodeLength(len: number): Uint8Array {
+  if (len < 64) {
+    // 1-byte length: 00xxxxxx
+    return new Uint8Array([len & 0b00111111])
+  } else if (len < 16384) {
+    // 2-byte length: 01xxxxxx xxxxxxxx
+    return new Uint8Array([((len >> 8) & 0b00111111) | 0b01000000, len & 0xff])
+  } else if (len < 0x40000000) {
+    // 4-byte length: 10xxxxxx xxxxxxxx xxxxxxxx xxxxxxxx
+    return new Uint8Array([((len >> 24) & 0b00111111) | 0b10000000, (len >> 16) & 0xff, (len >> 8) & 0xff, len & 0xff])
+  } else {
+    throw new Error("Length too large to encode (max is 2^30 - 1)")
+  }
+}
+
+export function determineLength(data: Uint8Array, offset: number = 0): { length: number; lengthFieldSize: number } {
   if (offset >= data.length) {
     throw new Error("Offset beyond buffer")
   }
@@ -55,14 +53,7 @@ export function determineLength(data: Uint8Array, offset = 0): { length: number;
   }
 }
 
-export function decodeVarLenData(
-  buf: Uint8Array,
-  offset = 0,
-): {
-  data: Uint8Array
-  length: number
-  totalBytesRead: number
-} {
+export const decodeVarLenData: Decoder<Uint8Array> = (buf, offset) => {
   if (offset >= buf.length) {
     throw new Error("Offset beyond buffer")
   }
@@ -75,5 +66,5 @@ export function decodeVarLenData(
   }
 
   const data = buf.subarray(offset + lengthFieldSize, offset + totalBytes)
-  return { data, length, totalBytesRead: totalBytes }
+  return [data, totalBytes]
 }

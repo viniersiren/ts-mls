@@ -1,13 +1,12 @@
 import { randomBytes } from "@noble/ciphers/webcrypto"
-import { bytesToHex } from "@noble/ciphers/utils"
-import { decodeVarLenData, encodeVarLenData } from "../../src/codec/vector"
+import { decodeVarLenData, encodeVarLenData } from "../../src/codec/variableLength"
 
 function varLenRoundtrip(source: Uint8Array) {
   const encoded = encodeVarLenData(source)
 
-  const decoded = decodeVarLenData(encoded, 0)
+  const decoded = decodeVarLenData(encoded, 0)?.[0] as Uint8Array
 
-  expect(bytesToHex(decoded.data)).toBe(bytesToHex(source))
+  expect(decoded).toStrictEqual(source)
 }
 
 test("encode and decode works for 1 random byte", () => {

@@ -1,5 +1,7 @@
-import { encodeUint16, encodeUint64, encodeUint8 } from "./codec/number"
-import { encodeVarLenData } from "./codec/vector"
+import { decodeUint8, encodeUint16, encodeUint64, encodeUint8 } from "./codec/number"
+import { Decoder, mapDecoder, mapDecoderOption, mapDecoders } from "./codec/tlsDecoder"
+import { composeEncoders, contramapEncoder, contramapEncoders, Encoder } from "./codec/tlsEncoder"
+import { decodeVarLenData, encodeVarLenData } from "./codec/variableLength"
 import { CiphersuiteImpl } from "./crypto/ciphersuite"
 import { expandWithLabel } from "./crypto/kdf"
 
@@ -9,7 +11,7 @@ const pskTypes = {
   resumption: 2,
 } as const
 
-type PSKType = keyof typeof pskTypes
+export type PSKType = keyof typeof pskTypes
 export type PSKTypeId = (typeof pskTypes)[PSKType]
 
 const resumptionPSKUsages = {
@@ -21,9 +23,11 @@ const resumptionPSKUsages = {
 type ResumptionPSKUsage = keyof typeof resumptionPSKUsages
 export type ResumptionPSKUsageId = (typeof resumptionPSKUsages)[ResumptionPSKUsage]
 
-export function encodeResumptionPSKUsage(u: ResumptionPSKUsage): Uint8Array {
-  return encodeUint8(resumptionPSKUsages[u])
-}
+export const encodeResumptionPSKUsage: Encoder<ResumptionPSKUsage> = contramapEncoder(
+  encodeUint8,
+  (u) => resumptionPSKUsages[u],
+)
+
 
 type PSKInfo<P extends PSKType> = P extends "external"
   ? { pskId: Uint8Array }
@@ -31,21 +35,18 @@ type PSKInfo<P extends PSKType> = P extends "external"
     ? { usage: ResumptionPSKUsage; pskGroupId: Uint8Array; pskEpoch: bigint }
     : {}
 
-export function encodePskInfoExternal(info: PSKInfo<"external">): Uint8Array {
-  return encodeVarLenData(info.pskId)
-}
+export const encodePskInfoExternal: Encoder<PSKInfo<"external">> = contramapEncoder(encodeVarLenData, (i) => i.pskId)
 
-export function encodePskInfoResumption(info: PSKInfo<"resumption">): Uint8Array {
-  return new Uint8Array([
-    ...encodeResumptionPSKUsage(info.usage),
-    ...encodeVarLenData(info.pskGroupId),
-    ...encodeUint64(info.pskEpoch),
-  ])
-}
+export const decodePskInfoExternal: Decoder<PSKInfo<"external">> = mapDecoder(decodeVarLenData, (data) => {
+  return { pskId: data }
+})
 
-export function encodePskType(t: PSKType): Uint8Array {
-  return encodeUint8(pskTypes[t])
-}
+export const encodePskInfoResumption: Encoder<PSKInfo<"resumption">> = contramapEncoders(
+  [encodeResumptionPSKUsage, encodeVarLenData, encodeUint64],
+  (info) => [info.usage, info.pskGroupId, info.pskEpoch] as const,
+)
+
+export const encodePskType: Encoder<PSKType> = contramapEncoder(encodeUint8, (t) => pskTypes[t])
 
 export type PreSharedKeyID<P extends PSKType> = P extends P
   ? Readonly<{
@@ -55,7 +56,7 @@ export type PreSharedKeyID<P extends PSKType> = P extends P
     }>
   : never
 
-export function encodePskId<P extends PSKType>(id: PreSharedKeyID<P>): Uint8Array {
+export const encodePskId: Encoder<PreSharedKeyID<PSKType>> = (id) => {
   const info = id.psktype == "external" ? encodePskInfoExternal(id.pskinfo) : encodePskInfoResumption(id.pskinfo)
   return new Uint8Array([...encodePskType(id.psktype), ...info, ...encodeVarLenData(id.pskNonce)])
 }
@@ -84,6 +85,7 @@ type PSKLabel<P extends PSKType> = Readonly<{
   count: number
 }>
 
-export function encodePskLabel<P extends PSKType>(label: PSKLabel<P>): Uint8Array {
-  return new Uint8Array([...encodePskId(label.id), ...encodeUint16(label.index), ...encodeUint16(label.count)])
-}
+export const encodePskLabel: Encoder<PSKLabel<PSKType>> = contramapEncoders(
+  [encodePskId, encodeUint16, encodeUint16],
+  (label) => [label.id, label.index, label.count] as const,
+)

@@ -1,4 +1,4 @@
-import { CiphersuiteId, CiphersuiteName, PrivateKey, PublicKey, SecretKey } from "./crypto/ciphersuite"
+import { CiphersuiteId, PrivateKey, PublicKey, SecretKey } from "./crypto/ciphersuite"
 import { Hash, refhash } from "./crypto/hash"
 import { Signature, signWithLabel, verifyWithLabel } from "./crypto/signature"
 import { HPKECiphertext, Welcome } from "./message"
@@ -232,19 +232,6 @@ type GroupSecrets = Readonly<{
   psks: PreSharedKeyID<PSKType>[]
 }>
 
-type KeypackageRef = ArrayBuffer
-
-type EncryptedGroupSecrets = Readonly<{
-  newMember: KeypackageRef
-  encryptedGroupSecrets: HPKECiphertext
-}>
-
-type Welcome = Readonly<{
-  cipherSuite: CiphersuiteId
-  secrets: EncryptedGroupSecrets[]
-  encryptedGroupInfo: ArrayBuffer
-}>
-
 type ContentTypeSpecificData<C extends ContentType> = C extends "application"
   ? { applicationData: ArrayBuffer }
   : C extends "proposal"
@@ -380,11 +367,6 @@ type Extension = {
 }
 
 //7.6
-type HPKECiphertext = Readonly<{
-  ciphertext: ArrayBuffer
-  kemOutput: ArrayBuffer
-}>
-
 type UpdatePathNode = Readonly<{
   encryptionKey: CryptoKey
   encryptedPathSecret: HPKECiphertext

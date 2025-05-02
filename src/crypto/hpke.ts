@@ -4,7 +4,7 @@ import { KdfAlgorithm, makeKdf } from "./kdf"
 import { KemAlgorithm, makeDhKem } from "./kem"
 import { PrivateKey, PublicKey } from "./ciphersuite"
 import { utf8ToBytes } from "@noble/ciphers/utils"
-import { encodeVarLenData } from "../codec/vector"
+import { encodeVarLenData } from "../codec/variableLength"
 
 export type HpkeAlgorithm = {
   kem: KemAlgorithm
