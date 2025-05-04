@@ -10,6 +10,20 @@ export function mapDecoder<T, U>(dec: Decoder<T>, f: (t: T) => U): Decoder<U> {
   }
 }
 
+export function mapDecodersOption<T extends unknown[], R>(
+  decoders: { [K in keyof T]: Decoder<T[K]> },
+  f: (...args: T) => R | undefined,
+): Decoder<R> {
+  return (b, offset) => {
+    const initial = mapDecoders(decoders, f)(b, offset)
+    if (initial === undefined) return undefined
+    else {
+      const [r, len] = initial
+      return r !== undefined ? [r, len] : undefined
+    }
+  }
+}
+
 export function mapDecoders<T extends unknown[], R>(
   decoders: { [K in keyof T]: Decoder<T[K]> },
   f: (...args: T) => R,

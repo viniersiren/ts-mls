@@ -11,12 +11,29 @@ export function makeHashImpl(sc: SubtleCrypto, h: HashAlgorithm): Hash {
     mac(key, data) {
       return sc.sign("HMAC", key, data)
     },
+    verifyMac(key, mac, data) {
+      return sc.verify("HMAC", key, mac, data)
+    },
+    importMacKey(rawKey) {
+      return crypto.subtle.importKey(
+        "raw",
+        rawKey,
+        {
+          name: "HMAC",
+          hash: { name: h },
+        },
+        false,
+        ["sign", "verify"],
+      )
+    },
   }
 }
 
 export interface Hash {
   digest(data: BufferSource): Promise<ArrayBuffer>
   mac(key: CryptoKey, data: BufferSource): Promise<ArrayBuffer>
+  verifyMac(key: CryptoKey, mac: BufferSource, data: BufferSource): Promise<boolean>
+  importMacKey(rawKey: Uint8Array): Promise<CryptoKey>
 }
 
 export function refhash(label: string, value: Uint8Array, h: Hash) {

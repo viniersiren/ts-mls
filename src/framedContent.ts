@@ -79,6 +79,8 @@ type FramedContentData = Readonly<{
   authenticatedData: Uint8Array
 }>
 
+export type FramedContentCommit = FramedContentData & FramedContentCommitData
+
 export const encodeFramedContent: Encoder<FramedContent> = contramapEncoders(
   [encodeVarLenData, encodeUint64, encodeSender, encodeVarLenData, encodeFramedContentInfo],
   (fc) => [fc.groupId, fc.epoch, fc.sender, fc.authenticatedData, fc] as const,
