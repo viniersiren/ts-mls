@@ -29,6 +29,6 @@ type Messages = {
 }
 
 function codecRoundtrip(msgs: Messages) {
-  //const mlsWelcome = decodeMlsWelcome(hexToBytes(msgs.mls_welcome))
+  // const mlsWelcome = decode(hexToBytes(msgs.mls_welcome))
   expect(msgs).toBe(msgs)
 }

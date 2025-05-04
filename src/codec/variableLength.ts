@@ -68,3 +68,37 @@ export const decodeVarLenData: Decoder<Uint8Array> = (buf, offset) => {
   const data = buf.subarray(offset + lengthFieldSize, offset + totalBytes)
   return [data, totalBytes]
 }
+
+export function encodeVarLenType<T>(enc: Encoder<T>): Encoder<T[]> {
+  return (data) => {
+    let x = new Uint8Array()
+    for (const t of data) {
+      x = new Uint8Array([...x, ...enc(t)])
+    }
+
+    return encodeVarLenData(x)
+  }
+}
+
+export function decodeVarLenType<T>(dec: Decoder<T>): Decoder<T[]> {
+  return (b, offset) => {
+    const d = decodeVarLenData(b, offset)
+    if (d === undefined) return
+
+    const [totalBytes, totalLength] = d
+
+    let cursor = 0
+    const result: T[] = []
+
+    while (cursor < totalBytes.length) {
+      const item = dec(totalBytes, cursor)
+      if (!item) return undefined
+
+      const [value, len] = item
+      result.push(value)
+      cursor += len
+    }
+
+    return [result, totalLength]
+  }
+}

@@ -36,6 +36,10 @@ export function flatMapDecoder<T, U>(dec: Decoder<T>, f: (t: T) => Decoder<U>): 
   return flatMapDecoderAndMap(dec, f, (_t, u) => u)
 }
 
+export function flatMapTupleDecoder<T, U>(dec: Decoder<T>, f: (t: T) => Decoder<U>): Decoder<[T, U]> {
+  return flatMapDecoderAndMap(dec, f, (t, u) => [t, u] as const)
+}
+
 export function flatMapDecoderAndMap<T, U, V>(
   dec: Decoder<T>,
   f: (t: T) => Decoder<U>,

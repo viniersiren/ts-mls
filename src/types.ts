@@ -1,12 +1,10 @@
 import { CiphersuiteId, PrivateKey, PublicKey, SecretKey } from "./crypto/ciphersuite"
 import { Hash, refhash } from "./crypto/hash"
 import { Signature, signWithLabel, verifyWithLabel } from "./crypto/signature"
-import { HPKECiphertext, Welcome } from "./message"
+import { HPKECiphertext, Welcome } from "./welcome"
 import { PreSharedKeyID, PSKType } from "./presharedkey"
 
 type SenderIndex = number
-
-type ProtocolVersion = "MLS10" | "reserved"
 
 type ContentType = "reserved" | "application" | "proposal" | "commit"
 
@@ -60,34 +58,6 @@ type FramedContentAuthData<C extends ContentType> = Readonly<{
   signature: ArrayBuffer
   confirmationTag: ConfirmationTag<C>
 }>
-
-type Wireformat =
-  | "reserved"
-  | "mls_public_message"
-  | "mls_private_message"
-  | "mls_welcome"
-  | "mls_group_info"
-  | "mls_key_package"
-
-type MLSMessage<W extends Wireformat> = W extends W
-  ? {
-      version: ProtocolVersion
-      wireformat: W
-      content: MLSMessageContent<W>
-    }
-  : never
-
-type MLSMessageContent<W extends Wireformat> = W extends "mls_public_message"
-  ? { publicMessage: PublicMessage<ContentType, SenderType> }
-  : W extends "mls_private_message"
-    ? { publicMessage: PrivateMessage }
-    : W extends "mls_welcome"
-      ? { publicMessage: Welcome }
-      : W extends "mls_group_info"
-        ? { publicMessage: GroupInfo }
-        : W extends "mls_key_package"
-          ? { publicMessage: KeyPackage }
-          : {}
 
 type AuthenticatedContent<C extends ContentType> = Readonly<{
   wireformat: Wireformat

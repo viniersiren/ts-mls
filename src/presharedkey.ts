@@ -1,5 +1,5 @@
 import { decodeUint16, decodeUint64, decodeUint8, encodeUint16, encodeUint64, encodeUint8 } from "./codec/number"
-import { Decoder, mapDecoder, mapDecoderOption, mapDecoders } from "./codec/tlsDecoder"
+import { Decoder, flatMapDecoder, mapDecoder, mapDecoderOption, mapDecoders } from "./codec/tlsDecoder"
 import { contramapEncoder, contramapEncoders, Encoder } from "./codec/tlsEncoder"
 import { decodeVarLenData, encodeVarLenData } from "./codec/variableLength"
 import { CiphersuiteImpl } from "./crypto/ciphersuite"
@@ -39,77 +39,64 @@ export const decodeResumptionPSKUsage: Decoder<ResumptionPSKUsageName> = mapDeco
   enumNumberToKey(resumptionPSKUsages),
 )
 
-type PSKInfoExternal = { pskId: Uint8Array }
-type PSKInfoResumption = { usage: ResumptionPSKUsageName; pskGroupId: Uint8Array; pskEpoch: bigint }
+type PSKInfoExternal = { psktype: "external"; pskId: Uint8Array }
+type PSKInfoResumption = {
+  psktype: "resumption"
+  usage: ResumptionPSKUsageName
+  pskGroupId: Uint8Array
+  pskEpoch: bigint
+}
 type PSKInfo = PSKInfoExternal | PSKInfoResumption
 
-export const encodePskInfoExternal: Encoder<PSKInfoExternal> = contramapEncoder(encodeVarLenData, (i) => i.pskId)
-
-export const decodePskInfoExternal: Decoder<PSKInfoExternal> = mapDecoder(decodeVarLenData, (data) => {
-  return { pskId: data }
-})
-
-export const encodePskInfoResumption: Encoder<PSKInfoResumption> = contramapEncoders(
-  [encodeResumptionPSKUsage, encodeVarLenData, encodeUint64],
-  (info) => [info.usage, info.pskGroupId, info.pskEpoch] as const,
+const encodePskInfoExternal: Encoder<PSKInfoExternal> = contramapEncoders(
+  [encodePskType, encodeVarLenData],
+  (i) => [i.psktype, i.pskId] as const,
 )
 
-export const decodePskInfoResumption: Decoder<PSKInfoResumption> = mapDecoders(
+const encodePskInfoResumption: Encoder<PSKInfoResumption> = contramapEncoders(
+  [encodePskType, encodeResumptionPSKUsage, encodeVarLenData, encodeUint64],
+  (info) => [info.psktype, info.usage, info.pskGroupId, info.pskEpoch] as const,
+)
+
+export const encodePskInfo: Encoder<PSKInfo> = (info) => {
+  switch (info.psktype) {
+    case "external":
+      return encodePskInfoExternal(info)
+    case "resumption":
+      return encodePskInfoResumption(info)
+  }
+}
+
+const decodePskInfoResumption = mapDecoders(
   [decodeResumptionPSKUsage, decodeVarLenData, decodeUint64],
   (usage, pskGroupId, pskEpoch) => {
     return { usage, pskGroupId, pskEpoch }
   },
 )
 
-export function decodePskInfo(p: PSKTypeName): Decoder<PSKInfo> {
-  if (p == "external") {
-    return decodePskInfoExternal
+export function decodePskInfo(psktype: PSKTypeName): Decoder<PSKInfo> {
+  if (psktype == "external") {
+    return mapDecoder(decodeVarLenData, (pskId) => ({ psktype, pskId }))
   } else {
-    return decodePskInfoResumption
+    return mapDecoder(decodePskInfoResumption, (r) => ({ ...r, psktype }))
   }
 }
-
-export type PreSharedKeyIdExternal = { psktype: "external"; pskinfo: PSKInfoExternal } & PSKNonce
-export type PreSharedKeyIdResumption = { psktype: "resumption"; pskinfo: PSKInfoResumption } & PSKNonce
-export type PreSharedKeyID = PreSharedKeyIdExternal | PreSharedKeyIdResumption
 
 type PSKNonce = Readonly<{ pskNonce: Uint8Array }>
 
-export const encodePskId: Encoder<PreSharedKeyID> = (id) => {
-  const info = id.psktype == "external" ? encodePskInfoExternal(id.pskinfo) : encodePskInfoResumption(id.pskinfo)
-  return new Uint8Array([...encodePskType(id.psktype), ...info, ...encodeVarLenData(id.pskNonce)])
-}
+export type PreSharedKeyIdExternal = PSKInfoExternal & PSKNonce
+export type PreSharedKeyIdResumption = PSKInfoResumption & PSKNonce
+export type PreSharedKeyID = PSKInfo & PSKNonce
 
-export const decodePskId: Decoder<PreSharedKeyID> = (b, offset) => {
-  const d = decodePskType(b, offset)
+export const encodePskId: Encoder<PreSharedKeyID> = contramapEncoders(
+  [encodePskInfo, encodeVarLenData],
+  (pskid) => [pskid, pskid.pskNonce] as const,
+)
 
-  if (d === undefined) return
-
-  const [psktype, len] = d
-  if (psktype === "external") {
-    const dd = mapDecoders([decodePskInfoExternal, decodeVarLenData], (pskinfo, pskNonce) => ({
-      psktype,
-      pskinfo,
-      pskNonce,
-    }))(b, offset + len)
-    if (dd == undefined) return
-    else {
-      const [id, len2] = dd
-      return [id, len + len2]
-    }
-  } else {
-    const dd = mapDecoders([decodePskInfoResumption, decodeVarLenData], (pskinfo, pskNonce) => ({
-      psktype,
-      pskinfo,
-      pskNonce,
-    }))(b, offset + len)
-    if (dd == undefined) return
-    else {
-      const [id, len2] = dd
-      return [id, len + len2]
-    }
-  }
-}
+export const decodePskId: Decoder<PreSharedKeyID> = mapDecoders(
+  [flatMapDecoder(decodePskType, decodePskInfo), decodeVarLenData],
+  (info, pskNonce) => ({ ...info, pskNonce }),
+)
 
 export async function computePskSecret(psks: [PreSharedKeyIdExternal, Uint8Array][], impl: CiphersuiteImpl) {
   const zeroes = new Uint8Array(impl.kdf.keysize)
