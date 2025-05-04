@@ -30,3 +30,25 @@ export const decodePrivateMessage: Decoder<PrivateMessage> = mapDecoders(
     ciphertext,
   }),
 )
+
+type PrivateContentAAD = Readonly<{
+  groupId: Uint8Array
+  epoch: bigint
+  contentType: ContentTypeName
+  authenticatedData: Uint8Array
+}>
+
+export const encodePrivateContentAAD: Encoder<PrivateContentAAD> = contramapEncoders(
+  [encodeVarLenData, encodeUint64, encodeContentType, encodeVarLenData],
+  (aad) => [aad.groupId, aad.epoch, aad.contentType, aad.authenticatedData] as const,
+)
+
+export const decodePrivateContentAAD: Decoder<PrivateContentAAD> = mapDecoders(
+  [decodeVarLenData, decodeUint64, decodeContentType, decodeVarLenData],
+  (groupId, epoch, contentType, authenticatedData) => ({
+    groupId,
+    epoch,
+    contentType,
+    authenticatedData,
+  }),
+)

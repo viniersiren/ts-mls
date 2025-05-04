@@ -29,7 +29,7 @@ async function test_derive_tree_secret(
   o: { label: string; secret: string; generation: number; out: string },
 ) {
   //out == DeriveTreeSecret(secret, label, generation, length)
-  const res = await deriveTreeSecret(hexToBytes(o.secret), o.label, o.generation, impl.kdf)
+  const res = await deriveTreeSecret(hexToBytes(o.secret), o.label, o.generation, impl.kdf.size, impl.kdf)
   expect(bytesToHex(new Uint8Array(res))).toBe(o.out)
 }
 

@@ -65,6 +65,8 @@ export function makeHpke(cs: CipherSuite): Hpke {
     async importPublicKey(k) {
       return (await cs.kem.deserializePublicKey(k)) as PublicKey
     },
+    keyLength: cs.aead.keySize,
+    nonceLength: cs.aead.nonceSize,
   }
 }
 
@@ -84,4 +86,6 @@ export interface Hpke {
   ): Promise<{ ct: ArrayBuffer; enc: ArrayBuffer }>
   importPrivateKey(k: ArrayBuffer): Promise<PrivateKey>
   importPublicKey(k: ArrayBuffer): Promise<PublicKey>
+  keyLength: number
+  nonceLength: number
 }

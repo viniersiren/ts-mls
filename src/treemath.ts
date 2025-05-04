@@ -17,6 +17,10 @@ function level(x: number): number {
   return k
 }
 
+export function leafWidth(n: number): number {
+  return n == 0 ? 0 : (n - 1) / 2 + 1
+}
+
 export function nodeWidth(n: number): number {
   return n === 0 ? 0 : 2 * (n - 1) + 1
 }
@@ -29,6 +33,12 @@ export function root(n: number): number {
 export function left(x: number): number {
   const k = level(x)
   if (k === 0) throw new Error("leaf node has no children")
+  return x ^ (0x01 << (k - 1))
+}
+
+export function leftOrLeaf(x: number): number | undefined {
+  const k = level(x)
+  if (k === 0) return undefined
   return x ^ (0x01 << (k - 1))
 }
 

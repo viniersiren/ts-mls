@@ -1,6 +1,10 @@
-import { decodeUint32, decodeUint8, encodeUint32, encodeUint8 } from "./codec/number"
-import { Decoder, flatMapDecoder, mapDecoder, mapDecoderOption } from "./codec/tlsDecoder"
+import { decodeUint32, decodeUint64, decodeUint8, encodeUint32, encodeUint64, encodeUint8 } from "./codec/number"
+import { Decoder, flatMapDecoder, mapDecoder, mapDecoderOption, mapDecoders } from "./codec/tlsDecoder"
 import { contramapEncoder, contramapEncoders, Encoder } from "./codec/tlsEncoder"
+import { decodeVarLenData, encodeVarLenData } from "./codec/variableLength"
+import { ContentTypeName, decodeContentType, encodeContentType } from "./contentType"
+import { CiphersuiteImpl } from "./crypto/ciphersuite"
+import { expandWithLabel } from "./crypto/kdf"
 import { enumNumberToKey } from "./util/enumHelpers"
 
 const senderTypes = {
@@ -71,3 +75,69 @@ export const decodeSender: Decoder<Sender> = flatMapDecoder(decodeSenderType, (s
       )
   }
 })
+
+type SenderData = Readonly<{
+  leafIndex: number
+  generation: number
+  reuseGuard: number
+}>
+
+export const encodeSenderData: Encoder<SenderData> = contramapEncoders(
+  [encodeUint32, encodeUint32, encodeUint32],
+  (s) => [s.leafIndex, s.generation, s.reuseGuard] as const,
+)
+
+export const decodeSenderData: Decoder<SenderData> = mapDecoders(
+  [decodeUint32, decodeUint32, decodeUint32],
+  (leafIndex, generation, reuseGuard) => ({
+    leafIndex,
+    generation,
+    reuseGuard,
+  }),
+)
+
+type SenderDataAAD = Readonly<{
+  groupId: Uint8Array
+  epoch: bigint
+  contentType: ContentTypeName
+}>
+
+export const encodeSenderDataAAD: Encoder<SenderDataAAD> = contramapEncoders(
+  [encodeVarLenData, encodeUint64, encodeContentType],
+  (aad) => [aad.groupId, aad.epoch, aad.contentType] as const,
+)
+
+export const decodeSenderDataAAD: Decoder<SenderDataAAD> = mapDecoders(
+  [decodeVarLenData, decodeUint64, decodeContentType],
+  (groupId, epoch, contentType) => ({
+    groupId,
+    epoch,
+    contentType,
+  }),
+)
+
+export function sampleCiphertext(cs: CiphersuiteImpl, ciphertext: Uint8Array): Uint8Array {
+  return ciphertext.length < cs.kdf.size ? ciphertext : ciphertext.slice(0, cs.kdf.size)
+}
+
+export async function expandSenderDataKey(
+  cs: CiphersuiteImpl,
+  senderDataSecret: Uint8Array,
+  ciphertext: Uint8Array,
+): Promise<ArrayBuffer> {
+  const ciphertextSample = sampleCiphertext(cs, ciphertext)
+  const keyLength = cs.hpke.keyLength
+
+  return await expandWithLabel(senderDataSecret, "key", ciphertextSample, keyLength, cs.kdf)
+}
+
+export async function expandSenderDataNonce(
+  cs: CiphersuiteImpl,
+  senderDataSecret: Uint8Array,
+  ciphertext: Uint8Array,
+): Promise<ArrayBuffer> {
+  const ciphertextSample = sampleCiphertext(cs, ciphertext)
+  const keyLength = cs.hpke.nonceLength
+
+  return await expandWithLabel(senderDataSecret, "nonce", ciphertextSample, keyLength, cs.kdf)
+}

@@ -19,7 +19,7 @@ The following test vectors are fully passing:
 - [ ] passive-client-random
 - [ ] passive-client-welcome
 - [x] psk_secret
-- [ ] secret-tree
+- [x] secret-tree
 - [x] transcript-hashes
 - [x] tree-math
 - [ ] tree-operations

@@ -7,7 +7,7 @@ import { encodeUint16, encodeUint32 } from "../codec/number"
 export interface Kdf {
   extract(salt: ArrayBuffer, ikm: ArrayBuffer): Promise<ArrayBuffer>
   expand(prk: BufferSource, info: ArrayBuffer, len: number): Promise<ArrayBuffer>
-  keysize: number
+  size: number
 }
 
 export type KdfAlgorithm = "HKDF-SHA256" | "HKDF-SHA384" | "HKDF-SHA512"
@@ -20,7 +20,7 @@ export function makeKdfImpl(k: KdfInterface): Kdf {
     expand(prk: ArrayBuffer, info: ArrayBuffer, len: number): Promise<ArrayBuffer> {
       return k.expand(prk, info, len)
     },
-    keysize: k.hashSize,
+    size: k.hashSize,
   }
 }
 
@@ -54,14 +54,15 @@ export function expandWithLabel(
 }
 
 export function deriveSecret(secret: BufferSource, label: string, kdf: Kdf): Promise<ArrayBuffer> {
-  return expandWithLabel(secret, label, new Uint8Array(), kdf.keysize, kdf)
+  return expandWithLabel(secret, label, new Uint8Array(), kdf.size, kdf)
 }
 
 export function deriveTreeSecret(
   secret: BufferSource,
   label: string,
   generation: number,
+  length: number,
   kdf: Kdf,
 ): Promise<ArrayBuffer> {
-  return expandWithLabel(secret, label, encodeUint32(generation), kdf.keysize, kdf)
+  return expandWithLabel(secret, label, encodeUint32(generation), length, kdf)
 }

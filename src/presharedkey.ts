@@ -120,7 +120,7 @@ export type PreSharedKeyIdExternal = PSKInfoExternal & PSKNonce
 export type PreSharedKeyIdResumption = PSKInfoResumption & PSKNonce
 
 export async function computePskSecret(psks: [PreSharedKeyIdExternal, Uint8Array][], impl: CiphersuiteImpl) {
-  const zeroes = new Uint8Array(impl.kdf.keysize)
+  const zeroes = new Uint8Array(impl.kdf.size)
 
   return psks.reduce(async (acc, [curId, curPsk], index) => {
     const secret = await impl.kdf.extract(
@@ -128,7 +128,7 @@ export async function computePskSecret(psks: [PreSharedKeyIdExternal, Uint8Array
         await impl.kdf.extract(zeroes.buffer, curPsk.buffer as ArrayBuffer),
         "derived psk",
         encodePskLabel({ id: curId, index, count: psks.length }),
-        impl.kdf.keysize,
+        impl.kdf.size,
         impl.kdf,
       ),
       (await acc).buffer,
