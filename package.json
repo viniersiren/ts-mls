@@ -32,7 +32,9 @@
   "type": "module",
   "scripts": {
     "build": "tsc",
-    "test": "jest"
+    "test": "jest",
+    "format": "prettier -w .",
+    "format:check": "prettier -c ."
   },
   "keywords": [
     "mls",

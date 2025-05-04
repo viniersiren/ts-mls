@@ -8,19 +8,19 @@ This project is work in progress, but it will focus on immutability, type safety
 
 The following test vectors are fully passing:
 
--   [x] crypto-basics
--   [x] deserialization
--   [ ] key-schedule
--   [ ] message-protection
--   [x] messages
--   [ ] passive-client-handling-commit
--   [ ] passive-client-random
--   [ ] passive-client-welcome
--   [x] psk_secret
--   [ ] secret-tree
--   [x] transcript-hashes
--   [x] tree-math
--   [ ] tree-operations
--   [ ] tree-validation
--   [ ] treekem
--   [ ] welcome
+- [x] crypto-basics
+- [x] deserialization
+- [ ] key-schedule
+- [ ] message-protection
+- [x] messages
+- [ ] passive-client-handling-commit
+- [ ] passive-client-random
+- [ ] passive-client-welcome
+- [x] psk_secret
+- [ ] secret-tree
+- [x] transcript-hashes
+- [x] tree-math
+- [ ] tree-operations
+- [ ] tree-validation
+- [ ] treekem
+- [ ] welcome
