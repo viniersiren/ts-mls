@@ -27,3 +27,7 @@ export function composeEncoders<T extends unknown[]>(encoders: { [K in keyof T]:
 export function contramapEncoder<T, U>(enc: Encoder<T>, f: (u: U) => Readonly<T>): Encoder<U> {
   return (u: U) => enc(f(u))
 }
+
+export function encodeVoid<T>(): Encoder<T> {
+  return () => new Uint8Array()
+}

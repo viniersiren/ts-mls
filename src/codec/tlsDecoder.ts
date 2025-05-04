@@ -1,60 +1,11 @@
 export type Decoder<T> = (b: Uint8Array, offset: number) => [T, number] | undefined
 
-export function composeDecoders<T, U>(dt: Decoder<T>, du: Decoder<U>): Decoder<[T, U]> {
-  return mapDecoders([dt, du], (t, u) => [t, u])
-}
-
 export function mapDecoder<T, U>(dec: Decoder<T>, f: (t: T) => U): Decoder<U> {
   return (b, offset) => {
     const x = dec(b, offset)
     if (x !== undefined) {
       const [t, l] = x
       return [f(t), l]
-    }
-  }
-}
-
-export function mapDecoderOption<T, U>(dec: Decoder<T>, f: (t: T) => U | undefined): Decoder<U> {
-  return (b, offset) => {
-    const x = dec(b, offset)
-    if (x !== undefined) {
-      const [t, l] = x
-      const u = f(t)
-      return u !== undefined ? [u, l] : undefined
-    }
-  }
-}
-
-export function orDecoder<T, U>(decT: Decoder<T>, decU: Decoder<U>): Decoder<T | U> {
-  return (b, offset) => {
-    const t = decT(b, offset)
-    return t ? t : decU(b, offset)
-  }
-}
-
-export function flatMapDecoder<T, U>(dec: Decoder<T>, f: (t: T) => Decoder<U>): Decoder<U> {
-  return flatMapDecoderAndMap(dec, f, (_t, u) => u)
-}
-
-export function flatMapTupleDecoder<T, U>(dec: Decoder<T>, f: (t: T) => Decoder<U>): Decoder<[T, U]> {
-  return flatMapDecoderAndMap(dec, f, (t, u) => [t, u] as const)
-}
-
-export function flatMapDecoderAndMap<T, U, V>(
-  dec: Decoder<T>,
-  f: (t: T) => Decoder<U>,
-  g: (t: T, u: U) => V,
-): Decoder<V> {
-  return (b, offset) => {
-    const decodedT = dec(b, offset)
-    if (decodedT !== undefined) {
-      const [t, len] = decodedT
-      const decoderU = f(t)
-      const decodedU = decoderU(b, offset + len)
-      if (decodedU !== undefined) {
-        const [u, len2] = decodedU
-        return [g(t, u), len + len2]
-      }
     }
   }
 }
@@ -92,3 +43,58 @@ export function mapDecoders<T extends unknown[], R>(
     return [f(...(result.values as T)), result.totalLength]
   }
 }
+
+export function mapDecoderOption<T, U>(dec: Decoder<T>, f: (t: T) => U | undefined): Decoder<U> {
+  return (b, offset) => {
+    const x = dec(b, offset)
+    if (x !== undefined) {
+      const [t, l] = x
+      const u = f(t)
+      return u !== undefined ? [u, l] : undefined
+    }
+  }
+}
+
+export function flatMapDecoder<T, U>(dec: Decoder<T>, f: (t: T) => Decoder<U>): Decoder<U> {
+  return flatMapDecoderAndMap(dec, f, (_t, u) => u)
+}
+
+export function orDecoder<T, U>(decT: Decoder<T>, decU: Decoder<U>): Decoder<T | U> {
+  return (b, offset) => {
+    const t = decT(b, offset)
+    return t ? t : decU(b, offset)
+  }
+}
+
+export function composeDecoders<T, U>(dt: Decoder<T>, du: Decoder<U>): Decoder<[T, U]> {
+  return mapDecoders([dt, du], (t, u) => [t, u])
+}
+
+export function flatMapTupleDecoder<T, U>(dec: Decoder<T>, f: (t: T) => Decoder<U>): Decoder<[T, U]> {
+  return flatMapDecoderAndMap(dec, f, (t, u) => [t, u] as const)
+}
+
+export function flatMapDecoderAndMap<T, U, V>(
+  dec: Decoder<T>,
+  f: (t: T) => Decoder<U>,
+  g: (t: T, u: U) => V,
+): Decoder<V> {
+  return (b, offset) => {
+    const decodedT = dec(b, offset)
+    if (decodedT !== undefined) {
+      const [t, len] = decodedT
+      const decoderU = f(t)
+      const decodedU = decoderU(b, offset + len)
+      if (decodedU !== undefined) {
+        const [u, len2] = decodedU
+        return [g(t, u), len + len2]
+      }
+    }
+  }
+}
+
+export function succeedDecoder<T>(t: T): Decoder<T> {
+  return () => [t, 0] as const
+}
+
+export const decodeVoid: Decoder<void> = () => [undefined, 0] as const
