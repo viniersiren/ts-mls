@@ -1,7 +1,7 @@
 import { makeNobleSignatureImpl, Signature, SignatureAlgorithm } from "./signature"
 import { Hash, HashAlgorithm, makeHashImpl } from "./hash"
 import { Kdf, makeKdf, makeKdfImpl } from "./kdf"
-import { Hpke, HpkeAlgorithm, makeHpke, makeHpkeCiphersuite } from "./hpke"
+import { Hpke, HpkeAlgorithm, makeHpke } from "./hpke"
 import { contramapEncoder, Encoder } from "../codec/tlsEncoder"
 import { decodeUint16, encodeUint16 } from "../codec/number"
 import { Decoder, mapDecoderOption } from "../codec/tlsDecoder"
@@ -45,7 +45,7 @@ export function getCiphersuiteImpl(cs: Ciphersuite): CiphersuiteImpl {
     kdf: makeKdfImpl(makeKdf(cs.hpke.kdf)),
     hash: makeHashImpl(sc, cs.hash),
     signature: makeNobleSignatureImpl(cs.signature),
-    hpke: makeHpke(makeHpkeCiphersuite(cs.hpke)),
+    hpke: makeHpke(cs.hpke),
   }
 }
 
@@ -123,4 +123,4 @@ type Ciphersuite = {
 
 export type PublicKey = CryptoKey & { type: "public" }
 export type SecretKey = CryptoKey & { type: "secret" }
-export type PrivateKey = CryptoKey & { type: "prviate" }
+export type PrivateKey = CryptoKey & { type: "private" }

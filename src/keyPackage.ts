@@ -2,6 +2,7 @@ import { Decoder, mapDecoders } from "./codec/tlsDecoder"
 import { contramapEncoders, Encoder } from "./codec/tlsEncoder"
 import { decodeVarLenData, decodeVarLenType, encodeVarLenData, encodeVarLenType } from "./codec/variableLength"
 import { CiphersuiteName, decodeCiphersuite, encodeCiphersuite } from "./crypto/ciphersuite"
+import { Hash, refhash } from "./crypto/hash"
 import { Signature } from "./crypto/signature"
 import { decodeExtension, encodeExtension, Extension } from "./extension"
 import { decodeProtocolVersion, encodeProtocolVersion, ProtocolVersionName } from "./protocolVersion"
@@ -55,4 +56,8 @@ export const decodeKeyPackage: Decoder<KeyPackage> = mapDecoders(
 
 export function verifySignature(kp: KeyPackage, s: Signature): boolean {
   return s.verify(kp.leafNode.signatureKey, encodeKeyPackageTBS(kp), kp.signature)
+}
+
+export function makeKeyPackageRef(value: KeyPackage, h: Hash) {
+  return refhash("MLS 1.0 KeyPackage Reference", encodeKeyPackage(value), h)
 }

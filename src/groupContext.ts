@@ -3,8 +3,10 @@ import { Decoder, mapDecoders } from "./codec/tlsDecoder"
 import { contramapEncoders, Encoder } from "./codec/tlsEncoder"
 import { decodeVarLenData, decodeVarLenType, encodeVarLenData, encodeVarLenType } from "./codec/variableLength"
 import { CiphersuiteName, decodeCiphersuite, encodeCiphersuite } from "./crypto/ciphersuite"
+import { expandWithLabel, Kdf } from "./crypto/kdf"
 import { decodeExtension, encodeExtension, Extension } from "./extension"
 import { decodeProtocolVersion, encodeProtocolVersion, ProtocolVersionName } from "./protocolVersion"
+import { bytesToBuffer } from "./util/byteArray"
 
 export type GroupContext = Readonly<{
   version: ProtocolVersionName
@@ -50,3 +52,15 @@ export const decodeGroupContext: Decoder<GroupContext> = mapDecoders(
     extensions,
   }),
 )
+
+export async function extractEpochSecret(
+  context: GroupContext,
+  joinerSecret: Uint8Array,
+  kdf: Kdf,
+  pskSecret?: Uint8Array,
+) {
+  const psk = pskSecret === undefined ? new Uint8Array(kdf.size) : pskSecret
+  const extracted = await kdf.extract(bytesToBuffer(joinerSecret), bytesToBuffer(psk))
+
+  return expandWithLabel(extracted, "epoch", encodeGroupContext(context), kdf.size, kdf)
+}

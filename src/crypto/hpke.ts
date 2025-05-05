@@ -1,5 +1,5 @@
 import { CipherSuite, CipherSuiteSealResponse } from "hpke-js"
-import { AeadAlgorithm, makeAead } from "./aead"
+import { AeadAlgorithm, decryptAead, encryptAead, makeAead } from "./aead"
 import { KdfAlgorithm, makeKdf } from "./kdf"
 import { KemAlgorithm, makeDhKem } from "./kem"
 import { PrivateKey, PublicKey } from "./ciphersuite"
@@ -10,14 +10,6 @@ export type HpkeAlgorithm = {
   kem: KemAlgorithm
   kdf: KdfAlgorithm
   aead: AeadAlgorithm
-}
-
-export function makeHpkeCiphersuite(hpkealg: HpkeAlgorithm) {
-  return new CipherSuite({
-    kem: makeDhKem(hpkealg.kem),
-    kdf: makeKdf(hpkealg.kdf),
-    aead: makeAead(hpkealg.aead),
-  })
 }
 
 export function encryptWithLabel(
@@ -39,8 +31,8 @@ export function decryptWithLabel(
   privateKey: PrivateKey,
   label: string,
   context: Uint8Array,
-  ciphertext: ArrayBuffer,
   kemOutput: ArrayBuffer,
+  ciphertext: ArrayBuffer,
   hpke: Hpke,
 ): Promise<ArrayBuffer> {
   return hpke.open(
@@ -51,7 +43,13 @@ export function decryptWithLabel(
   )
 }
 
-export function makeHpke(cs: CipherSuite): Hpke {
+export function makeHpke(hpkealg: HpkeAlgorithm): Hpke {
+  const cs = new CipherSuite({
+    kem: makeDhKem(hpkealg.kem),
+    kdf: makeKdf(hpkealg.kdf),
+    aead: makeAead(hpkealg.aead),
+  })
+
   return {
     open(privateKey, kemOutput, ciphertext, info, aad) {
       return cs.open({ recipientKey: privateKey, enc: kemOutput, info: info }, ciphertext, aad)
@@ -64,6 +62,12 @@ export function makeHpke(cs: CipherSuite): Hpke {
     },
     async importPublicKey(k) {
       return (await cs.kem.deserializePublicKey(k)) as PublicKey
+    },
+    async encryptAead(key, nonce, aad, plaintext) {
+      return encryptAead(key, nonce, aad, plaintext, hpkealg.aead)
+    },
+    async decryptAead(key, nonce, aad, ciphertext) {
+      return decryptAead(key, nonce, aad, ciphertext, hpkealg.aead)
     },
     keyLength: cs.aead.keySize,
     nonceLength: cs.aead.nonceSize,
@@ -86,6 +90,8 @@ export interface Hpke {
   ): Promise<{ ct: ArrayBuffer; enc: ArrayBuffer }>
   importPrivateKey(k: ArrayBuffer): Promise<PrivateKey>
   importPublicKey(k: ArrayBuffer): Promise<PublicKey>
+  encryptAead(key: ArrayBuffer, nonce: ArrayBuffer, aad: ArrayBuffer, plaintext: ArrayBuffer): Promise<ArrayBuffer>
+  decryptAead(key: ArrayBuffer, nonce: ArrayBuffer, aad: ArrayBuffer, ciphertext: ArrayBuffer): Promise<ArrayBuffer>
   keyLength: number
   nonceLength: number
 }

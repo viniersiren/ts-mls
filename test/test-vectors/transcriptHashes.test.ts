@@ -27,7 +27,6 @@ async function testTranscriptHash(
   interimHashBefore: string,
   impl: CiphersuiteImpl,
 ) {
-  const key = await impl.hash.importMacKey(hexToBytes(confirmationKey))
   const auth = decodeAuthenticatedContent(hexToBytes(authenticatedContent), 0)
   if (auth === undefined || auth[0].content.contentType !== "commit" || auth[0].auth.contentType !== "commit") {
     throw new Error("Could not decode authenticated content")
@@ -35,7 +34,11 @@ async function testTranscriptHash(
 
   const confirmationTag = auth[0].auth.confirmationTag
 
-  const verified = await impl.hash.verifyMac(key, confirmationTag, hexToBytes(confirmedHashAfter))
+  const verified = await impl.hash.verifyMac(
+    hexToBytes(confirmationKey),
+    confirmationTag,
+    hexToBytes(confirmedHashAfter),
+  )
   expect(verified).toBe(true)
 
   const input = { wireformat: auth[0].wireformat, content: auth[0].content, signature: auth[0].auth.signature }

@@ -2,8 +2,13 @@ import { decodeUint32, encodeUint32 } from "./codec/number"
 import { Decoder, mapDecoders } from "./codec/tlsDecoder"
 import { contramapEncoders, Encoder } from "./codec/tlsEncoder"
 import { decodeVarLenData, decodeVarLenType, encodeVarLenData, encodeVarLenType } from "./codec/variableLength"
+import { CiphersuiteImpl } from "./crypto/ciphersuite"
+import { deriveSecret, Kdf } from "./crypto/kdf"
+import { Signature, signWithLabel, verifyWithLabel } from "./crypto/signature"
 import { decodeExtension, encodeExtension, Extension } from "./extension"
-import { decodeGroupContext, encodeGroupContext, GroupContext } from "./groupContext"
+import { decodeGroupContext, encodeGroupContext, extractEpochSecret, GroupContext } from "./groupContext"
+import { bytesToBuffer } from "./util/byteArray"
+import { Welcome, welcomeKey, welcomeNonce } from "./welcome"
 
 export type GroupInfoTBS = Readonly<{
   groupContext: GroupContext
@@ -13,12 +18,7 @@ export type GroupInfoTBS = Readonly<{
 }>
 
 export const encodeGroupInfoTBS: Encoder<GroupInfoTBS> = contramapEncoders(
-  [
-    encodeGroupContext,
-    encodeVarLenType(encodeExtension), // extensions
-    encodeVarLenData, // confirmationTag
-    encodeUint32, // signer
-  ],
+  [encodeGroupContext, encodeVarLenType(encodeExtension), encodeVarLenData, encodeUint32],
   (g) => [g.groupContext, g.extensions, g.confirmationTag, g.signer] as const,
 )
 
@@ -49,3 +49,43 @@ export const decodeGroupInfo: Decoder<GroupInfo> = mapDecoders(
     signature,
   }),
 )
+
+export function signGroupInfo(tbs: GroupInfoTBS, privateKey: Uint8Array, s: Signature): GroupInfo {
+  const signature = signWithLabel(privateKey, "GroupInfoTBS", encodeGroupInfoTBS(tbs), s)
+  return { ...tbs, signature }
+}
+
+export function verifyGroupInfoSignature(gi: GroupInfo, publicKey: Uint8Array, s: Signature): boolean {
+  return verifyWithLabel(publicKey, "GroupInfoTBS", encodeGroupInfoTBS(gi), gi.signature, s)
+}
+
+export async function verifyConfirmationTag(
+  gi: GroupInfo,
+  joinerSecret: Uint8Array,
+  pskSecret: Uint8Array,
+  cs: CiphersuiteImpl,
+): Promise<boolean> {
+  const epochSecret = await extractEpochSecret(gi.groupContext, joinerSecret, cs.kdf, pskSecret)
+  const key = await deriveSecret(epochSecret, "confirm", cs.kdf)
+  return cs.hash.verifyMac(key, bytesToBuffer(gi.confirmationTag), gi.groupContext.confirmedTranscriptHash)
+}
+
+async function extractWelcomeSecret(joinerSecret: Uint8Array, pskSecret: Uint8Array, kdf: Kdf) {
+  return deriveSecret(await kdf.extract(bytesToBuffer(joinerSecret), bytesToBuffer(pskSecret)), "welcome", kdf)
+}
+
+export async function decryptGroupInfo(
+  w: Welcome,
+  joinerSecret: Uint8Array,
+  pskSecret: Uint8Array,
+  cs: CiphersuiteImpl,
+): Promise<GroupInfo | undefined> {
+  const welcomeSecret = await extractWelcomeSecret(joinerSecret, pskSecret, cs.kdf)
+
+  const key = await welcomeKey(welcomeSecret, cs)
+  const nonce = await welcomeNonce(welcomeSecret, cs)
+  const decryted = await cs.hpke.decryptAead(key, nonce, new ArrayBuffer(), bytesToBuffer(w.encryptedGroupInfo))
+
+  const decoded = decodeGroupInfo(new Uint8Array(decryted), 0)
+  return decoded?.[0]
+}

@@ -53,16 +53,16 @@ export function expandWithLabel(
   )
 }
 
-export function deriveSecret(secret: BufferSource, label: string, kdf: Kdf): Promise<ArrayBuffer> {
-  return expandWithLabel(secret, label, new Uint8Array(), kdf.size, kdf)
+export async function deriveSecret(secret: BufferSource, label: string, kdf: Kdf): Promise<Uint8Array> {
+  return new Uint8Array(await expandWithLabel(secret, label, new Uint8Array(), kdf.size, kdf))
 }
 
-export function deriveTreeSecret(
+export async function deriveTreeSecret(
   secret: BufferSource,
   label: string,
   generation: number,
   length: number,
   kdf: Kdf,
-): Promise<ArrayBuffer> {
-  return expandWithLabel(secret, label, encodeUint32(generation), length, kdf)
+): Promise<Uint8Array> {
+  return new Uint8Array(await expandWithLabel(secret, label, encodeUint32(generation), length, kdf))
 }

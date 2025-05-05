@@ -25,4 +25,4 @@ The following test vectors are fully passing:
 - [ ] tree-operations
 - [ ] tree-validation
 - [ ] treekem
-- [ ] welcome
+- [x] welcome

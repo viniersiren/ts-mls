@@ -29,7 +29,7 @@ export type MLSMessage = MlsMessageProtocol & MlsMessageContent
 type MlsMessageProtocol = { version: ProtocolVersionName }
 
 type MlsMessageContent = MlsWelcome | MlsPrivateMessage | MlsGroupInfo | MlsKeyPackage | MlsPublicMessage
-type MlsWelcome = { wireformat: "mls_welcome"; publicMessage: Welcome }
+type MlsWelcome = { wireformat: "mls_welcome"; welcome: Welcome }
 type MlsPrivateMessage = { wireformat: "mls_private_message"; privateMessage: PrivateMessage }
 type MlsGroupInfo = { wireformat: "mls_group_info"; groupInfo: GroupInfo }
 type MlsKeyPackage = { wireformat: "mls_key_package"; keyPackage: KeyPackage }
@@ -57,7 +57,7 @@ export const encodeMlsPublicMessage: Encoder<MlsPublicMessage> = contramapEncode
 
 export const encodeMlsWelcome: Encoder<MlsWelcome> = contramapEncoders(
   [encodeWireformat, encodeWelcome],
-  (wm) => [wm.wireformat, wm.publicMessage] as const,
+  (wm) => [wm.wireformat, wm.welcome] as const,
 )
 
 export const encodeMlsPrivateMessage: Encoder<MlsPrivateMessage> = contramapEncoders(
@@ -82,7 +82,7 @@ export const decodeMlsMessageContent: Decoder<MlsMessageContent> = flatMapDecode
       case "mls_public_message":
         return mapDecoder(decodePublicMessage, (publicMessage) => ({ wireformat, publicMessage }))
       case "mls_welcome":
-        return mapDecoder(decodeWelcome, (publicMessage) => ({ wireformat, publicMessage }))
+        return mapDecoder(decodeWelcome, (welcome) => ({ wireformat, welcome }))
       case "mls_private_message":
         return mapDecoder(decodePrivateMessage, (privateMessage) => ({ wireformat, privateMessage }))
       case "mls_group_info":

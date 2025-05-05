@@ -33,6 +33,7 @@ import { decodeKeyPackage, encodeKeyPackage } from "../../src/keyPackage"
 import { decodeUint32, encodeUint32 } from "../../src/codec/number"
 import { decodeLeafNode, decodeRatchetTree, encodeLeafNode, encodeRatchetTree } from "../../src/ratchetTree"
 import { decodeGroupSecrets, encodeGroupSecrets } from "../../src/groupSecrets"
+import { signGroupInfo } from "../../src/groupInfo"
 
 test("messages test vectors", () => {
   for (const x of json) {

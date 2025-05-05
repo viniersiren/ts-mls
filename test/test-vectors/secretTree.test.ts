@@ -51,7 +51,7 @@ async function testSecretTree(
     for (const gen of leaf) {
       const generationDifference = gen.generation - handshakeSecret.generation
       const ratcheted = await repeatAsync(
-        (s) => deriveNext(new Uint8Array(s.secret), s.generation, impl.kdf),
+        (s) => deriveNext(s.secret, s.generation, impl.kdf),
         handshakeSecret,
         generationDifference,
       )
@@ -59,11 +59,11 @@ async function testSecretTree(
 
       //handshake_key = handshake_ratchet_key_[i]_[generation]
       const handshakeKey = await deriveKey(new Uint8Array(ratcheted.secret), ratcheted.generation, impl)
-      expect(new Uint8Array(handshakeKey)).toStrictEqual(hexToBytes(gen.handshake_key))
+      expect(handshakeKey).toStrictEqual(hexToBytes(gen.handshake_key))
 
       // handshake_nonce = handshake_ratchet_nonce_[i]_[generation]
       const handshakeNonce = await deriveNonce(new Uint8Array(ratcheted.secret), ratcheted.generation, impl)
-      expect(new Uint8Array(handshakeNonce)).toStrictEqual(hexToBytes(gen.handshake_nonce))
+      expect(handshakeNonce).toStrictEqual(hexToBytes(gen.handshake_nonce))
     }
 
     const applicationSecret = await deriveRatchetRoot(tree, nodeIndex, "application", impl.kdf)

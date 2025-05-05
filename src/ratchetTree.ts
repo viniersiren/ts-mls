@@ -230,8 +230,6 @@ export const encodeRatchetTree: Encoder<RatchetTree> = encodeVarLenType(encodeOp
 
 export const decodeRatchetTree: Decoder<RatchetTree> = decodeVarLenType(decodeOptional(decodeNode))
 
-//function deriveSecretTree(totalLeaves: number, encryptionSecret: Uint8Array, )
-
 type SecretTree = Uint8Array[]
 export function setSecret(tree: SecretTree, nodeIndex: number, secret: Uint8Array): SecretTree {
   return [...tree.slice(0, nodeIndex), secret, ...tree.slice(nodeIndex + 1)]
@@ -266,7 +264,7 @@ export async function deriveNonce(secret: Uint8Array, generation: number, cs: Ci
   return await deriveTreeSecret(secret, "nonce", generation, cs.hpke.nonceLength, cs.kdf)
 }
 
-export async function deriveNext(secret: Uint8Array, generation: number, kdf: Kdf) {
+export async function deriveNext(secret: Uint8Array, generation: number, kdf: Kdf): Promise<GenerationSecret> {
   const s = await deriveTreeSecret(secret, "secret", generation, kdf.size, kdf)
   return { secret: s, generation: generation + 1 }
 }
@@ -275,9 +273,16 @@ export async function deriveKey(secret: Uint8Array, generation: number, cs: Ciph
   return await deriveTreeSecret(secret, "key", generation, cs.hpke.keyLength, cs.kdf)
 }
 
-export async function deriveRatchetRoot(tree: SecretTree, nodeIndex: number, label: string, kdf: Kdf) {
+type GenerationSecret = { secret: Uint8Array; generation: number }
+
+export async function deriveRatchetRoot(
+  tree: SecretTree,
+  nodeIndex: number,
+  label: string,
+  kdf: Kdf,
+): Promise<GenerationSecret> {
   const node = tree[nodeIndex]
   if (node === undefined) throw new Error("Bad node index for secret tree")
   const secret = await expandWithLabel(node, label, new Uint8Array(), kdf.size, kdf)
-  return { secret, generation: 0 }
+  return { secret: new Uint8Array(secret), generation: 0 }
 }

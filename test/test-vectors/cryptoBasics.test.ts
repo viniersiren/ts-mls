@@ -5,6 +5,7 @@ import { signWithLabel, verifyWithLabel } from "../../src/crypto/signature"
 import { refhash } from "../../src/crypto/hash"
 import { deriveSecret, deriveTreeSecret, expandWithLabel } from "../../src/crypto/kdf"
 import { decryptWithLabel, encryptWithLabel } from "../../src/crypto/hpke"
+import { bytesToBuffer } from "../../src/util/byteArray"
 
 test("crypto-basics test vectors", async () => {
   for (const x of json) {
@@ -21,7 +22,7 @@ test("crypto-basics test vectors", async () => {
 async function test_derive_secret(impl: CiphersuiteImpl, o: { label: string; secret: string; out: string }) {
   //out == DeriveSecret(secret, label)
   const res = await deriveSecret(hexToBytes(o.secret), o.label, impl.kdf)
-  expect(bytesToHex(new Uint8Array(res))).toBe(o.out)
+  expect(bytesToHex(res)).toBe(o.out)
 }
 
 async function test_derive_tree_secret(
@@ -30,7 +31,7 @@ async function test_derive_tree_secret(
 ) {
   //out == DeriveTreeSecret(secret, label, generation, length)
   const res = await deriveTreeSecret(hexToBytes(o.secret), o.label, o.generation, impl.kdf.size, impl.kdf)
-  expect(bytesToHex(new Uint8Array(res))).toBe(o.out)
+  expect(bytesToHex(res)).toBe(o.out)
 }
 
 async function test_expand_with_label(
@@ -74,16 +75,16 @@ async function test_encrypt_with_label(
     pub: string
   },
 ) {
-  const privateKey = await impl.hpke.importPrivateKey(hexToBytes(o.priv).buffer as ArrayBuffer)
-  const publicKey = await impl.hpke.importPublicKey(hexToBytes(o.pub).buffer as ArrayBuffer)
+  const privateKey = await impl.hpke.importPrivateKey(bytesToBuffer(hexToBytes(o.priv)))
+  const publicKey = await impl.hpke.importPublicKey(bytesToBuffer(hexToBytes(o.pub)))
 
   //DecryptWithLabel(priv, label, context, kem_output, ciphertext) == plaintext
   const decrypted = await decryptWithLabel(
     privateKey,
     o.label,
     hexToBytes(o.context),
-    hexToBytes(o.ciphertext).buffer as ArrayBuffer,
-    hexToBytes(o.kem_output).buffer as ArrayBuffer,
+    bytesToBuffer(hexToBytes(o.kem_output)),
+    bytesToBuffer(hexToBytes(o.ciphertext)),
     impl.hpke,
   )
 
@@ -94,7 +95,7 @@ async function test_encrypt_with_label(
     publicKey,
     o.label,
     hexToBytes(o.context),
-    hexToBytes(o.plaintext).buffer as ArrayBuffer,
+    bytesToBuffer(hexToBytes(o.plaintext)),
     impl.hpke,
   )
 
@@ -103,8 +104,8 @@ async function test_encrypt_with_label(
     privateKey,
     o.label,
     hexToBytes(o.context),
-    ctCandidate,
     encCandidate,
+    ctCandidate,
     impl.hpke,
   )
   expect(bytesToHex(new Uint8Array(plaintext))).toBe(o.plaintext)

@@ -1,27 +1,26 @@
 import { Decoder, mapDecoders } from "./codec/tlsDecoder"
 import { contramapEncoders, Encoder } from "./codec/tlsEncoder"
 import { decodeVarLenData, decodeVarLenType, encodeVarLenData, encodeVarLenType } from "./codec/variableLength"
-import { CiphersuiteName, decodeCiphersuite, encodeCiphersuite } from "./crypto/ciphersuite"
-
-type KeypackageRef = Uint8Array
+import { CiphersuiteImpl, CiphersuiteName, decodeCiphersuite, encodeCiphersuite } from "./crypto/ciphersuite"
+import { expandWithLabel } from "./crypto/kdf"
 
 export type HPKECiphertext = Readonly<{
-  ciphertext: Uint8Array
   kemOutput: Uint8Array
+  ciphertext: Uint8Array
 }>
 
 export const encodeHpkeCiphertext: Encoder<HPKECiphertext> = contramapEncoders(
   [encodeVarLenData, encodeVarLenData],
-  (egs) => [egs.ciphertext, egs.kemOutput] as const,
+  (egs) => [egs.kemOutput, egs.ciphertext] as const,
 )
 
 export const decodeHpkeCiphertext: Decoder<HPKECiphertext> = mapDecoders(
   [decodeVarLenData, decodeVarLenData],
-  (ciphertext, kemOutput) => ({ ciphertext, kemOutput }),
+  (kemOutput, ciphertext) => ({ kemOutput, ciphertext }),
 )
 
 type EncryptedGroupSecrets = Readonly<{
-  newMember: KeypackageRef
+  newMember: Uint8Array
   encryptedGroupSecrets: HPKECiphertext
 }>
 
@@ -50,3 +49,11 @@ export const decodeWelcome: Decoder<Welcome> = mapDecoders(
   [decodeCiphersuite, decodeVarLenType(decodeEncryptedGroupSecrets), decodeVarLenData],
   (cipherSuite, secrets, encryptedGroupInfo) => ({ cipherSuite, secrets, encryptedGroupInfo }),
 )
+
+export function welcomeNonce(welcomeSecret: Uint8Array, cs: CiphersuiteImpl) {
+  return expandWithLabel(welcomeSecret, "nonce", new Uint8Array(), cs.hpke.nonceLength, cs.kdf)
+}
+
+export function welcomeKey(welcomeSecret: Uint8Array, cs: CiphersuiteImpl) {
+  return expandWithLabel(welcomeSecret, "key", new Uint8Array(), cs.hpke.keyLength, cs.kdf)
+}
