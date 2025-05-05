@@ -63,11 +63,18 @@ export function makeHpke(hpkealg: HpkeAlgorithm): Hpke {
     async importPublicKey(k) {
       return (await cs.kem.deserializePublicKey(k)) as PublicKey
     },
+    exportPublicKey(k) {
+      return cs.kem.serializePublicKey(k)
+    },
     async encryptAead(key, nonce, aad, plaintext) {
       return encryptAead(key, nonce, aad, plaintext, hpkealg.aead)
     },
     async decryptAead(key, nonce, aad, ciphertext) {
       return decryptAead(key, nonce, aad, ciphertext, hpkealg.aead)
+    },
+    async deriveKeyPair(ikm) {
+      const kp = await cs.kem.deriveKeyPair(ikm)
+      return { privateKey: kp.privateKey as PrivateKey, publicKey: kp.publicKey as PublicKey }
     },
     keyLength: cs.aead.keySize,
     nonceLength: cs.aead.nonceSize,
@@ -90,8 +97,10 @@ export interface Hpke {
   ): Promise<{ ct: ArrayBuffer; enc: ArrayBuffer }>
   importPrivateKey(k: ArrayBuffer): Promise<PrivateKey>
   importPublicKey(k: ArrayBuffer): Promise<PublicKey>
+  exportPublicKey(k: PublicKey): Promise<ArrayBuffer>
   encryptAead(key: ArrayBuffer, nonce: ArrayBuffer, aad: ArrayBuffer, plaintext: ArrayBuffer): Promise<ArrayBuffer>
   decryptAead(key: ArrayBuffer, nonce: ArrayBuffer, aad: ArrayBuffer, ciphertext: ArrayBuffer): Promise<ArrayBuffer>
+  deriveKeyPair(ikm: ArrayBuffer): Promise<{ privateKey: PrivateKey; publicKey: PublicKey }>
   keyLength: number
   nonceLength: number
 }

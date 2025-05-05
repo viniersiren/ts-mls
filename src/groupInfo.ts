@@ -70,7 +70,7 @@ export async function verifyConfirmationTag(
   return cs.hash.verifyMac(key, bytesToBuffer(gi.confirmationTag), gi.groupContext.confirmedTranscriptHash)
 }
 
-async function extractWelcomeSecret(joinerSecret: Uint8Array, pskSecret: Uint8Array, kdf: Kdf) {
+export async function extractWelcomeSecret(joinerSecret: Uint8Array, pskSecret: Uint8Array, kdf: Kdf) {
   return deriveSecret(await kdf.extract(bytesToBuffer(joinerSecret), bytesToBuffer(pskSecret)), "welcome", kdf)
 }
 

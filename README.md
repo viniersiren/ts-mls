@@ -12,7 +12,7 @@ The following test vectors are fully passing:
 
 - [x] crypto-basics
 - [x] deserialization
-- [ ] key-schedule
+- [x] key-schedule
 - [ ] message-protection
 - [x] messages
 - [ ] passive-client-handling-commit

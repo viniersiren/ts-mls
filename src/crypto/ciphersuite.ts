@@ -5,7 +5,7 @@ import { Hpke, HpkeAlgorithm, makeHpke } from "./hpke"
 import { contramapEncoder, Encoder } from "../codec/tlsEncoder"
 import { decodeUint16, encodeUint16 } from "../codec/number"
 import { Decoder, mapDecoderOption } from "../codec/tlsDecoder"
-import { enumNumberToKey } from "../util/enumHelpers"
+import { enumNumberToKey, reverseMap } from "../util/enumHelpers"
 
 export type CiphersuiteImpl = {
   hash: Hash
@@ -33,6 +33,10 @@ export const decodeCiphersuite: Decoder<CiphersuiteName> = mapDecoderOption(deco
 
 export function getCiphersuite(name: CiphersuiteName): Ciphersuite {
   return ciphersuiteValues[ciphersuites[name]]
+}
+
+export function getCiphersuiteNameFromId(id: CiphersuiteId): CiphersuiteName {
+  return reverseMap(ciphersuites)[id] as CiphersuiteName
 }
 
 export function getCiphersuiteFromId(id: CiphersuiteId): Ciphersuite {

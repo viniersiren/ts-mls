@@ -64,3 +64,14 @@ export async function extractEpochSecret(
 
   return expandWithLabel(extracted, "epoch", encodeGroupContext(context), kdf.size, kdf)
 }
+
+export async function extractJoinerSecret(
+  context: GroupContext,
+  previousInitSecret: Uint8Array,
+  commitSecret: Uint8Array,
+  kdf: Kdf,
+) {
+  const extracted = await kdf.extract(bytesToBuffer(previousInitSecret), bytesToBuffer(commitSecret))
+
+  return expandWithLabel(extracted, "joiner", encodeGroupContext(context), kdf.size, kdf)
+}
