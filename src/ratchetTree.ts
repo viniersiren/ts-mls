@@ -13,6 +13,7 @@ import { decodeOptional, encodeOptional } from "./codec/optional"
 import { deriveTreeSecret, expandWithLabel, Kdf } from "./crypto/kdf"
 import { leftOrLeaf, nodeWidth, right, root } from "./treemath"
 import { CiphersuiteImpl } from "./crypto/ciphersuite"
+import { repeatAsync } from "./util/repeat"
 
 export type LeafNodeData = {
   encryptionKey: Uint8Array
@@ -230,7 +231,7 @@ export const encodeRatchetTree: Encoder<RatchetTree> = encodeVarLenType(encodeOp
 
 export const decodeRatchetTree: Decoder<RatchetTree> = decodeVarLenType(decodeOptional(decodeNode))
 
-type SecretTree = Uint8Array[]
+export type SecretTree = Uint8Array[]
 export function setSecret(tree: SecretTree, nodeIndex: number, secret: Uint8Array): SecretTree {
   return [...tree.slice(0, nodeIndex), secret, ...tree.slice(nodeIndex + 1)]
 }
@@ -264,6 +265,13 @@ export async function deriveNonce(secret: Uint8Array, generation: number, cs: Ci
   return await deriveTreeSecret(secret, "nonce", generation, cs.hpke.nonceLength, cs.kdf)
 }
 
+export async function ratchetUntil(current: GenerationSecret, desiredGen: number, kdf: Kdf): Promise<GenerationSecret> {
+  if (current.generation > desiredGen) throw new Error("Desired gen in the past")
+  const generationDifference = desiredGen - current.generation
+
+  return await repeatAsync((s) => deriveNext(s.secret, s.generation, kdf), current, generationDifference)
+}
+
 export async function deriveNext(secret: Uint8Array, generation: number, kdf: Kdf): Promise<GenerationSecret> {
   const s = await deriveTreeSecret(secret, "secret", generation, kdf.size, kdf)
   return { secret: s, generation: generation + 1 }
@@ -273,7 +281,7 @@ export async function deriveKey(secret: Uint8Array, generation: number, cs: Ciph
   return await deriveTreeSecret(secret, "key", generation, cs.hpke.keyLength, cs.kdf)
 }
 
-type GenerationSecret = { secret: Uint8Array; generation: number }
+export type GenerationSecret = { secret: Uint8Array; generation: number }
 
 export async function deriveRatchetRoot(
   tree: SecretTree,

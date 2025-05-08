@@ -7,16 +7,12 @@ import {
 } from "../../src/crypto/ciphersuite"
 import { hexToBytes } from "@noble/ciphers/utils"
 import json from "../../test_vectors/welcome.json"
-import { expandSenderDataKey, expandSenderDataNonce } from "../../src/sender"
-import { createSecretTree, deriveKey, deriveNext, deriveNonce, deriveRatchetRoot } from "../../src/ratchetTree"
 import { decodeMlsMessage } from "../../src/message"
-import { decodeGroupSecrets, decryptGroupSecrets } from "../../src/groupSecrets"
+import { decryptGroupSecrets } from "../../src/groupSecrets"
 import { makeKeyPackageRef } from "../../src/keyPackage"
 import { constantTimeEqual } from "../../src/util/constantTimeCompare"
-import { encodeVarLenData } from "../../src/codec/variableLength"
-import { decryptWithLabel } from "../../src/crypto/hpke"
 import { bytesToBuffer } from "../../src/util/byteArray"
-import { decryptGroupInfo, signGroupInfo, verifyConfirmationTag, verifyGroupInfoSignature } from "../../src/groupInfo"
+import { decryptGroupInfo, verifyConfirmationTag, verifyGroupInfoSignature } from "../../src/groupInfo"
 
 test("welcome test vectors", async () => {
   for (const x of json) {
@@ -24,14 +20,6 @@ test("welcome test vectors", async () => {
     await testWelcome(x.init_priv, x.key_package, x.signer_pub, x.welcome, impl)
   }
 })
-
-type Leaf = {
-  generation: number
-  handshake_key: string
-  handshake_nonce: string
-  application_key: string
-  application_nonce: string
-}
 
 async function testWelcome(
   init_priv: string,

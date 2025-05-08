@@ -5,11 +5,9 @@ import {
   getCiphersuiteImpl,
   getCiphersuiteNameFromId,
 } from "../../src/crypto/ciphersuite"
-import { encodeGroupContext, extractEpochSecret, extractJoinerSecret, GroupContext } from "../../src/groupContext"
+import { encodeGroupContext, GroupContext } from "../../src/groupContext"
 import { hexToBytes } from "@noble/ciphers/utils"
 import json from "../../test_vectors/key-schedule.json"
-import { extractWelcomeSecret } from "../../src/groupInfo"
-import { deriveSecret } from "../../src/crypto/kdf"
 import { bytesToBuffer } from "../../src/util/byteArray"
 import { initializeEpoch, mlsExporter } from "../../src/keySchedule"
 

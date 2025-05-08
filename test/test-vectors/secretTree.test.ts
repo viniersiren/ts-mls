@@ -2,7 +2,16 @@ import { CiphersuiteId, CiphersuiteImpl, getCiphersuiteFromId, getCiphersuiteImp
 import { hexToBytes } from "@noble/ciphers/utils"
 import json from "../../test_vectors/secret-tree.json"
 import { expandSenderDataKey, expandSenderDataNonce } from "../../src/sender"
-import { createSecretTree, deriveKey, deriveNext, deriveNonce, deriveRatchetRoot } from "../../src/ratchetTree"
+import {
+  createSecretTree,
+  deriveKey,
+  deriveNext,
+  deriveNonce,
+  deriveRatchetRoot,
+  ratchetUntil,
+} from "../../src/ratchetTree"
+import { repeatAsync } from "../../src/util/repeat"
+import { leafToNodeIndex } from "../../src/treemath"
 
 test("secret-tree test vectors", async () => {
   for (const x of json) {
@@ -46,15 +55,10 @@ async function testSecretTree(
 
   const tree = await createSecretTree(leaves.length, hexToBytes(encryptionSecret), impl.kdf)
   for (const [index, leaf] of leaves.entries()) {
-    const nodeIndex = index * 2
+    const nodeIndex = leafToNodeIndex(index)
     const handshakeSecret = await deriveRatchetRoot(tree, nodeIndex, "handshake", impl.kdf)
     for (const gen of leaf) {
-      const generationDifference = gen.generation - handshakeSecret.generation
-      const ratcheted = await repeatAsync(
-        (s) => deriveNext(s.secret, s.generation, impl.kdf),
-        handshakeSecret,
-        generationDifference,
-      )
+      const ratcheted = await ratchetUntil(handshakeSecret, gen.generation, impl.kdf)
       expect(ratcheted.generation).toBe(gen.generation)
 
       //handshake_key = handshake_ratchet_key_[i]_[generation]
@@ -68,12 +72,7 @@ async function testSecretTree(
 
     const applicationSecret = await deriveRatchetRoot(tree, nodeIndex, "application", impl.kdf)
     for (const gen of leaf) {
-      const generationDifference = gen.generation - applicationSecret.generation
-      const ratcheted = await repeatAsync(
-        (s) => deriveNext(new Uint8Array(s.secret), s.generation, impl.kdf),
-        applicationSecret,
-        generationDifference,
-      )
+      const ratcheted = await ratchetUntil(applicationSecret, gen.generation, impl.kdf)
       expect(ratcheted.generation).toBe(gen.generation)
 
       //pplication_key = application_ratchet_key_[i]_[generation]
@@ -85,12 +84,4 @@ async function testSecretTree(
       expect(new Uint8Array(applicationNonce)).toStrictEqual(hexToBytes(gen.application_nonce))
     }
   }
-}
-
-async function repeatAsync<T>(fn: (input: T) => Promise<T>, initial: T, times: number): Promise<T> {
-  let result = initial
-  for (let i = 0; i < times; i++) {
-    result = await fn(result)
-  }
-  return result
 }

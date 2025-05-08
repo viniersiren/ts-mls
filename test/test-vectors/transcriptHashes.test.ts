@@ -1,9 +1,8 @@
 import { CiphersuiteId, CiphersuiteImpl, getCiphersuiteFromId, getCiphersuiteImpl } from "../../src/crypto/ciphersuite"
-import { hexToBytes, utf8ToBytes } from "@noble/ciphers/utils"
+import { hexToBytes } from "@noble/ciphers/utils"
 import json from "../../test_vectors/transcript-hashes.json"
-import { AuthenticatedContent, decodeAuthenticatedContent } from "../../src/authenticatedContent"
+import { decodeAuthenticatedContent } from "../../src/authenticatedContent"
 import { createConfirmedHash, createInterimHash } from "../../src/transcriptHash"
-import { FramedContentCommit } from "../../src/framedContent"
 
 test("transcript-hashes test vectors", async () => {
   for (const x of json) {

@@ -3,7 +3,7 @@ import { contramapEncoder, contramapEncoders, Encoder } from "./codec/tlsEncoder
 import { decodeVarLenData, encodeVarLenData } from "./codec/variableLength"
 import { Hash } from "./crypto/hash"
 import { decodeFramedContent, encodeFramedContent, FramedContentCommit } from "./framedContent"
-import { decodeWireformat, encodeWireformat, WireformatName } from "./message"
+import { decodeWireformat, encodeWireformat, WireformatName } from "./wireformat"
 
 type ConfirmedTranscriptHashInput = { wireformat: WireformatName; content: FramedContentCommit; signature: Uint8Array }
 

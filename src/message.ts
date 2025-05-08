@@ -1,28 +1,12 @@
-import { decodeUint16, encodeUint16 } from "./codec/number"
-import { Decoder, flatMapDecoder, mapDecoder, mapDecoderOption, mapDecoders } from "./codec/tlsDecoder"
-import { contramapEncoder, contramapEncoders, Encoder } from "./codec/tlsEncoder"
+import { Decoder, flatMapDecoder, mapDecoder, mapDecoders } from "./codec/tlsDecoder"
+import { contramapEncoders, Encoder } from "./codec/tlsEncoder"
 import { decodeGroupInfo, encodeGroupInfo, GroupInfo } from "./groupInfo"
 import { decodeKeyPackage, encodeKeyPackage, KeyPackage } from "./keyPackage"
 import { decodePrivateMessage, encodePrivateMessage, PrivateMessage } from "./privateMessage"
 import { decodeProtocolVersion, encodeProtocolVersion, ProtocolVersionName } from "./protocolVersion"
 import { decodePublicMessage, encodePublicMessage, PublicMessage } from "./publicMessage"
-import { enumNumberToKey } from "./util/enumHelpers"
 import { decodeWelcome, encodeWelcome, Welcome } from "./welcome"
-
-const wireformats = {
-  mls_public_message: 1,
-  mls_private_message: 2,
-  mls_welcome: 3,
-  mls_group_info: 4,
-  mls_key_package: 5,
-} as const
-
-export type WireformatName = keyof typeof wireformats
-export type WireformatValue = (typeof wireformats)[WireformatName]
-
-export const encodeWireformat: Encoder<WireformatName> = contramapEncoder(encodeUint16, (t) => wireformats[t])
-
-export const decodeWireformat: Decoder<WireformatName> = mapDecoderOption(decodeUint16, enumNumberToKey(wireformats))
+import { decodeWireformat, encodeWireformat } from "./wireformat"
 
 export type MLSMessage = MlsMessageProtocol & MlsMessageContent
 

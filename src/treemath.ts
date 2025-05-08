@@ -17,6 +17,10 @@ function level(x: number): number {
   return k
 }
 
+export function leafToNodeIndex(leafIndex: number) {
+  return leafIndex * 2
+}
+
 export function leafWidth(n: number): number {
   return n == 0 ? 0 : (n - 1) / 2 + 1
 }

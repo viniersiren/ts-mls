@@ -23,11 +23,11 @@ export const decodeSenderType: Decoder<SenderTypeName> = mapDecoderOption(decode
 
 export type Sender = SenderMember | SenderExternal | SenderNewMemberProposal | SenderNewMemberCommit
 
-type SenderMember = { senderType: "member"; leafIndex: number }
+export type SenderMember = { senderType: "member"; leafIndex: number }
 
-type SenderExternal = { senderType: "external"; senderIndex: number }
-type SenderNewMemberProposal = { senderType: "new_member_proposal" }
-type SenderNewMemberCommit = { senderType: "new_member_commit" }
+export type SenderExternal = { senderType: "external"; senderIndex: number }
+export type SenderNewMemberProposal = { senderType: "new_member_proposal" }
+export type SenderNewMemberCommit = { senderType: "new_member_commit" }
 
 export const encodeSender: Encoder<Sender> = (s) => {
   switch (s.senderType) {
@@ -76,19 +76,27 @@ export const decodeSender: Decoder<Sender> = flatMapDecoder(decodeSenderType, (s
   }
 })
 
-type SenderData = Readonly<{
+export type SenderData = Readonly<{
   leafIndex: number
   generation: number
-  reuseGuard: number
+  reuseGuard: ReuseGuard
 }>
 
+export type ReuseGuard = Uint8Array & { length: 4 }
+
+export const encodeReuseGuard: Encoder<ReuseGuard> = (g) => g
+
+export const decodeReuseGuard: Decoder<ReuseGuard> = (b, offset) => {
+  return [b.subarray(offset, offset + 4) as ReuseGuard, 4]
+}
+
 export const encodeSenderData: Encoder<SenderData> = contramapEncoders(
-  [encodeUint32, encodeUint32, encodeUint32],
+  [encodeUint32, encodeUint32, encodeReuseGuard],
   (s) => [s.leafIndex, s.generation, s.reuseGuard] as const,
 )
 
 export const decodeSenderData: Decoder<SenderData> = mapDecoders(
-  [decodeUint32, decodeUint32, decodeUint32],
+  [decodeUint32, decodeUint32, decodeReuseGuard],
   (leafIndex, generation, reuseGuard) => ({
     leafIndex,
     generation,
@@ -96,7 +104,7 @@ export const decodeSenderData: Decoder<SenderData> = mapDecoders(
   }),
 )
 
-type SenderDataAAD = Readonly<{
+export type SenderDataAAD = Readonly<{
   groupId: Uint8Array
   epoch: bigint
   contentType: ContentTypeName
