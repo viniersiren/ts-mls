@@ -22,7 +22,7 @@ The following test vectors are fully passing:
 - [x] secret-tree
 - [x] transcript-hashes
 - [x] tree-math
-- [ ] tree-operations
+- [x] tree-operations
 - [ ] tree-validation
 - [ ] treekem
 - [x] welcome

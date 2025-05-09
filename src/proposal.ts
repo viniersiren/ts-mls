@@ -8,7 +8,7 @@ import { decodeKeyPackage, encodeKeyPackage, KeyPackage } from "./keyPackage"
 import { decodePskId, encodePskId, PreSharedKeyID } from "./presharedkey"
 import { decodeProposalType, encodeProposalType } from "./proposalType"
 import { decodeProtocolVersion, encodeProtocolVersion, ProtocolVersionName } from "./protocolVersion"
-import { decodeLeafNode, encodeLeafNode, LeafNode } from "./ratchetTree"
+import { decodeLeafNode, encodeLeafNode, LeafNode } from "./leafNode"
 
 export type Add = { keyPackage: KeyPackage }
 

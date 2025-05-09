@@ -92,7 +92,7 @@ export function decodeVarLenType<T>(dec: Decoder<T>): Decoder<T[]> {
 
     while (cursor < totalBytes.length) {
       const item = dec(totalBytes, cursor)
-      if (!item) return undefined
+      if (item === undefined) return undefined
 
       const [value, len] = item
       result.push(value)

@@ -1,7 +1,7 @@
 import { Decoder, mapDecoders } from "./codec/tlsDecoder"
 import { contramapEncoders, Encoder } from "./codec/tlsEncoder"
 import { decodeVarLenData, decodeVarLenType, encodeVarLenData, encodeVarLenType } from "./codec/variableLength"
-import { decodeLeafNode, encodeLeafNode, LeafNode } from "./ratchetTree"
+import { decodeLeafNode, encodeLeafNode, LeafNode } from "./leafNode"
 import { decodeHpkeCiphertext, encodeHpkeCiphertext, HPKECiphertext } from "./welcome" //todo move this
 
 export type UpdatePathNode = Readonly<{

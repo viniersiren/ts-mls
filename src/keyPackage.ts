@@ -6,7 +6,7 @@ import { Hash, refhash } from "./crypto/hash"
 import { Signature } from "./crypto/signature"
 import { decodeExtension, encodeExtension, Extension } from "./extension"
 import { decodeProtocolVersion, encodeProtocolVersion, ProtocolVersionName } from "./protocolVersion"
-import { decodeLeafNode, encodeLeafNode, LeafNode } from "./ratchetTree"
+import { decodeLeafNode, encodeLeafNode, LeafNode } from "./leafNode"
 
 type KeyPackageTBS = Readonly<{
   version: ProtocolVersionName

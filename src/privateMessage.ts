@@ -23,7 +23,7 @@ import {
 } from "./framedContent"
 import { GroupContext } from "./groupContext"
 import { decodeProposal, encodeProposal, Proposal } from "./proposal"
-import { deriveKey, deriveNonce, deriveRatchetRoot, GenerationSecret, ratchetUntil, SecretTree } from "./ratchetTree"
+import { deriveKey, deriveNonce, deriveRatchetRoot, GenerationSecret, ratchetUntil, SecretTree } from "./secretTree"
 import {
   decodeSenderData,
   encodeSenderData,

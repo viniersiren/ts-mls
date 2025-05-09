@@ -1,198 +1,12 @@
-import { Capabilities, decodeCapabilities, encodeCapabilities } from "./capabilities"
 import { Encoder, contramapEncoder, contramapEncoders } from "./codec/tlsEncoder"
-import { Decoder, decodeVoid, flatMapDecoder, mapDecoder, mapDecoders, succeedDecoder } from "./codec/tlsDecoder"
-import { decodeExtension, encodeExtension, Extension } from "./extension"
+import { Decoder, flatMapDecoder, mapDecoder } from "./codec/tlsDecoder"
 
-import { decodeVarLenData, decodeVarLenType, encodeVarLenData, encodeVarLenType } from "./codec/variableLength"
-import { Credential, decodeCredential, encodeCredential } from "./credential"
-import { decodeLifetime, encodeLifetime, Lifetime } from "./lifetime"
-import { decodeLeafNodeSource, encodeLeafNodeSource, LeafNodeSourceName } from "./leafNodeSource"
-import { decodeUint32, encodeUint32 } from "./codec/number"
+import { decodeVarLenType, encodeVarLenType } from "./codec/variableLength"
 import { decodeNodeType, encodeNodeType } from "./nodeType"
 import { decodeOptional, encodeOptional } from "./codec/optional"
-import { deriveTreeSecret, expandWithLabel, Kdf } from "./crypto/kdf"
-import { leftOrLeaf, nodeWidth, right, root } from "./treemath"
-import { CiphersuiteImpl } from "./crypto/ciphersuite"
-import { repeatAsync } from "./util/repeat"
-
-export type LeafNodeData = {
-  encryptionKey: Uint8Array
-  signatureKey: Uint8Array
-  credential: Credential
-  capabilities: Capabilities
-}
-
-// Encoder
-export const encodeLeafNodeData: Encoder<LeafNodeData> = contramapEncoders(
-  [encodeVarLenData, encodeVarLenData, encodeCredential, encodeCapabilities],
-  (data) => [data.encryptionKey, data.signatureKey, data.credential, data.capabilities] as const,
-)
-
-export const decodeLeafNodeData: Decoder<LeafNodeData> = mapDecoders(
-  [decodeVarLenData, decodeVarLenData, decodeCredential, decodeCapabilities],
-  (encryptionKey, signatureKey, credential, capabilities) => ({
-    encryptionKey,
-    signatureKey,
-    credential,
-    capabilities,
-  }),
-)
-
-export type LeafNodeInfo = LeafNodeInfoKeyPackage | LeafNodeInfoUpdate | LeafNodeInfoCommit
-export type LeafNodeInfoKeyPackage = { leafNodeSource: "key_package"; lifetime: Lifetime }
-export type LeafNodeInfoUpdate = { leafNodeSource: "update" }
-export type LeafNodeInfoCommit = { leafNodeSource: "commit"; parentHash: Uint8Array }
-
-export const encodeLeafNodeInfoLifetime: Encoder<LeafNodeInfoKeyPackage> = contramapEncoders(
-  [encodeLeafNodeSource, encodeLifetime],
-  (info) => ["key_package", info.lifetime] as const,
-)
-
-export const encodeLeafNodeInfoUpdate: Encoder<LeafNodeInfoUpdate> = contramapEncoder(
-  encodeLeafNodeSource,
-  (i) => i.leafNodeSource,
-)
-
-export const encodeLeafNodeInfoCommit: Encoder<LeafNodeInfoCommit> = contramapEncoders(
-  [encodeLeafNodeSource, encodeVarLenData],
-  (info) => ["commit", info.parentHash] as const,
-)
-
-export const encodeLeafNodeInfo: Encoder<LeafNodeInfo> = (info) => {
-  switch (info.leafNodeSource) {
-    case "key_package":
-      return encodeLeafNodeInfoLifetime(info)
-    case "update":
-      return encodeLeafNodeInfoUpdate(info)
-    case "commit":
-      return encodeLeafNodeInfoCommit(info)
-  }
-}
-
-export const decodeLeafNodeInfoLifetime: Decoder<LeafNodeInfoKeyPackage> = mapDecoder(decodeLifetime, (lifetime) => ({
-  leafNodeSource: "key_package",
-  lifetime,
-}))
-
-export const decodeLeafNodeInfoCommit: Decoder<LeafNodeInfoCommit> = mapDecoders([decodeVarLenData], (parentHash) => ({
-  leafNodeSource: "commit",
-  parentHash,
-}))
-
-export const decodeLeafNodeInfo: Decoder<LeafNodeInfo> = flatMapDecoder(
-  decodeLeafNodeSource,
-  (leafNodeSource): Decoder<LeafNodeInfo> => {
-    switch (leafNodeSource) {
-      case "key_package":
-        return decodeLeafNodeInfoLifetime
-      case "update":
-        return succeedDecoder({ leafNodeSource })
-      case "commit":
-        return decodeLeafNodeInfoCommit
-    }
-  },
-)
-
-export type LeafNodeExtensions = { extensions: Extension[] }
-
-export const encodeLeafNodeExtensions: Encoder<LeafNodeExtensions> = contramapEncoder(
-  encodeVarLenType(encodeExtension),
-  (ext) => ext.extensions,
-)
-
-export const decodeLeafNodeExtensions: Decoder<LeafNodeExtensions> = mapDecoder(
-  decodeVarLenType(decodeExtension),
-  (extensions) => ({ extensions }),
-)
-
-type GroupIdLeafIndex = Readonly<{
-  groupId: Uint8Array
-  leafIndex: number
-}>
-
-export const encodeGroupIdLeafIndex: Encoder<GroupIdLeafIndex> = contramapEncoders(
-  [encodeVarLenData, encodeUint32],
-  (g) => [g.groupId, g.leafIndex] as const,
-)
-
-export const decodeGroupIdLeafIndex: Decoder<GroupIdLeafIndex> = mapDecoders(
-  [decodeVarLenData, decodeUint32],
-  (groupId, leafIndex) => ({ groupId, leafIndex }),
-)
-
-export type LeafNodeGroupInfo = GroupIdLeafIndex | {}
-
-export const encodeLeafNodeGroupInfo: Encoder<LeafNodeGroupInfo> = (info) => {
-  if ("groupId" in info) {
-    return encodeGroupIdLeafIndex(info)
-  }
-  // If the object is an empty object, we simply return an empty array (i.e., no data to encode)
-  return new Uint8Array()
-}
-
-export function decodeLeafNodeGroupInfo(lns: LeafNodeSourceName): Decoder<LeafNodeGroupInfo> {
-  switch (lns) {
-    case "key_package":
-      return mapDecoder(decodeVoid, () => ({}))
-    case "update":
-      return decodeGroupIdLeafIndex
-    case "commit":
-      return decodeGroupIdLeafIndex
-  }
-}
-
-export type LeafNodeTBS = LeafNodeData & LeafNodeInfo & LeafNodeExtensions & LeafNodeGroupInfo
-
-export const encodeLeafNodeTBS: Encoder<LeafNodeTBS> = contramapEncoders(
-  [encodeLeafNodeData, encodeLeafNodeInfo, encodeLeafNodeExtensions, encodeLeafNodeGroupInfo],
-  (tbs) => [tbs, tbs, tbs, tbs] as const,
-)
-
-export const decodeLeafNodeTBS: Decoder<LeafNodeTBS> = flatMapDecoder(decodeLeafNodeData, (leafNodeData) =>
-  flatMapDecoder(decodeLeafNodeInfo, (leafNodeInfo) =>
-    flatMapDecoder(decodeLeafNodeExtensions, (leafNodeExtensions) =>
-      mapDecoder(decodeLeafNodeGroupInfo(leafNodeInfo.leafNodeSource), (leafNodeGroupInfo) => ({
-        ...leafNodeData,
-        ...leafNodeInfo,
-        ...leafNodeExtensions,
-        ...leafNodeGroupInfo,
-      })),
-    ),
-  ),
-)
-
-export type LeafNode = LeafNodeData & LeafNodeInfo & LeafNodeExtensions & Readonly<{ signature: Uint8Array }>
-
-export const encodeLeafNode: Encoder<LeafNode> = contramapEncoders(
-  [encodeLeafNodeData, encodeLeafNodeInfo, encodeLeafNodeExtensions, encodeVarLenData],
-  (leafNode) => [leafNode, leafNode, leafNode, leafNode.signature] as const,
-)
-
-export const decodeLeafNode: Decoder<LeafNode> = mapDecoders(
-  [decodeLeafNodeData, decodeLeafNodeInfo, decodeLeafNodeExtensions, decodeVarLenData],
-  (data, info, extensions, signature) => ({
-    ...data,
-    ...info,
-    ...extensions,
-    signature,
-  }),
-)
-
-export type ParentNode = { encryptionKey: Uint8Array; parentHash: Uint8Array; unmergedLeaves: number[] }
-
-export const encodeParentNode: Encoder<ParentNode> = contramapEncoders(
-  [encodeVarLenData, encodeVarLenData, encodeVarLenType(encodeUint32)],
-  (node) => [node.encryptionKey, node.parentHash, node.unmergedLeaves] as const,
-)
-
-export const decodeParentNode: Decoder<ParentNode> = mapDecoders(
-  [decodeVarLenData, decodeVarLenData, decodeVarLenType(decodeUint32)],
-  (encryptionKey, parentHash, unmergedLeaves) => ({
-    encryptionKey,
-    parentHash,
-    unmergedLeaves,
-  }),
-)
+import { ParentNode, encodeParentNode, decodeParentNode } from "./parentNode"
+import { directPath, isLeaf, leafToNodeIndex, leafWidth, nodeToLeafIndex } from "./treemath"
+import { LeafNode, encodeLeafNode, decodeLeafNode } from "./leafNode"
 
 export type Node = NodeParent | NodeLeaf
 type NodeParent = { nodeType: "parent"; parent: ParentNode }
@@ -227,70 +41,161 @@ export const decodeNode: Decoder<Node> = flatMapDecoder(decodeNodeType, (nodeTyp
 
 export type RatchetTree = (Node | undefined)[]
 
-export const encodeRatchetTree: Encoder<RatchetTree> = encodeVarLenType(encodeOptional(encodeNode))
+export function extendRatchetTree(tree: RatchetTree): RatchetTree {
+  const lastIndex = tree.length - 1
 
-export const decodeRatchetTree: Decoder<RatchetTree> = decodeVarLenType(decodeOptional(decodeNode))
+  if (tree[lastIndex] === undefined) {
+    throw new Error("The last node in the ratchet tree must be non-blank.")
+  }
 
-export type SecretTree = Uint8Array[]
-export function setSecret(tree: SecretTree, nodeIndex: number, secret: Uint8Array): SecretTree {
-  return [...tree.slice(0, nodeIndex), secret, ...tree.slice(nodeIndex + 1)]
+  // Compute the smallest full binary tree size >= current length
+  const neededSize = nextFullBinaryTreeSize(tree.length)
+
+  // Fill with `undefined` until tree has the needed size
+  const copy = tree.slice()
+  while (copy.length < neededSize) {
+    copy.push(undefined)
+  }
+
+  return copy
 }
 
-export function createSecretTree(totalLeaves: number, encryptionSecret: Uint8Array, kdf: Kdf): Promise<SecretTree> {
-  const tree = new Array(nodeWidth(totalLeaves))
-  const rootIndex = root(totalLeaves)
-
-  const parentInhabited = setSecret(tree, rootIndex, encryptionSecret)
-  return deriveChildren(parentInhabited, rootIndex, kdf)
+// Compute the smallest 2^(d + 1) - 1 >= n
+function nextFullBinaryTreeSize(n: number): number {
+  let d = 0
+  while ((1 << (d + 1)) - 1 < n) {
+    d++
+  }
+  return (1 << (d + 1)) - 1
 }
 
-export async function deriveChildren(tree: SecretTree, nodeIndex: number, kdf: Kdf): Promise<SecretTree> {
-  const l = leftOrLeaf(nodeIndex)
-  if (l === undefined) return tree
+export function stripToMinimalCompleteTree(tree: RatchetTree): RatchetTree {
+  const lastNonBlankIndex = findLastNonBlankIndex(tree)
 
-  const r = right(nodeIndex)
+  // Find the smallest 2^(d+1)-1 that is >= lastNonBlankIndex + 1
+  // Then subtract one power to go to the next smaller full tree size
+  let fullSize = 1
+  while (fullSize <= lastNonBlankIndex) {
+    fullSize = 2 * fullSize + 1
+  }
 
-  const parentSecret = tree[nodeIndex]
-  if (parentSecret === undefined) throw new Error("Bad node index for secret tree")
-  const leftSecret = await expandWithLabel(parentSecret, "tree", new TextEncoder().encode("left"), kdf.size, kdf)
+  // Go one step back to get the last complete tree size <= lastNonBlankIndex
+  let trimmedSize = Math.floor((fullSize - 1) / 2)
 
-  const rightSecret = await expandWithLabel(parentSecret, "tree", new TextEncoder().encode("right"), kdf.size, kdf)
-
-  const currentTree = setSecret(setSecret(tree, l, new Uint8Array(leftSecret)), r, new Uint8Array(rightSecret))
-
-  return deriveChildren(await deriveChildren(currentTree, l, kdf), r, kdf)
+  return tree.slice(0, trimmedSize + 1)
 }
 
-export async function deriveNonce(secret: Uint8Array, generation: number, cs: CiphersuiteImpl) {
-  return await deriveTreeSecret(secret, "nonce", generation, cs.hpke.nonceLength, cs.kdf)
+function findLastNonBlankIndex(tree: RatchetTree): number {
+  for (let i = tree.length - 1; i >= 0; i--) {
+    if (tree[i] !== undefined) return i
+  }
+  return 0
 }
 
-export async function ratchetUntil(current: GenerationSecret, desiredGen: number, kdf: Kdf): Promise<GenerationSecret> {
-  if (current.generation > desiredGen) throw new Error("Desired gen in the past")
-  const generationDifference = desiredGen - current.generation
+/**
+ * If the tree has 2d leaves, then it has 2d+1 - 1 nodes.
+ * The ratchet_tree vector logically has this number of entries, but the sender MUST NOT include blank nodes after the last non-blank node.
+ * The receiver MUST check that the last node in ratchet_tree is non-blank, and then extend the tree to the right until it has a length of the form 2d+1 - 1, adding the minimum number of blank values possible.
+ * (Obviously, this may be done "virtually", by synthesizing blank nodes when required, as opposed to actually changing the structure in memory.)
+ */
+export function stripBlankNodes(tree: RatchetTree): RatchetTree {
+  let lastNonBlank = tree.length - 1
+  while (lastNonBlank >= 0 && tree[lastNonBlank] === undefined) {
+    lastNonBlank--
+  }
 
-  return await repeatAsync((s) => deriveNext(s.secret, s.generation, kdf), current, generationDifference)
+  return tree.slice(0, lastNonBlank + 1)
 }
 
-export async function deriveNext(secret: Uint8Array, generation: number, kdf: Kdf): Promise<GenerationSecret> {
-  const s = await deriveTreeSecret(secret, "secret", generation, kdf.size, kdf)
-  return { secret: s, generation: generation + 1 }
+export const encodeRatchetTree: Encoder<RatchetTree> = contramapEncoder(
+  encodeVarLenType(encodeOptional(encodeNode)),
+  stripBlankNodes,
+)
+
+export const decodeRatchetTree: Decoder<RatchetTree> = mapDecoder(
+  decodeVarLenType(decodeOptional(decodeNode)),
+  extendRatchetTree,
+)
+
+function findBlankLeafNodeIndex(tree: RatchetTree): number | undefined {
+  const nodeIndex = tree.findIndex((node, nodeIndex) => node === undefined && isLeaf(nodeIndex))
+  if (nodeIndex < 0) return undefined
+  else return nodeIndex
 }
 
-export async function deriveKey(secret: Uint8Array, generation: number, cs: CiphersuiteImpl) {
-  return await deriveTreeSecret(secret, "key", generation, cs.hpke.keyLength, cs.kdf)
+export function extendTree(tree: RatchetTree, leafNode: LeafNode): [RatchetTree, number] {
+  const newRoot = undefined
+  const insertedNodeIndex = tree.length + 1
+  const newTree: RatchetTree = [...tree, newRoot, { nodeType: "leaf", leaf: leafNode }, ...new Array(tree.length - 1)]
+  return [newTree, insertedNodeIndex]
 }
 
-export type GenerationSecret = { secret: Uint8Array; generation: number }
+export function addLeafNode(tree: RatchetTree, leafNode: LeafNode): [RatchetTree, number] {
+  const blankLeaf = findBlankLeafNodeIndex(tree)
+  if (blankLeaf === undefined) {
+    return extendTree(tree, leafNode)
+  }
 
-export async function deriveRatchetRoot(
-  tree: SecretTree,
-  nodeIndex: number,
-  label: string,
-  kdf: Kdf,
-): Promise<GenerationSecret> {
-  const node = tree[nodeIndex]
-  if (node === undefined) throw new Error("Bad node index for secret tree")
-  const secret = await expandWithLabel(node, label, new Uint8Array(), kdf.size, kdf)
-  return { secret: new Uint8Array(secret), generation: 0 }
+  const insertedLeafIndex = nodeToLeafIndex(blankLeaf)
+  const directPathWithoutRoot = directPath(blankLeaf, leafWidth(tree.length)).slice(0, -1)
+
+  const copy = tree.slice()
+
+  for (const nodeIndex of directPathWithoutRoot) {
+    const node = tree[nodeIndex]
+    if (node !== undefined) {
+      const parentNode = node as NodeParent
+
+      const updated: NodeParent = {
+        nodeType: "parent",
+        parent: { ...parentNode.parent, unmergedLeaves: [...parentNode.parent.unmergedLeaves, insertedLeafIndex] },
+      }
+      copy[nodeIndex] = updated
+    }
+  }
+
+  copy[blankLeaf] = { nodeType: "leaf", leaf: leafNode }
+
+  return [copy, blankLeaf]
+}
+
+export function updateLeafNode(tree: RatchetTree, leafNode: LeafNode, leafIndex: number): RatchetTree {
+  const leafNodeIndex = leafToNodeIndex(leafIndex)
+  const pathToBlank = directPath(leafNodeIndex, leafWidth(tree.length))
+
+  const copy = tree.slice()
+
+  for (const nodeIndex of pathToBlank) {
+    const node = tree[nodeIndex]
+    if (node !== undefined) {
+      copy[nodeIndex] = undefined
+    }
+  }
+  copy[leafNodeIndex] = { nodeType: "leaf", leaf: leafNode }
+
+  return copy
+}
+
+export function removeLeafNode(tree: RatchetTree, removedLeafIndex: number) {
+  const leafNodeIndex = leafToNodeIndex(removedLeafIndex)
+  const pathToBlank = directPath(leafNodeIndex, leafWidth(tree.length))
+
+  const copy = tree.slice()
+
+  for (const nodeIndex of pathToBlank) {
+    const node = tree[nodeIndex]
+    if (node !== undefined) {
+      copy[nodeIndex] = undefined
+    }
+  }
+  copy[leafNodeIndex] = undefined
+
+  return condenseRatchetTreeAfterRemove(copy)
+}
+
+/**
+ * When the right subtree of the tree no longer has any non-blank nodes, it can be safely removed
+ */
+function condenseRatchetTreeAfterRemove(tree: RatchetTree) {
+  return extendRatchetTree(stripBlankNodes(tree))
 }

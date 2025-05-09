@@ -9,7 +9,6 @@ import {
   getCiphersuiteNameFromId,
 } from "../../src/crypto/ciphersuite"
 import { decodeMlsMessage } from "../../src/message"
-import { createSecretTree } from "../../src/ratchetTree"
 import {
   protectApplicationData,
   protectCommit,
@@ -25,6 +24,7 @@ import {
   unprotectPublicMessage,
 } from "../../src/publicMessage"
 import { AuthenticatedContent } from "../../src/authenticatedContent"
+import { createSecretTree } from "../../src/secretTree"
 
 test("message-protection test vectors", async () => {
   for (const x of json) {

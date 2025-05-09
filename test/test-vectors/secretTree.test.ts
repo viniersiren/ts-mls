@@ -9,7 +9,7 @@ import {
   deriveNonce,
   deriveRatchetRoot,
   ratchetUntil,
-} from "../../src/ratchetTree"
+} from "../../src/secretTree"
 import { repeatAsync } from "../../src/util/repeat"
 import { leafToNodeIndex } from "../../src/treemath"
 

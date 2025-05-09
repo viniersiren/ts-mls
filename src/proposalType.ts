@@ -1,7 +1,7 @@
 import { decodeUint16, encodeUint16 } from "./codec/number"
 import { Decoder, mapDecoderOption } from "./codec/tlsDecoder"
 import { contramapEncoder, Encoder } from "./codec/tlsEncoder"
-import { enumNumberToKey } from "./util/enumHelpers"
+import { openEnumNumberEncoder, openEnumNumberToKey } from "./util/enumHelpers"
 
 const proposalTypes = {
   add: 1,
@@ -17,9 +17,12 @@ const proposalTypes = {
 export type ProposalTypeName = keyof typeof proposalTypes
 export type ProposalTypeValue = (typeof proposalTypes)[ProposalTypeName]
 
-export const encodeProposalType: Encoder<ProposalTypeName> = contramapEncoder(encodeUint16, (t) => proposalTypes[t])
+export const encodeProposalType: Encoder<ProposalTypeName> = contramapEncoder(
+  encodeUint16,
+  openEnumNumberEncoder(proposalTypes),
+)
 
 export const decodeProposalType: Decoder<ProposalTypeName> = mapDecoderOption(
   decodeUint16,
-  enumNumberToKey(proposalTypes),
+  openEnumNumberToKey(proposalTypes),
 )

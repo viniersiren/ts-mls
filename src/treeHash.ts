@@ -1,0 +1,103 @@
+import { encodeUint32, decodeUint32 } from "./codec/number"
+import { encodeOptional, decodeOptional } from "./codec/optional"
+import { Decoder, mapDecoders, flatMapDecoder } from "./codec/tlsDecoder"
+import { Encoder, contramapEncoders } from "./codec/tlsEncoder"
+import { encodeVarLenData, decodeVarLenData } from "./codec/variableLength"
+import { Hash } from "./crypto/hash"
+import { LeafNode, encodeLeafNode, decodeLeafNode } from "./leafNode"
+import { encodeNodeType, decodeNodeType } from "./nodeType"
+import { ParentNode, encodeParentNode, decodeParentNode } from "./parentNode"
+import { RatchetTree } from "./ratchetTree"
+import { rootFromNodeWidth, isLeaf, nodeToLeafIndex, left, right } from "./treemath"
+
+export type TreeHashInput = LeafNodeHashInput | ParentNodeHashInput
+type LeafNodeHashInput = Readonly<{
+  nodeType: "leaf"
+  leafIndex: number
+  leafNode: LeafNode | undefined
+}>
+type ParentNodeHashInput = Readonly<{
+  nodeType: "parent"
+  parentNode: ParentNode | undefined
+  leftHash: Uint8Array
+  rightHash: Uint8Array
+}>
+
+export const encodeLeafNodeHashInput: Encoder<LeafNodeHashInput> = contramapEncoders(
+  [encodeNodeType, encodeUint32, encodeOptional(encodeLeafNode)],
+  (input) => [input.nodeType, input.leafIndex, input.leafNode] as const,
+)
+
+export const decodeLeafNodeHashInput: Decoder<LeafNodeHashInput> = mapDecoders(
+  [decodeUint32, decodeOptional(decodeLeafNode)],
+  (leafIndex, leafNode) => ({
+    nodeType: "leaf",
+    leafIndex,
+    leafNode,
+  }),
+)
+
+export const encodeParentNodeHashInput: Encoder<ParentNodeHashInput> = contramapEncoders(
+  [encodeNodeType, encodeOptional(encodeParentNode), encodeVarLenData, encodeVarLenData],
+  (input) => [input.nodeType, input.parentNode, input.leftHash, input.rightHash] as const,
+)
+
+export const decodeParentNodeHashInput: Decoder<ParentNodeHashInput> = mapDecoders(
+  [decodeOptional(decodeParentNode), decodeVarLenData, decodeVarLenData],
+  (parentNode, leftHash, rightHash) => ({
+    nodeType: "parent",
+    parentNode,
+    leftHash,
+    rightHash,
+  }),
+)
+
+export const encodeTreeHashInput: Encoder<TreeHashInput> = (input) => {
+  switch (input.nodeType) {
+    case "leaf":
+      return encodeLeafNodeHashInput(input)
+    case "parent":
+      return encodeParentNodeHashInput(input)
+  }
+}
+export const decodeTreeHashInput: Decoder<TreeHashInput> = flatMapDecoder(
+  decodeNodeType,
+  (nodeType): Decoder<TreeHashInput> => {
+    switch (nodeType) {
+      case "leaf":
+        return decodeLeafNodeHashInput
+      case "parent":
+        return decodeParentNodeHashInput
+    }
+  },
+)
+
+export async function treeHash(tree: RatchetTree, h: Hash): Promise<Uint8Array> {
+  return treeHashRecur(tree, rootFromNodeWidth(tree.length), h)
+}
+
+async function treeHashRecur(tree: RatchetTree, subtreeIndex: number, h: Hash): Promise<Uint8Array> {
+  if (isLeaf(subtreeIndex)) {
+    const leafNode = tree[subtreeIndex]
+    if (leafNode?.nodeType === "parent") throw new Error("Somehow found parent node in leaf position")
+    const input = encodeLeafNodeHashInput({
+      nodeType: "leaf",
+      leafIndex: nodeToLeafIndex(subtreeIndex),
+      leafNode: leafNode?.leaf,
+    })
+    return new Uint8Array(await h.digest(input))
+  } else {
+    const parentNode = tree[subtreeIndex]
+    if (parentNode?.nodeType === "leaf") throw new Error("Somehow found leaf node in parent position")
+    const leftHash = await treeHashRecur(tree, left(subtreeIndex), h)
+    const rightHash = await treeHashRecur(tree, right(subtreeIndex), h)
+    const input = {
+      nodeType: "parent",
+      parentNode: parentNode?.parent,
+      leftHash: leftHash,
+      rightHash: rightHash,
+    } as const
+
+    return new Uint8Array(await h.digest(encodeParentNodeHashInput(input)))
+  }
+}
