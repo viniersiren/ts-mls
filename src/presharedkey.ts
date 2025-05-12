@@ -4,7 +4,7 @@ import { contramapEncoder, contramapEncoders, Encoder } from "./codec/tlsEncoder
 import { decodeVarLenData, encodeVarLenData } from "./codec/variableLength"
 import { CiphersuiteImpl } from "./crypto/ciphersuite"
 import { expandWithLabel } from "./crypto/kdf"
-import { bytesToBuffer } from "./util/byteArray"
+
 import { enumNumberToKey } from "./util/enumHelpers"
 
 export const pskTypes = {
@@ -121,19 +121,19 @@ export type PreSharedKeyIdExternal = PSKInfoExternal & PSKNonce
 export type PreSharedKeyIdResumption = PSKInfoResumption & PSKNonce
 
 export async function computePskSecret(psks: [PreSharedKeyIdExternal, Uint8Array][], impl: CiphersuiteImpl) {
-  const zeroes = new Uint8Array(impl.kdf.size)
+  const zeroes: Uint8Array = new Uint8Array(impl.kdf.size)
 
   return psks.reduce(async (acc, [curId, curPsk], index) => {
     const secret = await impl.kdf.extract(
       await expandWithLabel(
-        await impl.kdf.extract(zeroes.buffer, bytesToBuffer(curPsk)),
+        await impl.kdf.extract(zeroes, curPsk),
         "derived psk",
         encodePskLabel({ id: curId, index, count: psks.length }),
         impl.kdf.size,
         impl.kdf,
       ),
-      (await acc).buffer,
+      await acc,
     )
-    return new Uint8Array(secret)
+    return secret
   }, Promise.resolve(zeroes))
 }

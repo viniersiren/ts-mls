@@ -6,7 +6,7 @@ import { ParentNode } from "./parentNode"
 import { Node, RatchetTree, removeLeaves, traverseToRoot } from "./ratchetTree"
 import { treeHash } from "./treeHash"
 import { isLeaf, leafToNodeIndex, leafWidth, left, nodeToLeafIndex, parent, right, root } from "./treemath"
-import { bytesToBuffer } from "./util/byteArray"
+
 import { constantTimeEqual } from "./util/constantTimeCompare"
 
 export type ParentHashInput = Readonly<{
@@ -163,5 +163,5 @@ export async function calculateParentHash(
     originalSiblingTreeHash,
   }
 
-  return [new Uint8Array(await h.digest(bytesToBuffer(encodeParentHashInput(input)))), parentNodeIndex]
+  return [await h.digest(encodeParentHashInput(input)), parentNodeIndex]
 }

@@ -35,7 +35,6 @@ import {
   SenderDataAAD,
 } from "./sender"
 import { leafToNodeIndex } from "./treemath"
-import { bytesToBuffer } from "./util/byteArray"
 
 export type PrivateMessage = Readonly<{
   groupId: Uint8Array
@@ -159,13 +158,8 @@ export async function decryptSenderData(
     contentType: msg.contentType,
   }
 
-  const decrypted = await cs.hpke.decryptAead(
-    key,
-    nonce,
-    bytesToBuffer(encodeSenderDataAAD(aad)),
-    bytesToBuffer(msg.encryptedSenderData),
-  )
-  return decodeSenderData(new Uint8Array(decrypted), 0)?.[0]
+  const decrypted = await cs.hpke.decryptAead(key, nonce, encodeSenderDataAAD(aad), msg.encryptedSenderData)
+  return decodeSenderData(decrypted, 0)?.[0]
 }
 
 export async function encryptSenderData(
@@ -178,25 +172,8 @@ export async function encryptSenderData(
   const key = await expandSenderDataKey(cs, senderDataSecret, ciphertext)
   const nonce = await expandSenderDataNonce(cs, senderDataSecret, ciphertext)
 
-  return new Uint8Array(
-    await cs.hpke.encryptAead(
-      key,
-      nonce,
-      bytesToBuffer(encodeSenderDataAAD(aad)),
-      bytesToBuffer(encodeSenderData(senderData)),
-    ),
-  )
-  //return decodeSenderData(new Uint8Array(decrypted), 0)?.[0]
+  return await cs.hpke.encryptAead(key, nonce, encodeSenderDataAAD(aad), encodeSenderData(senderData))
 }
-
-// export async function encryptContent(
-//   plaintext: Uint8Array,
-//   secret: GenerationSecret,
-//   senderDataSecret: Uint8Array,
-//   cs: CiphersuiteImpl,
-// ) {
-
-// }
 
 export async function decryptContent(
   msg: PrivateMessage,
@@ -214,14 +191,9 @@ export async function decryptContent(
     authenticatedData: msg.authenticatedData,
   }
 
-  const decrypted = await cs.hpke.decryptAead(
-    bytesToBuffer(key),
-    bytesToBuffer(nonce),
-    bytesToBuffer(encodePrivateContentAAD(aad)),
-    bytesToBuffer(msg.ciphertext),
-  )
+  const decrypted = await cs.hpke.decryptAead(key, nonce, encodePrivateContentAAD(aad), msg.ciphertext)
 
-  return decodeFramedContent(new Uint8Array(decrypted), 0)?.[0]
+  return decodeFramedContent(decrypted, 0)?.[0]
 }
 
 export async function derivePrivateMessageNonce(
@@ -320,7 +292,7 @@ export async function protectApplicationData(
     context: groupContext,
   }
 
-  const auth = await signFramedContentApplicationOrProposal(signKey, tbs, cs)
+  const auth = signFramedContentApplicationOrProposal(signKey, tbs, cs)
 
   const content = {
     ...tbs.content,
@@ -437,13 +409,11 @@ export async function protect(
     authenticatedData: authenticatedData,
   }
 
-  const ciphertext = new Uint8Array(
-    await cs.hpke.encryptAead(
-      bytesToBuffer(key),
-      bytesToBuffer(nonce),
-      bytesToBuffer(encodePrivateContentAAD(aad)),
-      bytesToBuffer(encodePrivateMessageContent(content)),
-    ),
+  const ciphertext = await cs.hpke.encryptAead(
+    key,
+    nonce,
+    encodePrivateContentAAD(aad),
+    encodePrivateMessageContent(content),
   )
 
   const senderData: SenderData = {
@@ -497,14 +467,9 @@ export async function unprotectPrivateMessage(
     authenticatedData: msg.authenticatedData,
   }
 
-  const decrypted = await cs.hpke.decryptAead(
-    bytesToBuffer(key),
-    bytesToBuffer(nonce),
-    bytesToBuffer(encodePrivateContentAAD(aad)),
-    bytesToBuffer(msg.ciphertext),
-  )
+  const decrypted = await cs.hpke.decryptAead(key, nonce, encodePrivateContentAAD(aad), msg.ciphertext)
 
   //todo verify signature & MAC
 
-  return decodePrivateMessageContent(msg.contentType)(new Uint8Array(decrypted), 0)?.[0]
+  return decodePrivateMessageContent(msg.contentType)(decrypted, 0)?.[0]
 }

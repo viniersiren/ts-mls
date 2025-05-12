@@ -132,7 +132,7 @@ export async function expandSenderDataKey(
   cs: CiphersuiteImpl,
   senderDataSecret: Uint8Array,
   ciphertext: Uint8Array,
-): Promise<ArrayBuffer> {
+): Promise<Uint8Array> {
   const ciphertextSample = sampleCiphertext(cs, ciphertext)
   const keyLength = cs.hpke.keyLength
 
@@ -143,7 +143,7 @@ export async function expandSenderDataNonce(
   cs: CiphersuiteImpl,
   senderDataSecret: Uint8Array,
   ciphertext: Uint8Array,
-): Promise<ArrayBuffer> {
+): Promise<Uint8Array> {
   const ciphertextSample = sampleCiphertext(cs, ciphertext)
   const keyLength = cs.hpke.nonceLength
 

@@ -42,12 +42,10 @@ async function testTranscriptHash(
 
   const input = { wireformat: auth[0].wireformat, content: auth[0].content, signature: auth[0].auth.signature }
 
-  const computedConfirmedHash = new Uint8Array(
-    await createConfirmedHash(hexToBytes(interimHashBefore), input, impl.hash),
-  )
+  const computedConfirmedHash = await createConfirmedHash(hexToBytes(interimHashBefore), input, impl.hash)
 
   expect(computedConfirmedHash).toStrictEqual(hexToBytes(confirmedHashAfter))
 
   const computedInterimHash = await createInterimHash(hexToBytes(confirmedHashAfter), { confirmationTag }, impl.hash)
-  expect(new Uint8Array(computedInterimHash)).toStrictEqual(hexToBytes(interimHashAfter))
+  expect(computedInterimHash).toStrictEqual(hexToBytes(interimHashAfter))
 }

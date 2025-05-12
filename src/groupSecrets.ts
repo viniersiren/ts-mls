@@ -7,7 +7,6 @@ import { constantTimeEqual } from "./util/constantTimeCompare"
 import { decryptWithLabel, encryptWithLabel, Hpke } from "./crypto/hpke"
 import { decodePskId, encodePskId, PreSharedKeyID } from "./presharedkey"
 import { Welcome } from "./welcome"
-import { bytesToBuffer } from "./util/byteArray"
 
 export type GroupSecrets = Readonly<{
   joinerSecret: Uint8Array
@@ -31,7 +30,7 @@ export function encryptGroupSecrets(
   groupSecrets: GroupSecrets,
   hpke: Hpke,
 ) {
-  return encryptWithLabel(initKey, "Welcome", encryptedGroupInfo, bytesToBuffer(encodeGroupSecrets(groupSecrets)), hpke)
+  return encryptWithLabel(initKey, "Welcome", encryptedGroupInfo, encodeGroupSecrets(groupSecrets), hpke)
 }
 
 export async function decryptGroupSecrets(
@@ -46,9 +45,9 @@ export async function decryptGroupSecrets(
     initPrivateKey,
     "Welcome",
     welcome.encryptedGroupInfo,
-    bytesToBuffer(secret.encryptedGroupSecrets.kemOutput),
-    bytesToBuffer(secret.encryptedGroupSecrets.ciphertext),
+    secret.encryptedGroupSecrets.kemOutput,
+    secret.encryptedGroupSecrets.ciphertext,
     hpke,
   )
-  return decodeGroupSecrets(new Uint8Array(decrypted), 0)?.[0]
+  return decodeGroupSecrets(decrypted, 0)?.[0]
 }

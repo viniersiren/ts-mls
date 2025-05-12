@@ -3,10 +3,11 @@ import { utf8ToBytes } from "@noble/ciphers/utils"
 import { HkdfSha256, HkdfSha384, HkdfSha512 } from "@hpke/core"
 import { encodeVarLenData } from "../codec/variableLength"
 import { encodeUint16, encodeUint32 } from "../codec/number"
+import { bytesToBuffer } from "../util/byteArray"
 
 export interface Kdf {
-  extract(salt: ArrayBuffer, ikm: ArrayBuffer): Promise<ArrayBuffer>
-  expand(prk: BufferSource, info: ArrayBuffer, len: number): Promise<ArrayBuffer>
+  extract(salt: Uint8Array, ikm: Uint8Array): Promise<Uint8Array>
+  expand(prk: Uint8Array, info: Uint8Array, len: number): Promise<Uint8Array>
   size: number
 }
 
@@ -14,11 +15,13 @@ export type KdfAlgorithm = "HKDF-SHA256" | "HKDF-SHA384" | "HKDF-SHA512"
 
 export function makeKdfImpl(k: KdfInterface): Kdf {
   return {
-    extract(salt: ArrayBuffer, ikm: ArrayBuffer): Promise<ArrayBuffer> {
-      return k.extract(salt, ikm)
+    async extract(salt: Uint8Array, ikm: Uint8Array): Promise<Uint8Array> {
+      const result = await k.extract(bytesToBuffer(salt), bytesToBuffer(ikm))
+      return new Uint8Array(result)
     },
-    expand(prk: ArrayBuffer, info: ArrayBuffer, len: number): Promise<ArrayBuffer> {
-      return k.expand(prk, info, len)
+    async expand(prk: Uint8Array, info: Uint8Array, len: number): Promise<Uint8Array> {
+      const result = await k.expand(bytesToBuffer(prk), bytesToBuffer(info), len)
+      return new Uint8Array(result)
     },
     size: k.hashSize,
   }
@@ -36,33 +39,33 @@ export function makeKdf(kdfAlg: KdfAlgorithm): KdfInterface {
 }
 
 export function expandWithLabel(
-  secret: BufferSource,
+  secret: Uint8Array,
   label: string,
   context: Uint8Array,
   length: number,
   kdf: Kdf,
-): Promise<ArrayBuffer> {
+): Promise<Uint8Array> {
   return kdf.expand(
     secret,
     new Uint8Array([
       ...encodeUint16(length),
       ...encodeVarLenData(utf8ToBytes(`MLS 1.0 ${label}`)),
       ...encodeVarLenData(context),
-    ]).buffer,
+    ]),
     length,
   )
 }
 
-export async function deriveSecret(secret: BufferSource, label: string, kdf: Kdf): Promise<Uint8Array> {
-  return new Uint8Array(await expandWithLabel(secret, label, new Uint8Array(), kdf.size, kdf))
+export async function deriveSecret(secret: Uint8Array, label: string, kdf: Kdf): Promise<Uint8Array> {
+  return expandWithLabel(secret, label, new Uint8Array(), kdf.size, kdf)
 }
 
 export async function deriveTreeSecret(
-  secret: BufferSource,
+  secret: Uint8Array,
   label: string,
   generation: number,
   length: number,
   kdf: Kdf,
 ): Promise<Uint8Array> {
-  return new Uint8Array(await expandWithLabel(secret, label, encodeUint32(generation), length, kdf))
+  return expandWithLabel(secret, label, encodeUint32(generation), length, kdf)
 }

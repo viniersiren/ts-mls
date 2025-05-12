@@ -6,7 +6,6 @@ import { CiphersuiteName, decodeCiphersuite, encodeCiphersuite } from "./crypto/
 import { expandWithLabel, Kdf } from "./crypto/kdf"
 import { decodeExtension, encodeExtension, Extension } from "./extension"
 import { decodeProtocolVersion, encodeProtocolVersion, ProtocolVersionName } from "./protocolVersion"
-import { bytesToBuffer } from "./util/byteArray"
 
 export type GroupContext = Readonly<{
   version: ProtocolVersionName
@@ -60,7 +59,7 @@ export async function extractEpochSecret(
   pskSecret?: Uint8Array,
 ) {
   const psk = pskSecret === undefined ? new Uint8Array(kdf.size) : pskSecret
-  const extracted = await kdf.extract(bytesToBuffer(joinerSecret), bytesToBuffer(psk))
+  const extracted = await kdf.extract(joinerSecret, psk)
 
   return expandWithLabel(extracted, "epoch", encodeGroupContext(context), kdf.size, kdf)
 }
@@ -71,7 +70,7 @@ export async function extractJoinerSecret(
   commitSecret: Uint8Array,
   kdf: Kdf,
 ) {
-  const extracted = await kdf.extract(bytesToBuffer(previousInitSecret), bytesToBuffer(commitSecret))
+  const extracted = await kdf.extract(previousInitSecret, commitSecret)
 
   return expandWithLabel(extracted, "joiner", encodeGroupContext(context), kdf.size, kdf)
 }

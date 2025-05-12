@@ -41,7 +41,7 @@ export function createConfirmedHash(
   interimTranscriptHash: Uint8Array,
   input: ConfirmedTranscriptHashInput,
   hash: Hash,
-): Promise<ArrayBuffer> {
+): Promise<Uint8Array> {
   return hash.digest(new Uint8Array([...interimTranscriptHash, ...encodeConfirmedTranscriptHashInput(input)]))
 }
 
@@ -49,6 +49,6 @@ export function createInterimHash(
   confirmedHash: Uint8Array,
   input: InterimTranscriptHashInput,
   hash: Hash,
-): Promise<ArrayBuffer> {
+): Promise<Uint8Array> {
   return hash.digest(new Uint8Array([...confirmedHash, ...encodeInterimTranscriptHashInput(input)]))
 }

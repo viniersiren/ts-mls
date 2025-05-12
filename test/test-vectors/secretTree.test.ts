@@ -47,11 +47,11 @@ async function testSecretTree(
 ) {
   // key == sender_data_key(sender_data_secret, ciphertext)
   const derivedKey = await expandSenderDataKey(impl, hexToBytes(senderSecret), hexToBytes(ciphertext))
-  expect(new Uint8Array(derivedKey)).toStrictEqual(hexToBytes(key))
+  expect(derivedKey).toStrictEqual(hexToBytes(key))
 
   //nonce == sender_data_nonce(sender_data_secret, ciphertext)
   const derivedNonce = await expandSenderDataNonce(impl, hexToBytes(senderSecret), hexToBytes(ciphertext))
-  expect(new Uint8Array(derivedNonce)).toStrictEqual(hexToBytes(nonce))
+  expect(derivedNonce).toStrictEqual(hexToBytes(nonce))
 
   const tree = await createSecretTree(leaves.length, hexToBytes(encryptionSecret), impl.kdf)
   for (const [index, leaf] of leaves.entries()) {
@@ -62,11 +62,11 @@ async function testSecretTree(
       expect(ratcheted.generation).toBe(gen.generation)
 
       //handshake_key = handshake_ratchet_key_[i]_[generation]
-      const handshakeKey = await deriveKey(new Uint8Array(ratcheted.secret), ratcheted.generation, impl)
+      const handshakeKey = await deriveKey(ratcheted.secret, ratcheted.generation, impl)
       expect(handshakeKey).toStrictEqual(hexToBytes(gen.handshake_key))
 
       // handshake_nonce = handshake_ratchet_nonce_[i]_[generation]
-      const handshakeNonce = await deriveNonce(new Uint8Array(ratcheted.secret), ratcheted.generation, impl)
+      const handshakeNonce = await deriveNonce(ratcheted.secret, ratcheted.generation, impl)
       expect(handshakeNonce).toStrictEqual(hexToBytes(gen.handshake_nonce))
     }
 
@@ -76,12 +76,12 @@ async function testSecretTree(
       expect(ratcheted.generation).toBe(gen.generation)
 
       //pplication_key = application_ratchet_key_[i]_[generation]
-      const applicationKey = await deriveKey(new Uint8Array(ratcheted.secret), ratcheted.generation, impl)
-      expect(new Uint8Array(applicationKey)).toStrictEqual(hexToBytes(gen.application_key))
+      const applicationKey = await deriveKey(ratcheted.secret, ratcheted.generation, impl)
+      expect(applicationKey).toStrictEqual(hexToBytes(gen.application_key))
 
       // application_nonce = application_ratchet_nonce_[i]_[generation]
-      const applicationNonce = await deriveNonce(new Uint8Array(ratcheted.secret), ratcheted.generation, impl)
-      expect(new Uint8Array(applicationNonce)).toStrictEqual(hexToBytes(gen.application_nonce))
+      const applicationNonce = await deriveNonce(ratcheted.secret, ratcheted.generation, impl)
+      expect(applicationNonce).toStrictEqual(hexToBytes(gen.application_nonce))
     }
   }
 }

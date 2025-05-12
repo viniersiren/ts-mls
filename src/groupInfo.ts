@@ -7,7 +7,7 @@ import { deriveSecret, Kdf } from "./crypto/kdf"
 import { Signature, signWithLabel, verifyWithLabel } from "./crypto/signature"
 import { decodeExtension, encodeExtension, Extension } from "./extension"
 import { decodeGroupContext, encodeGroupContext, extractEpochSecret, GroupContext } from "./groupContext"
-import { bytesToBuffer } from "./util/byteArray"
+
 import { Welcome, welcomeKey, welcomeNonce } from "./welcome"
 
 export type GroupInfoTBS = Readonly<{
@@ -67,11 +67,11 @@ export async function verifyConfirmationTag(
 ): Promise<boolean> {
   const epochSecret = await extractEpochSecret(gi.groupContext, joinerSecret, cs.kdf, pskSecret)
   const key = await deriveSecret(epochSecret, "confirm", cs.kdf)
-  return cs.hash.verifyMac(key, bytesToBuffer(gi.confirmationTag), gi.groupContext.confirmedTranscriptHash)
+  return cs.hash.verifyMac(key, gi.confirmationTag, gi.groupContext.confirmedTranscriptHash)
 }
 
 export async function extractWelcomeSecret(joinerSecret: Uint8Array, pskSecret: Uint8Array, kdf: Kdf) {
-  return deriveSecret(await kdf.extract(bytesToBuffer(joinerSecret), bytesToBuffer(pskSecret)), "welcome", kdf)
+  return deriveSecret(await kdf.extract(joinerSecret, pskSecret), "welcome", kdf)
 }
 
 export async function decryptGroupInfo(
@@ -84,8 +84,8 @@ export async function decryptGroupInfo(
 
   const key = await welcomeKey(welcomeSecret, cs)
   const nonce = await welcomeNonce(welcomeSecret, cs)
-  const decryted = await cs.hpke.decryptAead(key, nonce, new ArrayBuffer(), bytesToBuffer(w.encryptedGroupInfo))
+  const decryted = await cs.hpke.decryptAead(key, nonce, new Uint8Array(), w.encryptedGroupInfo)
 
-  const decoded = decodeGroupInfo(new Uint8Array(decryted), 0)
+  const decoded = decodeGroupInfo(decryted, 0)
   return decoded?.[0]
 }

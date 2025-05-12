@@ -15,7 +15,6 @@ export type Capabilities = {
   credentials: CredentialTypeName[]
 }
 
-// Encoder
 export const encodeCapabilities: Encoder<Capabilities> = contramapEncoders(
   [
     encodeVarLenType(encodeProtocolVersion),

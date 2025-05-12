@@ -84,7 +84,7 @@ export async function createMemberPublicMessage(
     content: content.contentTbs.content,
     auth: content.auth,
     senderType: "member",
-    membershipTag: new Uint8Array(tag),
+    membershipTag: tag,
   }
 }
 
@@ -182,7 +182,7 @@ export async function protectPublicMessage(
       content: content.content,
       auth: content.auth,
       senderType: "member",
-      membershipTag: new Uint8Array(tag),
+      membershipTag: tag,
     }
   }
 

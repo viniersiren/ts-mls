@@ -11,7 +11,6 @@ import { decodeMlsMessage } from "../../src/message"
 import { decryptGroupSecrets } from "../../src/groupSecrets"
 import { makeKeyPackageRef } from "../../src/keyPackage"
 import { constantTimeEqual } from "../../src/util/constantTimeCompare"
-import { bytesToBuffer } from "../../src/util/byteArray"
 import { decryptGroupInfo, verifyConfirmationTag, verifyGroupInfoSignature } from "../../src/groupInfo"
 
 test("welcome test vectors", async () => {
@@ -38,12 +37,12 @@ async function testWelcome(
 
   const keyPackageRef = await makeKeyPackageRef(y[0].keyPackage, impl.hash)
 
-  const secret = w.secrets.find((s) => constantTimeEqual(s.newMember, new Uint8Array(keyPackageRef)))
+  const secret = w.secrets.find((s) => constantTimeEqual(s.newMember, keyPackageRef))
 
   if (secret === undefined) throw new Error("No matching secret found")
 
-  const privKey: PrivateKey = await impl.hpke.importPrivateKey(bytesToBuffer(hexToBytes(init_priv)))
-  const groupSecrets = await decryptGroupSecrets(privKey, new Uint8Array(keyPackageRef), w, impl.hpke)
+  const privKey: PrivateKey = await impl.hpke.importPrivateKey(hexToBytes(init_priv))
+  const groupSecrets = await decryptGroupSecrets(privKey, keyPackageRef, w, impl.hpke)
 
   if (groupSecrets === undefined) throw new Error("Could not decrypt group secrets")
 

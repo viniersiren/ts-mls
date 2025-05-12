@@ -5,7 +5,6 @@ import { signWithLabel, verifyWithLabel } from "../../src/crypto/signature"
 import { refhash } from "../../src/crypto/hash"
 import { deriveSecret, deriveTreeSecret, expandWithLabel } from "../../src/crypto/kdf"
 import { decryptWithLabel, encryptWithLabel } from "../../src/crypto/hpke"
-import { bytesToBuffer } from "../../src/util/byteArray"
 
 test("crypto-basics test vectors", async () => {
   for (const x of json) {
@@ -40,13 +39,13 @@ async function test_expand_with_label(
 ) {
   //out == ExpandWithLabel(secret, label, context, length)
   const res = await expandWithLabel(hexToBytes(o.secret), o.label, hexToBytes(o.context), o.length, impl.kdf)
-  expect(bytesToHex(new Uint8Array(res))).toBe(o.out)
+  expect(bytesToHex(res)).toBe(o.out)
 }
 
 async function test_ref_hash(impl: CiphersuiteImpl, o: { label: string; value: string; out: string }) {
   //out == RefHash(label, value)
   const res = await refhash(o.label, hexToBytes(o.value), impl.hash)
-  expect(bytesToHex(new Uint8Array(res))).toBe(o.out)
+  expect(bytesToHex(res)).toBe(o.out)
 }
 
 function test_sign_with_label(
@@ -75,16 +74,16 @@ async function test_encrypt_with_label(
     pub: string
   },
 ) {
-  const privateKey = await impl.hpke.importPrivateKey(bytesToBuffer(hexToBytes(o.priv)))
-  const publicKey = await impl.hpke.importPublicKey(bytesToBuffer(hexToBytes(o.pub)))
+  const privateKey = await impl.hpke.importPrivateKey(hexToBytes(o.priv))
+  const publicKey = await impl.hpke.importPublicKey(hexToBytes(o.pub))
 
   //DecryptWithLabel(priv, label, context, kem_output, ciphertext) == plaintext
   const decrypted = await decryptWithLabel(
     privateKey,
     o.label,
     hexToBytes(o.context),
-    bytesToBuffer(hexToBytes(o.kem_output)),
-    bytesToBuffer(hexToBytes(o.ciphertext)),
+    hexToBytes(o.kem_output),
+    hexToBytes(o.ciphertext),
     impl.hpke,
   )
 
@@ -95,7 +94,7 @@ async function test_encrypt_with_label(
     publicKey,
     o.label,
     hexToBytes(o.context),
-    bytesToBuffer(hexToBytes(o.plaintext)),
+    hexToBytes(o.plaintext),
     impl.hpke,
   )
 

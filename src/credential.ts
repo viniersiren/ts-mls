@@ -27,8 +27,6 @@ export const encodeCredential: Encoder<Credential> = (c) => {
   }
 }
 
-// Decoders
-
 const decodeCredentialBasic: Decoder<CredentialBasic> = mapDecoder(decodeVarLenData, (identity) => ({
   credentialType: "basic",
   identity,

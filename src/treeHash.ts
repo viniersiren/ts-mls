@@ -9,7 +9,6 @@ import { encodeNodeType, decodeNodeType } from "./nodeType"
 import { ParentNode, encodeParentNode, decodeParentNode } from "./parentNode"
 import { RatchetTree } from "./ratchetTree"
 import { rootFromNodeWidth, isLeaf, nodeToLeafIndex, left, right } from "./treemath"
-import { bytesToBuffer } from "./util/byteArray"
 
 export type TreeHashInput = LeafNodeHashInput | ParentNodeHashInput
 type LeafNodeHashInput = Readonly<{
@@ -86,7 +85,7 @@ export async function treeHash(tree: RatchetTree, subtreeIndex: number, h: Hash)
       leafIndex: nodeToLeafIndex(subtreeIndex),
       leafNode: leafNode?.leaf,
     })
-    return new Uint8Array(await h.digest(bytesToBuffer(input)))
+    return await h.digest(input)
   } else {
     const parentNode = tree[subtreeIndex]
     if (parentNode?.nodeType === "leaf") throw new Error("Somehow found leaf node in parent position")
@@ -99,6 +98,6 @@ export async function treeHash(tree: RatchetTree, subtreeIndex: number, h: Hash)
       rightHash: rightHash,
     } as const
 
-    return new Uint8Array(await h.digest(encodeParentNodeHashInput(input)))
+    return await h.digest(encodeParentNodeHashInput(input))
   }
 }

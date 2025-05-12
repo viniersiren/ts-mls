@@ -2,7 +2,6 @@ import { CiphersuiteImpl } from "./crypto/ciphersuite"
 import { deriveSecret, expandWithLabel } from "./crypto/kdf"
 import { extractEpochSecret, extractJoinerSecret, GroupContext } from "./groupContext"
 import { extractWelcomeSecret } from "./groupInfo"
-import { bytesToBuffer } from "./util/byteArray"
 
 type KeySchedule = {
   epochSecret: Uint8Array
@@ -30,10 +29,10 @@ export async function mlsExporter(
   length: number,
   cs: CiphersuiteImpl,
 ) {
-  const secret = await deriveSecret(bytesToBuffer(exporterSecret), label, cs.kdf)
+  const secret = await deriveSecret(exporterSecret, label, cs.kdf)
 
   const hash = await cs.hash.digest(context)
-  return expandWithLabel(secret, "exported", new Uint8Array(hash), length, cs.kdf)
+  return expandWithLabel(secret, "exported", hash, length, cs.kdf)
 }
 
 export async function initializeEpoch(
@@ -43,7 +42,7 @@ export async function initializeEpoch(
   pskSecret: Uint8Array,
   impl: CiphersuiteImpl,
 ): Promise<EpochSecrets> {
-  const joinerSecret = new Uint8Array(await extractJoinerSecret(groupContext, initSecret, commitSecret, impl.kdf))
+  const joinerSecret = await extractJoinerSecret(groupContext, initSecret, commitSecret, impl.kdf)
 
   const welcomeSecret = await extractWelcomeSecret(joinerSecret, pskSecret, impl.kdf)
   const epochSecret = await extractEpochSecret(groupContext, joinerSecret, impl.kdf, pskSecret)
@@ -59,7 +58,7 @@ export async function initializeEpoch(
   const epochAuthenticator = await deriveSecret(epochSecret, "authentication", impl.kdf)
 
   const newKeySchedule: KeySchedule = {
-    epochSecret: new Uint8Array(epochSecret),
+    epochSecret: epochSecret,
     initSecret: newInitSecret,
     senderDataSecret,
     encryptionSecret,

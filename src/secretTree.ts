@@ -1,6 +1,6 @@
 import { CiphersuiteImpl } from "./crypto/ciphersuite"
 import { Kdf, expandWithLabel, deriveTreeSecret } from "./crypto/kdf"
-import { nodeWidth, root, leftOrLeaf, right } from "./treemath"
+import { nodeWidth, root, right, isLeaf, left } from "./treemath"
 import { repeatAsync } from "./util/repeat"
 
 export type SecretTree = Uint8Array[]
@@ -8,17 +8,17 @@ export function setSecret(tree: SecretTree, nodeIndex: number, secret: Uint8Arra
   return [...tree.slice(0, nodeIndex), secret, ...tree.slice(nodeIndex + 1)]
 }
 
-export function createSecretTree(totalLeaves: number, encryptionSecret: Uint8Array, kdf: Kdf): Promise<SecretTree> {
-  const tree = new Array(nodeWidth(totalLeaves))
-  const rootIndex = root(totalLeaves)
+export function createSecretTree(leafWidth: number, encryptionSecret: Uint8Array, kdf: Kdf): Promise<SecretTree> {
+  const tree = new Array(nodeWidth(leafWidth))
+  const rootIndex = root(leafWidth)
 
   const parentInhabited = setSecret(tree, rootIndex, encryptionSecret)
   return deriveChildren(parentInhabited, rootIndex, kdf)
 }
 
 export async function deriveChildren(tree: SecretTree, nodeIndex: number, kdf: Kdf): Promise<SecretTree> {
-  const l = leftOrLeaf(nodeIndex)
-  if (l === undefined) return tree
+  if (isLeaf(nodeIndex)) return tree
+  const l = left(nodeIndex)
 
   const r = right(nodeIndex)
 
@@ -28,7 +28,7 @@ export async function deriveChildren(tree: SecretTree, nodeIndex: number, kdf: K
 
   const rightSecret = await expandWithLabel(parentSecret, "tree", new TextEncoder().encode("right"), kdf.size, kdf)
 
-  const currentTree = setSecret(setSecret(tree, l, new Uint8Array(leftSecret)), r, new Uint8Array(rightSecret))
+  const currentTree = setSecret(setSecret(tree, l, leftSecret), r, rightSecret)
 
   return deriveChildren(await deriveChildren(currentTree, l, kdf), r, kdf)
 }
@@ -64,5 +64,5 @@ export async function deriveRatchetRoot(
   const node = tree[nodeIndex]
   if (node === undefined) throw new Error("Bad node index for secret tree")
   const secret = await expandWithLabel(node, label, new Uint8Array(), kdf.size, kdf)
-  return { secret: new Uint8Array(secret), generation: 0 }
+  return { secret: secret, generation: 0 }
 }

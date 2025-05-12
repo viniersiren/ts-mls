@@ -29,7 +29,6 @@ export const encodeUpdatePath: Encoder<UpdatePath> = contramapEncoders(
   (path) => [path.leafNode, path.nodes] as const,
 )
 
-// Decoder for UpdatePath
 export const decodeUpdatePath: Decoder<UpdatePath> = mapDecoders(
   [decodeLeafNode, decodeVarLenType(decodeUpdatePathNode)],
   (leafNode, nodes) => ({ leafNode, nodes }),

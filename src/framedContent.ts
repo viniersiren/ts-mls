@@ -292,7 +292,7 @@ export async function signFramedContentCommit(
   return {
     contentType: tbs.content.contentType,
     signature,
-    confirmationTag: new Uint8Array(await createConfirmationTag(confirmationKey, confirmedTranscriptHash, cs.hash)),
+    confirmationTag: await createConfirmationTag(confirmationKey, confirmedTranscriptHash, cs.hash),
   }
 }
 
@@ -335,7 +335,7 @@ export function createConfirmationTag(
   confirmationKey: Uint8Array,
   confirmedTranscriptHash: Uint8Array,
   h: Hash,
-): Promise<ArrayBuffer> {
+): Promise<Uint8Array> {
   return h.mac(confirmationKey, confirmedTranscriptHash)
 }
 

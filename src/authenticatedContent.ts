@@ -125,7 +125,7 @@ export function createMembershipTag(
   membershipKey: Uint8Array,
   tbm: AuthenticatedContentTBM,
   h: Hash,
-): Promise<ArrayBuffer> {
+): Promise<Uint8Array> {
   return h.mac(membershipKey, encodeAuthenticatedContentTBM(tbm))
 }
 

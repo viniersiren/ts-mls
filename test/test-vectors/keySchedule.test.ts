@@ -8,7 +8,7 @@ import {
 import { encodeGroupContext, GroupContext } from "../../src/groupContext"
 import { hexToBytes } from "@noble/ciphers/utils"
 import json from "../../test_vectors/key-schedule.json"
-import { bytesToBuffer } from "../../src/util/byteArray"
+
 import { initializeEpoch, mlsExporter } from "../../src/keySchedule"
 
 test("key-schedule test vectors", async () => {
@@ -64,8 +64,8 @@ async function testKeySchedule(
       expect(keySchedule.epochAuthenticator).toStrictEqual(hexToBytes(epoch.epoch_authenticator))
 
       //Verify the external_pub is the public key output from KEM.DeriveKeyPair(external_secret)
-      const { privateKey, publicKey } = await impl.hpke.deriveKeyPair(bytesToBuffer(hexToBytes(epoch.external_secret)))
-      expect(new Uint8Array(await impl.hpke.exportPublicKey(publicKey))).toStrictEqual(hexToBytes(epoch.external_pub))
+      const { privateKey, publicKey } = await impl.hpke.deriveKeyPair(hexToBytes(epoch.external_secret))
+      expect(await impl.hpke.exportPublicKey(publicKey)).toStrictEqual(hexToBytes(epoch.external_pub))
 
       //Verify the exporter.secret is the value output from MLS-Exporter(exporter.label, exporter.context, exporter.length)
       const exporter = await mlsExporter(
@@ -75,7 +75,7 @@ async function testKeySchedule(
         epoch.exporter.length,
         impl,
       )
-      expect(new Uint8Array(exporter)).toStrictEqual(hexToBytes(epoch.exporter.secret))
+      expect(exporter).toStrictEqual(hexToBytes(epoch.exporter.secret))
 
       return keySchedule.initSecret
     },

@@ -18,46 +18,59 @@ export function makeAead(aeadAlg: AeadAlgorithm): AeadInterface {
 }
 
 export async function encryptAead(
-  key: ArrayBuffer,
-  nonce: ArrayBuffer,
-  aad: ArrayBuffer,
-  plaintext: ArrayBuffer,
+  key: Uint8Array,
+  nonce: Uint8Array,
+  aad: Uint8Array,
+  plaintext: Uint8Array,
   alg: AeadAlgorithm,
-): Promise<ArrayBuffer> {
+): Promise<Uint8Array> {
   switch (alg) {
     case "AES128GCM":
-    case "AES256GCM":
-      return await crypto.subtle.encrypt(
-        { name: "AES-GCM", iv: nonce, additionalData: aad },
-        await crypto.subtle.importKey("raw", key, { name: "AES-GCM" }, false, ["encrypt"]),
-        plaintext,
+    case "AES256GCM": {
+      const cryptoKey = await crypto.subtle.importKey("raw", bytesToBuffer(key), { name: "AES-GCM" }, false, [
+        "encrypt",
+      ])
+      const result = await crypto.subtle.encrypt(
+        {
+          name: "AES-GCM",
+          iv: bytesToBuffer(nonce),
+          additionalData: aad.length > 0 ? bytesToBuffer(aad) : undefined,
+        },
+        cryptoKey,
+        bytesToBuffer(plaintext),
       )
+      return new Uint8Array(result)
+    }
     case "CHACHA20POLY1305":
-      return bytesToBuffer(
-        chacha20poly1305(new Uint8Array(key), new Uint8Array(nonce), new Uint8Array(aad)).encrypt(
-          new Uint8Array(plaintext),
-        ),
-      )
+      return chacha20poly1305(key, nonce, aad).encrypt(plaintext)
   }
 }
 
 export async function decryptAead(
-  key: ArrayBuffer,
-  nonce: ArrayBuffer,
-  aad: ArrayBuffer,
-  ciphertext: ArrayBuffer,
+  key: Uint8Array,
+  nonce: Uint8Array,
+  aad: Uint8Array,
+  ciphertext: Uint8Array,
   alg: AeadAlgorithm,
-): Promise<ArrayBuffer> {
+): Promise<Uint8Array> {
   switch (alg) {
     case "AES128GCM":
-    case "AES256GCM":
-      const x = await crypto.subtle.importKey("raw", key, { name: "AES-GCM" }, false, ["decrypt"])
-      return await crypto.subtle.decrypt({ name: "AES-GCM", iv: nonce, additionalData: aad }, x, ciphertext)
-    case "CHACHA20POLY1305":
-      return bytesToBuffer(
-        chacha20poly1305(new Uint8Array(key), new Uint8Array(nonce), new Uint8Array(aad)).decrypt(
-          new Uint8Array(ciphertext),
-        ),
+    case "AES256GCM": {
+      const cryptoKey = await crypto.subtle.importKey("raw", bytesToBuffer(key), { name: "AES-GCM" }, false, [
+        "decrypt",
+      ])
+      const result = await crypto.subtle.decrypt(
+        {
+          name: "AES-GCM",
+          iv: bytesToBuffer(nonce),
+          additionalData: aad.length > 0 ? bytesToBuffer(aad) : undefined,
+        },
+        cryptoKey,
+        bytesToBuffer(ciphertext),
       )
+      return new Uint8Array(result)
+    }
+    case "CHACHA20POLY1305":
+      return chacha20poly1305(key, nonce, aad).decrypt(ciphertext)
   }
 }
