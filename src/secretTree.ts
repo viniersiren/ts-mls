@@ -3,12 +3,6 @@ import { Kdf, expandWithLabel, deriveTreeSecret } from "./crypto/kdf"
 import { nodeWidth, root, leftOrLeaf, right } from "./treemath"
 import { repeatAsync } from "./util/repeat"
 
-// type ParentHashInput = Readonly<{
-//   encryptionKey: Uint8Array
-//   parentHash: Uint8Array
-//   originalSiblingTreeHash: Uint8Array
-// }>
-
 export type SecretTree = Uint8Array[]
 export function setSecret(tree: SecretTree, nodeIndex: number, secret: Uint8Array): SecretTree {
   return [...tree.slice(0, nodeIndex), secret, ...tree.slice(nodeIndex + 1)]

@@ -9,6 +9,7 @@ import { encodeNodeType, decodeNodeType } from "./nodeType"
 import { ParentNode, encodeParentNode, decodeParentNode } from "./parentNode"
 import { RatchetTree } from "./ratchetTree"
 import { rootFromNodeWidth, isLeaf, nodeToLeafIndex, left, right } from "./treemath"
+import { bytesToBuffer } from "./util/byteArray"
 
 export type TreeHashInput = LeafNodeHashInput | ParentNodeHashInput
 type LeafNodeHashInput = Readonly<{
@@ -72,11 +73,11 @@ export const decodeTreeHashInput: Decoder<TreeHashInput> = flatMapDecoder(
   },
 )
 
-export async function treeHash(tree: RatchetTree, h: Hash): Promise<Uint8Array> {
-  return treeHashRecur(tree, rootFromNodeWidth(tree.length), h)
+export async function treeHashRoot(tree: RatchetTree, h: Hash): Promise<Uint8Array> {
+  return treeHash(tree, rootFromNodeWidth(tree.length), h)
 }
 
-async function treeHashRecur(tree: RatchetTree, subtreeIndex: number, h: Hash): Promise<Uint8Array> {
+export async function treeHash(tree: RatchetTree, subtreeIndex: number, h: Hash): Promise<Uint8Array> {
   if (isLeaf(subtreeIndex)) {
     const leafNode = tree[subtreeIndex]
     if (leafNode?.nodeType === "parent") throw new Error("Somehow found parent node in leaf position")
@@ -85,12 +86,12 @@ async function treeHashRecur(tree: RatchetTree, subtreeIndex: number, h: Hash): 
       leafIndex: nodeToLeafIndex(subtreeIndex),
       leafNode: leafNode?.leaf,
     })
-    return new Uint8Array(await h.digest(input))
+    return new Uint8Array(await h.digest(bytesToBuffer(input)))
   } else {
     const parentNode = tree[subtreeIndex]
     if (parentNode?.nodeType === "leaf") throw new Error("Somehow found leaf node in parent position")
-    const leftHash = await treeHashRecur(tree, left(subtreeIndex), h)
-    const rightHash = await treeHashRecur(tree, right(subtreeIndex), h)
+    const leftHash = await treeHash(tree, left(subtreeIndex), h)
+    const rightHash = await treeHash(tree, right(subtreeIndex), h)
     const input = {
       nodeType: "parent",
       parentNode: parentNode?.parent,

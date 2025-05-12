@@ -5,7 +5,7 @@ import { decodeVarLenType, encodeVarLenType } from "./codec/variableLength"
 import { decodeNodeType, encodeNodeType } from "./nodeType"
 import { decodeOptional, encodeOptional } from "./codec/optional"
 import { ParentNode, encodeParentNode, decodeParentNode } from "./parentNode"
-import { directPath, isLeaf, leafToNodeIndex, leafWidth, nodeToLeafIndex } from "./treemath"
+import { directPath, isLeaf, leafToNodeIndex, leafWidth, left, nodeToLeafIndex, parent, right, root } from "./treemath"
 import { LeafNode, encodeLeafNode, decodeLeafNode } from "./leafNode"
 
 export type Node = NodeParent | NodeLeaf
@@ -198,4 +198,70 @@ export function removeLeafNode(tree: RatchetTree, removedLeafIndex: number) {
  */
 function condenseRatchetTreeAfterRemove(tree: RatchetTree) {
   return extendRatchetTree(stripBlankNodes(tree))
+}
+
+export function resolution(tree: (Node | undefined)[], nodeIndex: number): number[] {
+  const node = tree[nodeIndex]
+
+  if (!node) {
+    if (isLeaf(nodeIndex)) {
+      return []
+    }
+
+    const l = left(nodeIndex)
+    const r = right(nodeIndex)
+    const leftRes = resolution(tree, l)
+    const rightRes = resolution(tree, r)
+    return [...leftRes, ...rightRes]
+  }
+
+  if (isLeaf(nodeIndex)) {
+    return [nodeIndex]
+  }
+
+  const unmerged = node.nodeType === "parent" ? node.parent.unmergedLeaves : []
+  return [nodeIndex, ...unmerged.map(leafToNodeIndex)]
+}
+
+export function removeLeaves(tree: RatchetTree, leafIndices: number[]) {
+  const copy = tree.slice()
+  function shouldBeRemoved(leafIndex: number): boolean {
+    return leafIndices.find((x) => leafIndex === x) !== undefined
+  }
+  for (const [i, n] of tree.entries()) {
+    if (n !== undefined) {
+      if (isLeaf(i) && shouldBeRemoved(nodeToLeafIndex(i))) {
+        copy[i] = undefined
+      } else if (n.nodeType === "parent") {
+        copy[i] = {
+          ...n,
+          parent: { ...n.parent, unmergedLeaves: n.parent.unmergedLeaves.filter((l) => !shouldBeRemoved(l)) },
+        }
+      }
+    }
+  }
+  return condenseRatchetTreeAfterRemove(copy)
+}
+
+export function traverseToRoot<T>(
+  tree: RatchetTree,
+  leafIndex: number,
+  f: (nodeIndex: number, node: ParentNode) => T | undefined,
+): [T, number] | undefined {
+  const rootIndex = root(leafWidth(tree.length))
+  let currentIndex = leafToNodeIndex(leafIndex)
+  while (currentIndex != rootIndex) {
+    currentIndex = parent(currentIndex, leafWidth(tree.length))
+    const currentNode = tree[currentIndex]
+    if (currentNode !== undefined) {
+      if (currentNode.nodeType === "leaf") {
+        throw new Error("Got leaf when it should've been a node")
+      }
+
+      const result = f(currentIndex, currentNode.parent)
+      if (result !== undefined) {
+        return [result, currentIndex]
+      }
+    }
+  }
 }

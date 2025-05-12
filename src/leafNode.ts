@@ -4,6 +4,7 @@ import { Decoder, mapDecoders, mapDecoder, flatMapDecoder, succeedDecoder, decod
 import { Encoder, contramapEncoders, contramapEncoder } from "./codec/tlsEncoder"
 import { encodeVarLenData, decodeVarLenData, encodeVarLenType, decodeVarLenType } from "./codec/variableLength"
 import { encodeCredential, decodeCredential, Credential } from "./credential"
+import { Signature, verifyWithLabel } from "./crypto/signature"
 import { Extension, encodeExtension, decodeExtension } from "./extension"
 import { encodeLeafNodeSource, decodeLeafNodeSource, LeafNodeSourceName } from "./leafNodeSource"
 import { Lifetime, encodeLifetime, decodeLifetime } from "./lifetime"
@@ -98,6 +99,7 @@ export const decodeLeafNodeExtensions: Decoder<LeafNodeExtensions> = mapDecoder(
 )
 
 type GroupIdLeafIndex = Readonly<{
+  leafNodeSource: Exclude<LeafNodeSourceName, "key_package">
   groupId: Uint8Array
   leafIndex: number
 }>
@@ -107,37 +109,40 @@ export const encodeGroupIdLeafIndex: Encoder<GroupIdLeafIndex> = contramapEncode
   (g) => [g.groupId, g.leafIndex] as const,
 )
 
-export const decodeGroupIdLeafIndex: Decoder<GroupIdLeafIndex> = mapDecoders(
-  [decodeVarLenData, decodeUint32],
-  (groupId, leafIndex) => ({ groupId, leafIndex }),
-)
+export function decodeGroupIdLeafIndex(
+  leafNodeSource: Exclude<LeafNodeSourceName, "key_package">,
+): Decoder<GroupIdLeafIndex> {
+  return mapDecoders([decodeVarLenData, decodeUint32], (groupId, leafIndex) => ({ groupId, leafIndex, leafNodeSource }))
+}
 
-export type LeafNodeGroupInfo = GroupIdLeafIndex | {}
+export type LeafNodeGroupInfo = GroupIdLeafIndex | { leafNodeSource: "key_package" }
 
 export const encodeLeafNodeGroupInfo: Encoder<LeafNodeGroupInfo> = (info) => {
-  if ("groupId" in info) {
-    return encodeGroupIdLeafIndex(info)
-  }
-  // If the object is an empty object, we simply return an empty array (i.e., no data to encode)
-  return new Uint8Array()
-}
-
-export function decodeLeafNodeGroupInfo(lns: LeafNodeSourceName): Decoder<LeafNodeGroupInfo> {
-  switch (lns) {
+  switch (info.leafNodeSource) {
     case "key_package":
-      return mapDecoder(decodeVoid, () => ({}))
+      return new Uint8Array()
     case "update":
-      return decodeGroupIdLeafIndex
     case "commit":
-      return decodeGroupIdLeafIndex
+      return encodeGroupIdLeafIndex(info)
   }
 }
 
-export type LeafNodeTBS = LeafNodeData & LeafNodeInfo & LeafNodeExtensions & LeafNodeGroupInfo
+export function decodeLeafNodeGroupInfo(leafNodeSource: LeafNodeSourceName): Decoder<LeafNodeGroupInfo> {
+  switch (leafNodeSource) {
+    case "key_package":
+      return mapDecoder(decodeVoid, () => ({ leafNodeSource }))
+    case "update":
+      return decodeGroupIdLeafIndex(leafNodeSource)
+    case "commit":
+      return decodeGroupIdLeafIndex(leafNodeSource)
+  }
+}
+
+export type LeafNodeTBS = LeafNodeData & LeafNodeInfo & LeafNodeExtensions & { info: LeafNodeGroupInfo }
 
 export const encodeLeafNodeTBS: Encoder<LeafNodeTBS> = contramapEncoders(
   [encodeLeafNodeData, encodeLeafNodeInfo, encodeLeafNodeExtensions, encodeLeafNodeGroupInfo],
-  (tbs) => [tbs, tbs, tbs, tbs] as const,
+  (tbs) => [tbs, tbs, tbs, tbs.info] as const,
 )
 
 export const decodeLeafNodeTBS: Decoder<LeafNodeTBS> = flatMapDecoder(decodeLeafNodeData, (leafNodeData) =>
@@ -147,7 +152,7 @@ export const decodeLeafNodeTBS: Decoder<LeafNodeTBS> = flatMapDecoder(decodeLeaf
         ...leafNodeData,
         ...leafNodeInfo,
         ...leafNodeExtensions,
-        ...leafNodeGroupInfo,
+        info: leafNodeGroupInfo,
       })),
     ),
   ),
@@ -169,3 +174,22 @@ export const decodeLeafNode: Decoder<LeafNode> = mapDecoders(
     signature,
   }),
 )
+
+function toTbs(leafNode: LeafNode, groupId: Uint8Array, leafIndex: number): LeafNodeTBS {
+  return { ...leafNode, info: { leafNodeSource: leafNode.leafNodeSource, groupId, leafIndex } }
+}
+
+export function verifyLeafNodeSignature(
+  leaf: LeafNode,
+  groupId: Uint8Array,
+  leafIndex: number,
+  sig: Signature,
+): boolean {
+  return verifyWithLabel(
+    leaf.signatureKey,
+    "LeafNodeTBS",
+    encodeLeafNodeTBS(toTbs(leaf, groupId, leafIndex)),
+    leaf.signature,
+    sig,
+  )
+}

@@ -10,7 +10,7 @@ import {
 import { hexToBytes } from "@noble/ciphers/utils"
 import json from "../../test_vectors/tree-operations.json"
 import { decodeProposal, Proposal } from "../../src/proposal"
-import { treeHash } from "../../src/treeHash"
+import { treeHashRoot } from "../../src/treeHash"
 
 test("tree-operations test vectors", async () => {
   for (const x of json) {
@@ -33,7 +33,7 @@ async function treeOperationsTest(data: TreeOperationData, impl: CiphersuiteImpl
 
   if (tree === undefined) throw new Error("could not decode tree")
 
-  const hash = await treeHash(tree[0], impl.hash)
+  const hash = await treeHashRoot(tree[0], impl.hash)
   expect(hash).toStrictEqual(hexToBytes(data.tree_hash_before))
 
   const proposal = decodeProposal(hexToBytes(data.proposal), 0)
@@ -45,7 +45,7 @@ async function treeOperationsTest(data: TreeOperationData, impl: CiphersuiteImpl
 
   expect(encodeRatchetTree(treeAfter)).toStrictEqual(hexToBytes(data.tree_after))
 
-  const hashAfter = await treeHash(treeAfter!, impl.hash)
+  const hashAfter = await treeHashRoot(treeAfter!, impl.hash)
   expect(hashAfter).toStrictEqual(hexToBytes(data.tree_hash_after))
 }
 

@@ -23,6 +23,6 @@ The following test vectors are fully passing:
 - [x] transcript-hashes
 - [x] tree-math
 - [x] tree-operations
-- [ ] tree-validation
+- [x] tree-validation
 - [ ] treekem
 - [x] welcome
