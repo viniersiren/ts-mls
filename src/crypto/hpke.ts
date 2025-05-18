@@ -72,7 +72,9 @@ export function makeHpke(hpkealg: HpkeAlgorithm): Hpke {
       }
     },
     async importPrivateKey(k) {
-      return (await cs.kem.deserializePrivateKey(bytesToBuffer(k))) as PrivateKey
+      // See https://github.com/mlswg/mls-implementations/issues/176#issuecomment-1817043142
+      const key = hpkealg.kem === "DHKEM-P521-HKDF-SHA512" ? prepadPrivateKeyP521(k) : k
+      return (await cs.kem.deserializePrivateKey(bytesToBuffer(key))) as PrivateKey
     },
     async importPublicKey(k) {
       return (await cs.kem.deserializePublicKey(bytesToBuffer(k))) as PublicKey
@@ -131,4 +133,8 @@ export interface Hpke {
   deriveKeyPair(ikm: Uint8Array): Promise<{ privateKey: PrivateKey; publicKey: PublicKey }>
   keyLength: number
   nonceLength: number
+}
+function prepadPrivateKeyP521(k: Uint8Array) {
+  const lengthDifference = 66 - k.byteLength
+  return new Uint8Array([...new Uint8Array(lengthDifference), ...k])
 }
