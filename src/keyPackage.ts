@@ -55,7 +55,7 @@ export const decodeKeyPackage: Decoder<KeyPackage> = mapDecoders(
 )
 
 export function verifySignature(kp: KeyPackage, s: Signature): boolean {
-  return s.verify(kp.leafNode.signatureKey, encodeKeyPackageTBS(kp), kp.signature)
+  return s.verify(kp.leafNode.signaturePublicKey, encodeKeyPackageTBS(kp), kp.signature)
 }
 
 export function makeKeyPackageRef(value: KeyPackage, h: Hash) {

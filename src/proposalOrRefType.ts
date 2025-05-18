@@ -25,7 +25,7 @@ export const decodeProposalOrRefType: Decoder<ProposalOrRefTypeName> = mapDecode
 
 export type ProposalOrRef = ProposalOrRefProposal | ProposalOrRefProposalRef
 export type ProposalOrRefProposal = { proposalOrRefType: "proposal"; proposal: Proposal }
-export type ProposalOrRefProposalRef = { proposalOrRefType: "reference"; proposal: Uint8Array }
+export type ProposalOrRefProposalRef = { proposalOrRefType: "reference"; reference: Uint8Array }
 
 export const encodeProposalOrRefProposal: Encoder<ProposalOrRefProposal> = contramapEncoders(
   [encodeProposalOrRefType, encodeProposal],
@@ -34,7 +34,7 @@ export const encodeProposalOrRefProposal: Encoder<ProposalOrRefProposal> = contr
 
 export const encodeProposalOrRefProposalRef: Encoder<ProposalOrRefProposalRef> = contramapEncoders(
   [encodeProposalOrRefType, encodeVarLenData],
-  (r) => [r.proposalOrRefType, r.proposal] as const,
+  (r) => [r.proposalOrRefType, r.reference] as const,
 )
 
 export const encodeProposalOrRef: Encoder<ProposalOrRef> = (input) => {
@@ -53,7 +53,7 @@ export const decodeProposalOrRef: Decoder<ProposalOrRef> = flatMapDecoder(
       case "proposal":
         return mapDecoder(decodeProposal, (proposal) => ({ proposalOrRefType, proposal }))
       case "reference":
-        return mapDecoder(decodeVarLenData, (proposal) => ({ proposalOrRefType, proposal }))
+        return mapDecoder(decodeVarLenData, (reference) => ({ proposalOrRefType, reference }))
     }
   },
 )

@@ -80,6 +80,9 @@ export function makeHpke(hpkealg: HpkeAlgorithm): Hpke {
     async exportPublicKey(k) {
       return new Uint8Array(await cs.kem.serializePublicKey(k))
     },
+    async exportPrivateKey(k) {
+      return new Uint8Array(await cs.kem.serializePrivateKey(k))
+    },
     async encryptAead(key, nonce, aad, plaintext) {
       return encryptAead(key, nonce, aad ? aad : new Uint8Array(), plaintext, hpkealg.aead)
     },
@@ -112,6 +115,7 @@ export interface Hpke {
   importPrivateKey(k: Uint8Array): Promise<PrivateKey>
   importPublicKey(k: Uint8Array): Promise<PublicKey>
   exportPublicKey(k: PublicKey): Promise<Uint8Array>
+  exportPrivateKey(k: PrivateKey): Promise<Uint8Array>
   encryptAead(
     key: Uint8Array,
     nonce: Uint8Array,

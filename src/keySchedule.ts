@@ -3,7 +3,7 @@ import { deriveSecret, expandWithLabel } from "./crypto/kdf"
 import { extractEpochSecret, extractJoinerSecret, GroupContext } from "./groupContext"
 import { extractWelcomeSecret } from "./groupInfo"
 
-type KeySchedule = {
+export type KeySchedule = {
   epochSecret: Uint8Array
   senderDataSecret: Uint8Array
   encryptionSecret: Uint8Array

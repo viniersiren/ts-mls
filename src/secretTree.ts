@@ -1,18 +1,16 @@
 import { CiphersuiteImpl } from "./crypto/ciphersuite"
 import { Kdf, expandWithLabel, deriveTreeSecret } from "./crypto/kdf"
 import { nodeWidth, root, right, isLeaf, left } from "./treemath"
+import { updateArray } from "./util/array"
 import { repeatAsync } from "./util/repeat"
 
 export type SecretTree = Uint8Array[]
-export function setSecret(tree: SecretTree, nodeIndex: number, secret: Uint8Array): SecretTree {
-  return [...tree.slice(0, nodeIndex), secret, ...tree.slice(nodeIndex + 1)]
-}
 
 export function createSecretTree(leafWidth: number, encryptionSecret: Uint8Array, kdf: Kdf): Promise<SecretTree> {
   const tree = new Array(nodeWidth(leafWidth))
   const rootIndex = root(leafWidth)
 
-  const parentInhabited = setSecret(tree, rootIndex, encryptionSecret)
+  const parentInhabited = updateArray(tree, rootIndex, encryptionSecret)
   return deriveChildren(parentInhabited, rootIndex, kdf)
 }
 
@@ -28,7 +26,7 @@ export async function deriveChildren(tree: SecretTree, nodeIndex: number, kdf: K
 
   const rightSecret = await expandWithLabel(parentSecret, "tree", new TextEncoder().encode("right"), kdf.size, kdf)
 
-  const currentTree = setSecret(setSecret(tree, l, leftSecret), r, rightSecret)
+  const currentTree = updateArray(updateArray(tree, l, leftSecret), r, rightSecret)
 
   return deriveChildren(await deriveChildren(currentTree, l, kdf), r, kdf)
 }

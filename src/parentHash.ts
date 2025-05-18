@@ -2,10 +2,9 @@ import { Decoder, mapDecoders } from "./codec/tlsDecoder"
 import { contramapEncoders, Encoder } from "./codec/tlsEncoder"
 import { decodeVarLenData, encodeVarLenData } from "./codec/variableLength"
 import { Hash } from "./crypto/hash"
-import { ParentNode } from "./parentNode"
-import { Node, RatchetTree, removeLeaves, traverseToRoot } from "./ratchetTree"
+import { findFirstNonBlankAncestor, Node, RatchetTree, removeLeaves } from "./ratchetTree"
 import { treeHash } from "./treeHash"
-import { isLeaf, leafToNodeIndex, leafWidth, left, nodeToLeafIndex, parent, right, root } from "./treemath"
+import { isLeaf, leafToNodeIndex, leafWidth, left, right, root } from "./treemath"
 
 import { constantTimeEqual } from "./util/constantTimeCompare"
 
@@ -28,28 +27,6 @@ export const decodeParentHashInput: Decoder<ParentHashInput> = mapDecoders(
     originalSiblingTreeHash,
   }),
 )
-
-export function getOriginalSiblingTreeHash(tree: RatchetTree, nodeIndex: number, h: Hash): Promise<Uint8Array> {
-  const parentNodeIndex = parent(nodeIndex, leafWidth(tree.length))
-
-  const parentNode = tree[parentNodeIndex]
-
-  let removedUnmerged = tree
-
-  if (parentNode !== undefined) {
-    if (parentNode.nodeType !== "parent") throw new Error("ParentNode is not of type parent")
-
-    removedUnmerged = removeLeaves(tree, parentNode.parent.unmergedLeaves)
-  }
-
-  if (nodeIndex == left(parentNodeIndex)) {
-    return treeHash(removedUnmerged, right(parentNodeIndex), h)
-  } else if (nodeIndex == right(parentNodeIndex)) {
-    return treeHash(removedUnmerged, left(parentNodeIndex), h)
-  } else {
-    throw new Error("TODO fix this")
-  }
-}
 
 function validateParentHashCoverage(parentIndices: number[], coverage: Record<number, number>): boolean {
   for (const index of parentIndices) {
@@ -125,13 +102,6 @@ function getParentHash(node: Node): Uint8Array | undefined {
   else if (node.leaf.leafNodeSource === "commit") return node.leaf.parentHash
 }
 
-export function findFirstNonBlankAncestor(tree: RatchetTree, nodeIndex: number): number {
-  return (
-    traverseToRoot(tree, nodeToLeafIndex(nodeIndex), (nodeIndex: number, _node: ParentNode) => nodeIndex)?.[0] ??
-    root(leafWidth(tree.length))
-  )
-}
-
 /**
  * Calculcates parent hash for a given node or leaf and returns the node index of the parent or undefined if the given node is the root node.
  */
@@ -150,15 +120,14 @@ export async function calculateParentHash(
 
   const parentNode = tree[parentNodeIndex]
 
-  if (parentNode === undefined || parentNode.nodeType === "leaf")
-    throw new Error("Expected parent Node, got leaf or undefined")
+  if (parentNode === undefined || parentNode.nodeType === "leaf") throw new Error("Expected non-blank parent Noded")
 
   const removedUnmerged = removeLeaves(tree, parentNode.parent.unmergedLeaves)
 
   const originalSiblingTreeHash = await treeHash(removedUnmerged, siblingIndex, h)
 
   const input = {
-    encryptionKey: parentNode.parent.encryptionKey,
+    encryptionKey: parentNode.parent.hpkePublicKey,
     parentHash: parentNode.parent.parentHash,
     originalSiblingTreeHash,
   }

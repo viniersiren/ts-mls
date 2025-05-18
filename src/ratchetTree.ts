@@ -5,7 +5,18 @@ import { decodeVarLenType, encodeVarLenType } from "./codec/variableLength"
 import { decodeNodeType, encodeNodeType } from "./nodeType"
 import { decodeOptional, encodeOptional } from "./codec/optional"
 import { ParentNode, encodeParentNode, decodeParentNode } from "./parentNode"
-import { directPath, isLeaf, leafToNodeIndex, leafWidth, left, nodeToLeafIndex, parent, right, root } from "./treemath"
+import {
+  copath,
+  directPath,
+  isLeaf,
+  leafToNodeIndex,
+  leafWidth,
+  left,
+  nodeToLeafIndex,
+  parent,
+  right,
+  root,
+} from "./treemath"
 import { LeafNode, encodeLeafNode, decodeLeafNode } from "./leafNode"
 
 export type Node = NodeParent | NodeLeaf
@@ -38,6 +49,15 @@ export const decodeNode: Decoder<Node> = flatMapDecoder(decodeNodeType, (nodeTyp
       }))
   }
 })
+
+export function getHpkePublicKey(n: Node): Uint8Array {
+  switch (n.nodeType) {
+    case "parent":
+      return n.parent.hpkePublicKey
+    case "leaf":
+      return n.leaf.hpkePublicKey
+  }
+}
 
 export type RatchetTree = (Node | undefined)[]
 
@@ -203,7 +223,7 @@ function condenseRatchetTreeAfterRemove(tree: RatchetTree) {
 export function resolution(tree: (Node | undefined)[], nodeIndex: number): number[] {
   const node = tree[nodeIndex]
 
-  if (!node) {
+  if (node === undefined) {
     if (isLeaf(nodeIndex)) {
       return []
     }
@@ -221,6 +241,35 @@ export function resolution(tree: (Node | undefined)[], nodeIndex: number): numbe
 
   const unmerged = node.nodeType === "parent" ? node.parent.unmergedLeaves : []
   return [nodeIndex, ...unmerged.map(leafToNodeIndex)]
+}
+
+export function filteredDirectPath(leafIndex: number, tree: RatchetTree): number[] {
+  const leafNodeIndex = leafToNodeIndex(leafIndex)
+  const leafWidth = nodeToLeafIndex(tree.length)
+  const cp = copath(leafNodeIndex, leafWidth)
+  // the filtered direct path of a leaf node L is the node's direct path,
+  // with any node removed whose child on the copath of L has an empty resolution
+  return directPath(leafNodeIndex, leafWidth).filter((_nodeIndex, n) => resolution(tree, cp[n]!).length !== 0)
+}
+
+export function filteredDirectPathAndCopathResolution(
+  leafIndex: number,
+  tree: RatchetTree,
+): { resolution: number[]; nodeIndex: number }[] {
+  const leafNodeIndex = leafToNodeIndex(leafIndex)
+  const leafWidth = nodeToLeafIndex(tree.length)
+  const cp = copath(leafNodeIndex, leafWidth)
+
+  // the filtered direct path of a leaf node L is the node's direct path,
+  // with any node removed whose child on the copath of L has an empty resolution
+  return directPath(leafNodeIndex, leafWidth).reduce(
+    (acc, cur, n) => {
+      const r = resolution(tree, cp[n]!)
+      if (r.length === 0) return acc
+      else return [...acc, { nodeIndex: cur, resolution: r }]
+    },
+    [] as { resolution: number[]; nodeIndex: number }[],
+  )
 }
 
 export function removeLeaves(tree: RatchetTree, leafIndices: number[]) {
@@ -255,7 +304,7 @@ export function traverseToRoot<T>(
     const currentNode = tree[currentIndex]
     if (currentNode !== undefined) {
       if (currentNode.nodeType === "leaf") {
-        throw new Error("Got leaf when it should've been a node")
+        throw new Error("Expected parent node")
       }
 
       const result = f(currentIndex, currentNode.parent)
@@ -264,4 +313,10 @@ export function traverseToRoot<T>(
       }
     }
   }
+}
+export function findFirstNonBlankAncestor(tree: RatchetTree, nodeIndex: number): number {
+  return (
+    traverseToRoot(tree, nodeToLeafIndex(nodeIndex), (nodeIndex: number, _node: ParentNode) => nodeIndex)?.[0] ??
+    root(leafWidth(tree.length))
+  )
 }
