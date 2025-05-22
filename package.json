@@ -15,7 +15,8 @@
     }
   },
   "dependencies": {
-    "hpke-js": "^1.6.2"
+    "hpke-js": "^1.6.2",
+    "patch-package": "^8.0.0"
   },
   "devDependencies": {
     "@types/jest": "^29.5.14",
@@ -34,7 +35,8 @@
     "build": "tsc",
     "test": "jest",
     "format": "prettier -w .",
-    "format:check": "prettier -c ."
+    "format:check": "prettier -c .",
+    "postinstall": "patch-package"
   },
   "keywords": [
     "mls",
