@@ -15,11 +15,14 @@
     }
   },
   "dependencies": {
+    "@hpke/hybridkem-x-wing": "0.5.1",
+    "@hpke/ml-kem": "0.1.0",
     "hpke-js": "^1.6.2",
     "patch-package": "^8.0.0"
   },
   "devDependencies": {
     "@types/jest": "^29.5.14",
+    "madge": "^8.0.0",
     "prettier": "3.5.1",
     "ts-jest": "^29.2.5",
     "typescript": "~5.7.2"
@@ -36,7 +39,8 @@
     "test": "jest",
     "format": "prettier -w .",
     "format:check": "prettier -c .",
-    "postinstall": "patch-package"
+    "postinstall": "patch-package",
+    "check:cycles": "madge -c \"src/**/*.ts\""
   },
   "keywords": [
     "mls",

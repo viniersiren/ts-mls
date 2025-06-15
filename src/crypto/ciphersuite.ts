@@ -6,12 +6,15 @@ import { contramapEncoder, Encoder } from "../codec/tlsEncoder"
 import { decodeUint16, encodeUint16 } from "../codec/number"
 import { Decoder, mapDecoderOption } from "../codec/tlsDecoder"
 import { openEnumNumberEncoder, openEnumNumberToKey, reverseMap } from "../util/enumHelpers"
+import { Rng, webCryptoRng } from "./rng"
 
 export type CiphersuiteImpl = {
   hash: Hash
   hpke: Hpke
   signature: Signature
   kdf: Kdf
+  rng: Rng
+  name: CiphersuiteName
 }
 
 const ciphersuites = {
@@ -22,6 +25,14 @@ const ciphersuites = {
   MLS_256_DHKEMP521_AES256GCM_SHA512_P521: 5,
   MLS_256_DHKEMX448_CHACHA20POLY1305_SHA512_Ed448: 6,
   MLS_256_DHKEMP384_AES256GCM_SHA384_P384: 7,
+  MLS_128_MLKEM512_AES128GCM_SHA256_Ed25519: 77,
+  MLS_128_MLKEM512_CHACHA20POLY1305_SHA256_Ed25519: 78,
+  MLS_256_MLKEM768_AES256GCM_SHA384_Ed25519: 79,
+  MLS_256_MLKEM768_CHACHA20POLY1305_SHA384_Ed25519: 80,
+  MLS_256_MLKEM1024_AES256GCM_SHA512_Ed25519: 81,
+  MLS_256_MLKEM1024_CHACHA20POLY1305_SHA512_Ed25519: 82,
+  MLS_256_XWING_AES256GCM_SHA512_Ed25519: 83,
+  MLS_256_XWING_CHACHA20POLY1305_SHA512_Ed25519: 84,
 } as const
 
 export type CiphersuiteName = keyof typeof ciphersuites
@@ -56,6 +67,8 @@ export function getCiphersuiteImpl(cs: Ciphersuite): CiphersuiteImpl {
     hash: makeHashImpl(sc, cs.hash),
     signature: makeNobleSignatureImpl(cs.signature),
     hpke: makeHpke(cs.hpke),
+    rng: webCryptoRng,
+    name: cs.name,
   }
 }
 
@@ -68,6 +81,7 @@ const ciphersuiteValues: Record<CiphersuiteId, Ciphersuite> = {
       kdf: "HKDF-SHA256",
     },
     signature: "Ed25519",
+    name: "MLS_128_DHKEMX25519_AES128GCM_SHA256_Ed25519",
   },
   2: {
     hash: "SHA-256",
@@ -77,6 +91,7 @@ const ciphersuiteValues: Record<CiphersuiteId, Ciphersuite> = {
       kdf: "HKDF-SHA256",
     },
     signature: "P256",
+    name: "MLS_128_DHKEMP256_AES128GCM_SHA256_P256",
   },
   3: {
     hash: "SHA-256",
@@ -86,6 +101,7 @@ const ciphersuiteValues: Record<CiphersuiteId, Ciphersuite> = {
       kdf: "HKDF-SHA256",
     },
     signature: "Ed25519",
+    name: "MLS_128_DHKEMX25519_CHACHA20POLY1305_SHA256_Ed25519",
   },
   4: {
     hash: "SHA-512",
@@ -95,6 +111,7 @@ const ciphersuiteValues: Record<CiphersuiteId, Ciphersuite> = {
       kdf: "HKDF-SHA512",
     },
     signature: "Ed448",
+    name: "MLS_256_DHKEMX448_AES256GCM_SHA512_Ed448",
   },
   5: {
     hash: "SHA-512",
@@ -104,6 +121,7 @@ const ciphersuiteValues: Record<CiphersuiteId, Ciphersuite> = {
       kdf: "HKDF-SHA512",
     },
     signature: "P521",
+    name: "MLS_256_DHKEMP521_AES256GCM_SHA512_P521",
   },
   6: {
     hash: "SHA-512",
@@ -113,6 +131,7 @@ const ciphersuiteValues: Record<CiphersuiteId, Ciphersuite> = {
       kdf: "HKDF-SHA512",
     },
     signature: "Ed448",
+    name: "MLS_256_DHKEMX448_CHACHA20POLY1305_SHA512_Ed448",
   },
   7: {
     hash: "SHA-384",
@@ -122,6 +141,88 @@ const ciphersuiteValues: Record<CiphersuiteId, Ciphersuite> = {
       kdf: "HKDF-SHA384",
     },
     signature: "P384",
+    name: "MLS_256_DHKEMP384_AES256GCM_SHA384_P384",
+  },
+
+  77: {
+    hash: "SHA-256",
+    hpke: {
+      kem: "ML-KEM-512",
+      aead: "AES256GCM",
+      kdf: "HKDF-SHA256",
+    },
+    signature: "Ed25519",
+    name: "MLS_128_MLKEM512_AES128GCM_SHA256_Ed25519",
+  },
+  78: {
+    hash: "SHA-256",
+    hpke: {
+      kem: "ML-KEM-512",
+      aead: "CHACHA20POLY1305",
+      kdf: "HKDF-SHA256",
+    },
+    signature: "Ed25519",
+    name: "MLS_128_MLKEM512_CHACHA20POLY1305_SHA256_Ed25519",
+  },
+  79: {
+    hash: "SHA-384",
+    hpke: {
+      kem: "ML-KEM-768",
+      aead: "AES256GCM",
+      kdf: "HKDF-SHA384",
+    },
+    signature: "Ed25519",
+    name: "MLS_256_MLKEM768_AES256GCM_SHA384_Ed25519",
+  },
+  80: {
+    hash: "SHA-384",
+    hpke: {
+      kem: "ML-KEM-768",
+      aead: "CHACHA20POLY1305",
+      kdf: "HKDF-SHA384",
+    },
+    signature: "Ed25519",
+    name: "MLS_256_MLKEM768_CHACHA20POLY1305_SHA384_Ed25519",
+  },
+  81: {
+    hash: "SHA-512",
+    hpke: {
+      kem: "ML-KEM-1024",
+      aead: "AES256GCM",
+      kdf: "HKDF-SHA512",
+    },
+    signature: "Ed25519",
+    name: "MLS_256_MLKEM1024_AES256GCM_SHA512_Ed25519",
+  },
+  82: {
+    hash: "SHA-512",
+    hpke: {
+      kem: "ML-KEM-1024",
+      aead: "CHACHA20POLY1305",
+      kdf: "HKDF-SHA512",
+    },
+    signature: "Ed25519",
+    name: "MLS_256_MLKEM1024_CHACHA20POLY1305_SHA512_Ed25519",
+  },
+  83: {
+    hash: "SHA-512",
+    hpke: {
+      kem: "X-Wing",
+      aead: "AES256GCM",
+      kdf: "HKDF-SHA512",
+    },
+    signature: "Ed25519",
+    name: "MLS_256_XWING_AES256GCM_SHA512_Ed25519",
+  },
+  84: {
+    hash: "SHA-512",
+    hpke: {
+      kem: "X-Wing",
+      aead: "CHACHA20POLY1305",
+      kdf: "HKDF-SHA512",
+    },
+    signature: "Ed25519",
+    name: "MLS_256_XWING_CHACHA20POLY1305_SHA512_Ed25519",
   },
 } as const
 
@@ -129,8 +230,5 @@ type Ciphersuite = {
   hash: HashAlgorithm
   hpke: HpkeAlgorithm
   signature: SignatureAlgorithm
+  name: CiphersuiteName
 }
-
-export type PublicKey = CryptoKey & { type: "public" }
-export type SecretKey = CryptoKey & { type: "secret" }
-export type PrivateKey = CryptoKey & { type: "private" }

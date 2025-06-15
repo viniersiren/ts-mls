@@ -1,17 +1,12 @@
-import {
-  CiphersuiteId,
-  CiphersuiteImpl,
-  getCiphersuiteFromId,
-  getCiphersuiteImpl,
-  PrivateKey,
-} from "../../src/crypto/ciphersuite"
+import { CiphersuiteId, CiphersuiteImpl, getCiphersuiteFromId, getCiphersuiteImpl } from "../../src/crypto/ciphersuite"
 import { hexToBytes } from "@noble/ciphers/utils"
 import json from "../../test_vectors/welcome.json"
 import { decodeMlsMessage } from "../../src/message"
-import { decryptGroupSecrets } from "../../src/groupSecrets"
 import { makeKeyPackageRef } from "../../src/keyPackage"
 import { constantTimeEqual } from "../../src/util/constantTimeCompare"
-import { decryptGroupInfo, verifyConfirmationTag, verifyGroupInfoSignature } from "../../src/groupInfo"
+import { verifyGroupInfoConfirmationTag, verifyGroupInfoSignature } from "../../src/groupInfo"
+import { decryptGroupInfo, decryptGroupSecrets } from "../../src/welcome"
+import { PrivateKey } from "../../src/crypto/hpke"
 
 test("welcome test vectors", async () => {
   for (const x of json) {
@@ -51,7 +46,7 @@ async function testWelcome(
   const gi = await decryptGroupInfo(w, groupSecrets.joinerSecret, pskSecret, impl)
   if (gi === undefined) throw new Error("Could not decrypt group info")
 
-  const tagOk = await verifyConfirmationTag(gi, groupSecrets.joinerSecret, pskSecret, impl)
+  const tagOk = await verifyGroupInfoConfirmationTag(gi, groupSecrets.joinerSecret, pskSecret, impl)
   expect(tagOk).toBe(true)
 
   const signatureOk = verifyGroupInfoSignature(gi, hexToBytes(signer_pub), impl.signature)

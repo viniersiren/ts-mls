@@ -48,7 +48,7 @@ async function testKeySchedule(
         hexToBytes(epoch.commit_secret),
         gc,
         hexToBytes(epoch.psk_secret),
-        impl,
+        impl.kdf,
       )
 
       expect(joinerSecret).toStrictEqual(hexToBytes(epoch.joiner_secret))
@@ -64,7 +64,7 @@ async function testKeySchedule(
       expect(keySchedule.epochAuthenticator).toStrictEqual(hexToBytes(epoch.epoch_authenticator))
 
       //Verify the external_pub is the public key output from KEM.DeriveKeyPair(external_secret)
-      const { privateKey, publicKey } = await impl.hpke.deriveKeyPair(hexToBytes(epoch.external_secret))
+      const { publicKey } = await impl.hpke.deriveKeyPair(hexToBytes(epoch.external_secret))
       expect(await impl.hpke.exportPublicKey(publicKey)).toStrictEqual(hexToBytes(epoch.external_pub))
 
       //Verify the exporter.secret is the value output from MLS-Exporter(exporter.label, exporter.context, exporter.length)

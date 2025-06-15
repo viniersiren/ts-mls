@@ -23,14 +23,13 @@ import {
 } from "./framedContent"
 import { GroupContext } from "./groupContext"
 import { decodeProposal, encodeProposal, Proposal } from "./proposal"
-import { deriveKey, deriveNonce, deriveRatchetRoot, GenerationSecret, ratchetUntil, SecretTree } from "./secretTree"
+import { consumeRatchet, deriveKey, deriveNonce, GenerationSecret, ratchetToGeneration, SecretTree } from "./secretTree"
 import {
   decodeSenderData,
   encodeSenderData,
   encodeSenderDataAAD,
   expandSenderDataKey,
   expandSenderDataNonce,
-  ReuseGuard,
   SenderData,
   SenderDataAAD,
 } from "./sender"
@@ -89,11 +88,13 @@ export type PrivateMessageContent =
   | PrivateMessageContentApplication
   | PrivateMessageContentProposal
   | PrivateMessageContentCommit
-type PrivateMessageContentApplication = FramedContentApplicationData & {
+export type PrivateMessageContentApplication = FramedContentApplicationData & {
   auth: FramedContentAuthDataApplicationOrProposal
 }
-type PrivateMessageContentProposal = FramedContentProposalData & { auth: FramedContentAuthDataApplicationOrProposal }
-type PrivateMessageContentCommit = FramedContentCommitData & { auth: FramedContentAuthDataCommit }
+export type PrivateMessageContentProposal = FramedContentProposalData & {
+  auth: FramedContentAuthDataApplicationOrProposal
+}
+export type PrivateMessageContentCommit = FramedContentCommitData & { auth: FramedContentAuthDataCommit }
 
 //todo padding?
 export function decodePrivateMessageContent(contentType: ContentTypeName): Decoder<PrivateMessageContent> {
@@ -212,21 +213,10 @@ export async function derivePrivateMessageNonce(
   return nonce
 }
 
-function labelForContentType(contentType: ContentTypeName): string {
-  switch (contentType) {
-    case "application":
-      return "application"
-    case "proposal":
-      return "handshake"
-    case "commit":
-      return "handshake"
-  }
-}
-
 export function toAuthenticatedContent(
   content: PrivateMessageContent,
   msg: PrivateMessage,
-  leafIndex: number,
+  senderLeafIndex: number,
 ): AuthenticatedContent {
   return {
     wireformat: "mls_private_message",
@@ -235,7 +225,7 @@ export function toAuthenticatedContent(
       epoch: msg.epoch,
       sender: {
         senderType: "member",
-        leafIndex: leafIndex,
+        leafIndex: senderLeafIndex,
       },
       authenticatedData: msg.authenticatedData,
       ...content,
@@ -271,9 +261,8 @@ export async function protectApplicationData(
   groupContext: GroupContext,
   secretTree: SecretTree,
   leafIndex: number,
-  generation: number,
   cs: CiphersuiteImpl,
-): Promise<PrivateMessage> {
+): Promise<ProtectResult> {
   const tbs: FramedContentTBSApplicationOrProposal = {
     protocolVersion: groupContext.version,
     wireformat: "mls_private_message",
@@ -299,7 +288,7 @@ export async function protectApplicationData(
     auth,
   }
 
-  return protect(senderDataSecret, authenticatedData, groupContext, secretTree, content, leafIndex, generation, cs)
+  return protect(senderDataSecret, authenticatedData, groupContext, secretTree, content, leafIndex, cs)
 }
 
 export async function protectCommit(
@@ -311,9 +300,8 @@ export async function protectCommit(
   groupContext: GroupContext,
   secretTree: SecretTree,
   leafIndex: number,
-  generation: number,
   cs: CiphersuiteImpl,
-): Promise<PrivateMessage> {
+): Promise<ProtectResult> {
   const tbs: FramedContentTBSCommit = {
     protocolVersion: groupContext.version,
     wireformat: "mls_private_message",
@@ -339,7 +327,7 @@ export async function protectCommit(
     auth,
   }
 
-  return protect(senderDataSecret, authenticatedData, groupContext, secretTree, content, leafIndex, generation, cs)
+  return protect(senderDataSecret, authenticatedData, groupContext, secretTree, content, leafIndex, cs)
 }
 
 export async function protectProposal(
@@ -350,9 +338,8 @@ export async function protectProposal(
   groupContext: GroupContext,
   secretTree: SecretTree,
   leafIndex: number,
-  generation: number,
   cs: CiphersuiteImpl,
-): Promise<PrivateMessage> {
+): Promise<ProtectResult> {
   const tbs: FramedContentTBSApplicationOrProposal = {
     protocolVersion: groupContext.version,
     wireformat: "mls_private_message",
@@ -371,15 +358,17 @@ export async function protectProposal(
     context: groupContext,
   }
 
-  const auth = await signFramedContentApplicationOrProposal(signKey, tbs, cs)
+  const auth = signFramedContentApplicationOrProposal(signKey, tbs, cs)
 
   const content = {
     ...tbs.content,
     auth,
   }
 
-  return protect(senderDataSecret, authenticatedData, groupContext, secretTree, content, leafIndex, generation, cs)
+  return protect(senderDataSecret, authenticatedData, groupContext, secretTree, content, leafIndex, cs)
 }
+
+export type ProtectResult = { privateMessage: PrivateMessage; tree: SecretTree }
 
 export async function protect(
   senderDataSecret: Uint8Array,
@@ -388,19 +377,17 @@ export async function protect(
   secretTree: SecretTree,
   content: PrivateMessageContent,
   leafIndex: number,
-  generation: number,
   cs: CiphersuiteImpl,
-): Promise<PrivateMessage> {
-  const root = await deriveRatchetRoot(
+): Promise<ProtectResult> {
+  const node = secretTree[leafToNodeIndex(leafIndex)]
+  if (node === undefined) throw new Error("Bad node index for secret tree")
+
+  const { newTree, generation, reuseGuard, nonce, key } = await consumeRatchet(
     secretTree,
     leafToNodeIndex(leafIndex),
-    labelForContentType(content.contentType),
-    cs.kdf,
+    content.contentType,
+    cs,
   )
-  const secret = await ratchetUntil(root, generation, cs.kdf)
-  const key = await deriveKey(secret.secret, secret.generation, cs)
-  const reuseGuard = crypto.getRandomValues(new Uint8Array(4)) as ReuseGuard
-  const nonce = await derivePrivateMessageNonce(secret, reuseGuard, cs)
 
   const aad: PrivateContentAAD = {
     groupId: groupContext.groupId,
@@ -431,34 +418,31 @@ export async function protect(
   const encryptedSenderData = await encryptSenderData(senderDataSecret, senderData, senderAad, ciphertext, cs)
 
   return {
-    groupId: groupContext.groupId,
-    epoch: groupContext.epoch,
-    encryptedSenderData,
-    contentType: content.contentType,
-    authenticatedData,
-    ciphertext,
+    privateMessage: {
+      groupId: groupContext.groupId,
+      epoch: groupContext.epoch,
+      encryptedSenderData,
+      contentType: content.contentType,
+      authenticatedData,
+      ciphertext,
+    },
+    tree: newTree,
   }
 }
+
+export type UnprotectResult = { content: AuthenticatedContent; tree: SecretTree }
 
 export async function unprotectPrivateMessage(
   senderDataSecret: Uint8Array,
   msg: PrivateMessage,
   secretTree: SecretTree,
   cs: CiphersuiteImpl,
-): Promise<PrivateMessageContent | undefined> {
+): Promise<UnprotectResult> {
   const senderData = await decryptSenderData(msg, senderDataSecret, cs)
 
   if (senderData === undefined) throw new Error("Could not decrypt senderdata")
 
-  const root = await deriveRatchetRoot(
-    secretTree,
-    leafToNodeIndex(senderData.leafIndex),
-    labelForContentType(msg.contentType),
-    cs.kdf,
-  )
-  const secret = await ratchetUntil(root, senderData.generation, cs.kdf)
-  const key = await deriveKey(secret.secret, secret.generation, cs)
-  const nonce = await derivePrivateMessageNonce(secret, senderData.reuseGuard, cs)
+  const { key, nonce, newTree } = await ratchetToGeneration(secretTree, senderData, msg.contentType, cs)
 
   const aad: PrivateContentAAD = {
     groupId: msg.groupId,
@@ -471,5 +455,9 @@ export async function unprotectPrivateMessage(
 
   //todo verify signature & MAC
 
-  return decodePrivateMessageContent(msg.contentType)(decrypted, 0)?.[0]
+  const pmc = decodePrivateMessageContent(msg.contentType)(decrypted, 0)?.[0]
+
+  if (pmc === undefined) throw new Error("Could not decode PrivateMessageContent")
+
+  return { content: toAuthenticatedContent(pmc, msg, senderData.leafIndex), tree: newTree }
 }

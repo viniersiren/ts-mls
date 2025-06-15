@@ -5,7 +5,11 @@ import { Hash } from "./crypto/hash"
 import { decodeFramedContent, encodeFramedContent, FramedContentCommit } from "./framedContent"
 import { decodeWireformat, encodeWireformat, WireformatName } from "./wireformat"
 
-type ConfirmedTranscriptHashInput = { wireformat: WireformatName; content: FramedContentCommit; signature: Uint8Array }
+export type ConfirmedTranscriptHashInput = {
+  wireformat: WireformatName
+  content: FramedContentCommit
+  signature: Uint8Array
+}
 
 const encodeConfirmedTranscriptHashInput: Encoder<ConfirmedTranscriptHashInput> = contramapEncoders(
   [encodeWireformat, encodeFramedContent, encodeVarLenData],

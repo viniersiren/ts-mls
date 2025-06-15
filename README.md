@@ -15,9 +15,9 @@ The following test vectors are fully passing:
 - [x] key-schedule
 - [x] message-protection
 - [x] messages
-- [ ] passive-client-handling-commit
-- [ ] passive-client-random
-- [ ] passive-client-welcome
+- [x] passive-client-handling-commit
+- [x] passive-client-random
+- [x] passive-client-welcome
 - [x] psk_secret
 - [x] secret-tree
 - [x] transcript-hashes

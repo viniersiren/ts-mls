@@ -1,5 +1,5 @@
 import { CiphersuiteImpl } from "./crypto/ciphersuite"
-import { deriveSecret, expandWithLabel } from "./crypto/kdf"
+import { deriveSecret, expandWithLabel, Kdf } from "./crypto/kdf"
 import { extractEpochSecret, extractJoinerSecret, GroupContext } from "./groupContext"
 import { extractWelcomeSecret } from "./groupInfo"
 
@@ -35,27 +35,27 @@ export async function mlsExporter(
   return expandWithLabel(secret, "exported", hash, length, cs.kdf)
 }
 
-export async function initializeEpoch(
-  initSecret: Uint8Array,
-  commitSecret: Uint8Array,
-  groupContext: GroupContext,
+export async function deriveKeySchedule(
+  joinerSecret: Uint8Array,
   pskSecret: Uint8Array,
-  impl: CiphersuiteImpl,
-): Promise<EpochSecrets> {
-  const joinerSecret = await extractJoinerSecret(groupContext, initSecret, commitSecret, impl.kdf)
+  groupContext: GroupContext,
+  kdf: Kdf,
+) {
+  const epochSecret = await extractEpochSecret(groupContext, joinerSecret, kdf, pskSecret)
 
-  const welcomeSecret = await extractWelcomeSecret(joinerSecret, pskSecret, impl.kdf)
-  const epochSecret = await extractEpochSecret(groupContext, joinerSecret, impl.kdf, pskSecret)
+  return await initializeKeySchedule(epochSecret, kdf)
+}
 
-  const newInitSecret = await deriveSecret(epochSecret, "init", impl.kdf)
-  const senderDataSecret = await deriveSecret(epochSecret, "sender data", impl.kdf)
-  const encryptionSecret = await deriveSecret(epochSecret, "encryption", impl.kdf)
-  const exporterSecret = await deriveSecret(epochSecret, "exporter", impl.kdf)
-  const externalSecret = await deriveSecret(epochSecret, "external", impl.kdf)
-  const confirmationKey = await deriveSecret(epochSecret, "confirm", impl.kdf)
-  const membershipKey = await deriveSecret(epochSecret, "membership", impl.kdf)
-  const resumptionPsk = await deriveSecret(epochSecret, "resumption", impl.kdf)
-  const epochAuthenticator = await deriveSecret(epochSecret, "authentication", impl.kdf)
+export async function initializeKeySchedule(epochSecret: Uint8Array, kdf: Kdf): Promise<KeySchedule> {
+  const newInitSecret = await deriveSecret(epochSecret, "init", kdf)
+  const senderDataSecret = await deriveSecret(epochSecret, "sender data", kdf)
+  const encryptionSecret = await deriveSecret(epochSecret, "encryption", kdf)
+  const exporterSecret = await deriveSecret(epochSecret, "exporter", kdf)
+  const externalSecret = await deriveSecret(epochSecret, "external", kdf)
+  const confirmationKey = await deriveSecret(epochSecret, "confirm", kdf)
+  const membershipKey = await deriveSecret(epochSecret, "membership", kdf)
+  const resumptionPsk = await deriveSecret(epochSecret, "resumption", kdf)
+  const epochAuthenticator = await deriveSecret(epochSecret, "authentication", kdf)
 
   const newKeySchedule: KeySchedule = {
     epochSecret: epochSecret,
@@ -69,6 +69,22 @@ export async function initializeEpoch(
     resumptionPsk,
     epochAuthenticator,
   }
+
+  return newKeySchedule
+}
+
+export async function initializeEpoch(
+  initSecret: Uint8Array,
+  commitSecret: Uint8Array,
+  groupContext: GroupContext,
+  pskSecret: Uint8Array,
+  kdf: Kdf,
+): Promise<EpochSecrets> {
+  const joinerSecret = await extractJoinerSecret(groupContext, initSecret, commitSecret, kdf)
+
+  const welcomeSecret = await extractWelcomeSecret(joinerSecret, pskSecret, kdf)
+
+  const newKeySchedule: KeySchedule = await deriveKeySchedule(joinerSecret, pskSecret, groupContext, kdf)
 
   return { welcomeSecret, joinerSecret, keySchedule: newKeySchedule }
 }

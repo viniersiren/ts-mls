@@ -2,24 +2,14 @@ import { Decoder, mapDecoders } from "./codec/tlsDecoder"
 import { contramapEncoders, Encoder } from "./codec/tlsEncoder"
 import { decodeVarLenData, decodeVarLenType, encodeVarLenData, encodeVarLenType } from "./codec/variableLength"
 import { CiphersuiteImpl, CiphersuiteName, decodeCiphersuite, encodeCiphersuite } from "./crypto/ciphersuite"
+import { PublicKey, Hpke, encryptWithLabel, PrivateKey, decryptWithLabel } from "./crypto/hpke"
 import { expandWithLabel } from "./crypto/kdf"
+import { decodeGroupInfo, encodeGroupInfo, extractWelcomeSecret, GroupInfo } from "./groupInfo"
+import { decodeGroupSecrets, encodeGroupSecrets, GroupSecrets } from "./groupSecrets"
+import { HPKECiphertext, encodeHpkeCiphertext, decodeHpkeCiphertext } from "./hpkeCiphertext"
+import { constantTimeEqual } from "./util/constantTimeCompare"
 
-export type HPKECiphertext = Readonly<{
-  kemOutput: Uint8Array
-  ciphertext: Uint8Array
-}>
-
-export const encodeHpkeCiphertext: Encoder<HPKECiphertext> = contramapEncoders(
-  [encodeVarLenData, encodeVarLenData],
-  (egs) => [egs.kemOutput, egs.ciphertext] as const,
-)
-
-export const decodeHpkeCiphertext: Decoder<HPKECiphertext> = mapDecoders(
-  [decodeVarLenData, decodeVarLenData],
-  (kemOutput, ciphertext) => ({ kemOutput, ciphertext }),
-)
-
-type EncryptedGroupSecrets = Readonly<{
+export type EncryptedGroupSecrets = Readonly<{
   newMember: Uint8Array
   encryptedGroupSecrets: HPKECiphertext
 }>
@@ -56,4 +46,60 @@ export function welcomeNonce(welcomeSecret: Uint8Array, cs: CiphersuiteImpl) {
 
 export function welcomeKey(welcomeSecret: Uint8Array, cs: CiphersuiteImpl) {
   return expandWithLabel(welcomeSecret, "key", new Uint8Array(), cs.hpke.keyLength, cs.kdf)
+}
+
+export async function encryptGroupInfo(
+  groupInfo: GroupInfo,
+  welcomeSecret: Uint8Array,
+  cs: CiphersuiteImpl,
+): Promise<Uint8Array> {
+  const key = await welcomeKey(welcomeSecret, cs)
+  const nonce = await welcomeNonce(welcomeSecret, cs)
+  const encrypted = await cs.hpke.encryptAead(key, nonce, new Uint8Array(), encodeGroupInfo(groupInfo))
+
+  return encrypted
+}
+
+export async function decryptGroupInfo(
+  w: Welcome,
+  joinerSecret: Uint8Array,
+  pskSecret: Uint8Array,
+  cs: CiphersuiteImpl,
+): Promise<GroupInfo | undefined> {
+  const welcomeSecret = await extractWelcomeSecret(joinerSecret, pskSecret, cs.kdf)
+
+  const key = await welcomeKey(welcomeSecret, cs)
+  const nonce = await welcomeNonce(welcomeSecret, cs)
+  const decrypted = await cs.hpke.decryptAead(key, nonce, new Uint8Array(), w.encryptedGroupInfo)
+
+  const decoded = decodeGroupInfo(decrypted, 0)
+  return decoded?.[0]
+}
+
+export function encryptGroupSecrets(
+  initKey: PublicKey,
+  encryptedGroupInfo: Uint8Array,
+  groupSecrets: GroupSecrets,
+  hpke: Hpke,
+) {
+  return encryptWithLabel(initKey, "Welcome", encryptedGroupInfo, encodeGroupSecrets(groupSecrets), hpke)
+}
+
+export async function decryptGroupSecrets(
+  initPrivateKey: PrivateKey,
+  keyPackageRef: Uint8Array,
+  welcome: Welcome,
+  hpke: Hpke,
+): Promise<GroupSecrets | undefined> {
+  const secret = welcome.secrets.find((s) => constantTimeEqual(s.newMember, keyPackageRef))
+  if (secret === undefined) throw new Error("No matching secret found")
+  const decrypted = await decryptWithLabel(
+    initPrivateKey,
+    "Welcome",
+    welcome.encryptedGroupInfo,
+    secret.encryptedGroupSecrets.kemOutput,
+    secret.encryptedGroupSecrets.ciphertext,
+    hpke,
+  )
+  return decodeGroupSecrets(decrypted, 0)?.[0]
 }

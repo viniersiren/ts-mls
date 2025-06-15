@@ -2,10 +2,13 @@ import { CipherSuite } from "hpke-js"
 import { AeadAlgorithm, decryptAead, encryptAead, makeAead } from "./aead"
 import { KdfAlgorithm, makeKdf } from "./kdf"
 import { KemAlgorithm, makeDhKem } from "./kem"
-import { PrivateKey, PublicKey } from "./ciphersuite"
 import { utf8ToBytes } from "@noble/ciphers/utils"
 import { encodeVarLenData } from "../codec/variableLength"
 import { bytesToBuffer } from "../util/byteArray"
+
+export type PublicKey = CryptoKey & { type: "public" }
+export type SecretKey = CryptoKey & { type: "secret" }
+export type PrivateKey = CryptoKey & { type: "private" }
 
 export type HpkeAlgorithm = {
   kem: KemAlgorithm
@@ -95,6 +98,10 @@ export function makeHpke(hpkealg: HpkeAlgorithm): Hpke {
       const kp = await cs.kem.deriveKeyPair(bytesToBuffer(ikm))
       return { privateKey: kp.privateKey as PrivateKey, publicKey: kp.publicKey as PublicKey }
     },
+    async generateKeyPair() {
+      const kp = await cs.kem.generateKeyPair()
+      return { privateKey: kp.privateKey as PrivateKey, publicKey: kp.publicKey as PublicKey }
+    },
     keyLength: cs.aead.keySize,
     nonceLength: cs.aead.nonceSize,
   }
@@ -131,6 +138,7 @@ export interface Hpke {
     ciphertext: Uint8Array,
   ): Promise<Uint8Array>
   deriveKeyPair(ikm: Uint8Array): Promise<{ privateKey: PrivateKey; publicKey: PublicKey }>
+  generateKeyPair(): Promise<{ privateKey: PrivateKey; publicKey: PublicKey }>
   keyLength: number
   nonceLength: number
 }

@@ -8,19 +8,19 @@ import {
 import { decodeRatchetTree, getHpkePublicKey, RatchetTree } from "../../src/ratchetTree"
 import { hexToBytes } from "@noble/ciphers/utils"
 import json from "../../test_vectors/treekem.json"
-import {
-  applyUpdatePath,
-  applyUpdatePathSecret,
-  createUpdatePath,
-  decodeUpdatePath,
-  UpdatePath,
-} from "../../src/updatePath"
+import { applyUpdatePath, createUpdatePath, decodeUpdatePath, UpdatePath } from "../../src/updatePath"
 import { GroupContext } from "../../src/groupContext"
 import { treeHashRoot } from "../../src/treeHash"
-import { Hpke } from "../../src/crypto/hpke"
 import { deriveSecret } from "../../src/crypto/kdf"
-import { leafToNodeIndex, leafWidth, root } from "../../src/treemath"
-import { NodeSecret, pathToRoot, PrivateKeyPath, PrivatePath, toPrivateKeyPath } from "../../src/clientState"
+import { leafToNodeIndex } from "../../src/treemath"
+import {
+  applyUpdatePathSecret,
+  getCommitSecret,
+  NodeSecrets,
+  PrivateKeyPath,
+  toPrivateKeyPath,
+} from "../../src/clientState"
+import { hpkeKeysMatch } from "../crypto/keyMatch"
 
 test("treekem test vectors", async () => {
   for (const x of json) {
@@ -127,13 +127,11 @@ async function testNewUpdatePath(
   newGroupContext: GroupContext,
   newUpdatePath: UpdatePath,
   impl: CiphersuiteImpl,
-  newCommitSecret: Uint8Array<ArrayBufferLike>,
+  newCommitSecret: Uint8Array,
 ) {
-  const secret = await applyUpdatePathSecret(tree[0], pp, path.sender, newGroupContext, newUpdatePath, impl)
+  const secret = await applyUpdatePathSecret(tree[0], pp, path.sender, newGroupContext, newUpdatePath, [], impl)
 
-  const p2r = await pathToRoot(tree[0], secret.nodeIndex, secret.pathSecret, impl.kdf)
-
-  const commitSecret = await deriveSecret(p2r[root(leafWidth(tree[0].length))]!, "path", impl.kdf)
+  const commitSecret = await getCommitSecret(tree[0], secret.nodeIndex, secret.pathSecret, impl.kdf)
 
   expect(commitSecret).toStrictEqual(newCommitSecret)
 }
@@ -146,13 +144,11 @@ async function testCommitSecret(
   updatePath: UpdatePath,
   impl: CiphersuiteImpl,
 ) {
-  const privateP = await applyUpdatePathSecret(tree[0], pp, path.sender, updatedGroupContext, updatePath, impl)
+  const privateP = await applyUpdatePathSecret(tree[0], pp, path.sender, updatedGroupContext, updatePath, [], impl)
 
   expect(privateP.pathSecret).toStrictEqual(hexToBytes(path.path_secrets[pp.leafIndex]!))
 
-  const p2r = await pathToRoot(tree[0], privateP.nodeIndex, privateP.pathSecret, impl.kdf)
-
-  const commitSecret = await deriveSecret(p2r[root(leafWidth(tree[0].length))]!, "path", impl.kdf)
+  const commitSecret = await getCommitSecret(tree[0], privateP.nodeIndex, privateP.pathSecret, impl.kdf)
 
   expect(commitSecret).toStrictEqual(hexToBytes(path.commit_secret))
 }
@@ -160,13 +156,12 @@ async function testCommitSecret(
 async function getPrivatePaths(data: TreeKEMState, impl: CiphersuiteImpl): Promise<PrivateKeyPath[]> {
   return await Promise.all(
     data.leaves_private.map(async (leaf) => {
-      const nodeSecrets: NodeSecret = leaf.path_secrets.reduce(
+      const nodeSecrets: NodeSecrets = leaf.path_secrets.reduce(
         (acc, ps) => ({ ...acc, [ps.node]: hexToBytes(ps.path_secret) }),
         {},
       )
 
-      const pp: PrivatePath = { leafIndex: leaf.index, pathSecrets: nodeSecrets }
-      const pks = await toPrivateKeyPath(pp, impl)
+      const pks = await toPrivateKeyPath(nodeSecrets, leaf.index, impl)
 
       return {
         ...pks,
@@ -178,7 +173,7 @@ async function getPrivatePaths(data: TreeKEMState, impl: CiphersuiteImpl): Promi
 
 async function testTreeKeys(data: TreeKEMState, tree: [RatchetTree, number], impl: CiphersuiteImpl) {
   for (const leaf of data.leaves_private) {
-    const nodeSecrets: NodeSecret = leaf.path_secrets.reduce(
+    const nodeSecrets: NodeSecrets = leaf.path_secrets.reduce(
       (acc, ps) => ({ ...acc, [ps.node]: hexToBytes(ps.path_secret) }),
       {},
     )
@@ -186,32 +181,16 @@ async function testTreeKeys(data: TreeKEMState, tree: [RatchetTree, number], imp
     const node = tree[0][leafToNodeIndex(leaf.index)]
     if (node === undefined || node.nodeType === "parent") throw new Error("No leaf found at leaf index")
 
-    expect(await keysMatch(node.leaf.hpkePublicKey, hexToBytes(leaf.encryption_priv), impl.hpke)).toBe(true)
+    expect(await hpkeKeysMatch(node.leaf.hpkePublicKey, hexToBytes(leaf.encryption_priv), impl.hpke)).toBe(true)
 
     for (const [nodeIndex, pathSecret] of Object.entries(nodeSecrets)) {
       const s = await deriveSecret(pathSecret, "node", impl.kdf)
       const { publicKey } = await impl.hpke.deriveKeyPair(s)
 
-      const node = tree[0][nodeIndex]
+      const node = tree[0][Number(nodeIndex)]
       if (node === undefined) throw new Error("No node found at node index")
 
       expect(getHpkePublicKey(node)).toStrictEqual(await impl.hpke.exportPublicKey(publicKey))
     }
-  }
-}
-
-async function keysMatch(publicKey: Uint8Array, privateKey: Uint8Array, hpke: Hpke): Promise<boolean> {
-  const encoder = new TextEncoder()
-  const plaintext = encoder.encode("test")
-  const info = encoder.encode("key check")
-
-  try {
-    const { ct, enc } = await hpke.seal(await hpke.importPublicKey(publicKey), plaintext, info)
-
-    const decrypted = await hpke.open(await hpke.importPrivateKey(privateKey), enc, ct, info)
-
-    return new TextDecoder().decode(decrypted) === "test"
-  } catch (err) {
-    return false
   }
 }

@@ -1,5 +1,6 @@
 import {
   AuthenticatedContent,
+  AuthenticatedContentProposalOrCommit,
   AuthenticatedContentTBM,
   createMembershipTag,
   verifyMembershipTag,
@@ -16,9 +17,13 @@ import {
   encodeFramedContentAuthData,
   FramedContent,
   FramedContentAuthData,
+  FramedContentTBS,
+  FramedContentTBSExternal,
+  signFramedContent,
   signFramedContentApplicationOrProposal,
   signFramedContentCommit,
   toTbs,
+  verifyFramedContent,
 } from "./framedContent"
 import { GroupContext } from "./groupContext"
 import { Proposal } from "./proposal"
@@ -198,10 +203,10 @@ export async function unprotectPublicMessage(
   groupContext: GroupContext,
   msg: PublicMessage,
   cs: CiphersuiteImpl,
-): Promise<AuthenticatedContent> {
+): Promise<AuthenticatedContentProposalOrCommit> {
   if (msg.content.contentType === "application") throw new Error("Can't make an application message public")
 
-  if (msg.senderType == "member") {
+  if (msg.senderType === "member") {
     const authenticatedContent: AuthenticatedContentTBM = {
       contentTbs: toTbs(msg.content, "mls_public_message", groupContext),
       auth: msg.auth,
@@ -218,4 +223,56 @@ export async function unprotectPublicMessage(
     content: msg.content,
     auth: msg.auth,
   }
+}
+export async function createPublicMessage(
+  signKey: Uint8Array,
+  confirmationKey: Uint8Array,
+  confirmedTranscriptHash: Uint8Array,
+  tbs: FramedContentTBSExternal,
+  cs: CiphersuiteImpl,
+): Promise<PublicMessage> {
+  const auth = await signFramedContent(signKey, confirmationKey, confirmedTranscriptHash, tbs, cs)
+  return { auth, content: tbs.content, senderType: tbs.senderType }
+}
+
+export async function verifyPublicMessage(
+  signKey: Uint8Array,
+  confirmationKey: Uint8Array,
+  confirmedTranscriptHash: Uint8Array,
+  tbs: FramedContentTBSExternal,
+  msg: PublicMessage,
+  cs: CiphersuiteImpl,
+): Promise<boolean> {
+  return verifyFramedContent(signKey, confirmationKey, confirmedTranscriptHash, tbs, msg.auth, cs)
+}
+
+export async function createPublicMessageMember(
+  signKey: Uint8Array,
+  confirmationKey: Uint8Array,
+  confirmedTranscriptHash: Uint8Array,
+  membershipKey: Uint8Array,
+  tbs: FramedContentTBS,
+  cs: CiphersuiteImpl,
+): Promise<MemberPublicMessage> {
+  const auth = await signFramedContent(signKey, confirmationKey, confirmedTranscriptHash, tbs, cs)
+  const tbm = { auth, contentTbs: tbs }
+
+  const tag = await createMembershipTag(membershipKey, tbm, cs.hash)
+
+  return { auth, content: tbs.content, senderType: "member", membershipTag: new Uint8Array(tag) }
+}
+
+export async function verifyPublicMessageMember(
+  signKey: Uint8Array,
+  confirmationKey: Uint8Array,
+  confirmedTranscriptHash: Uint8Array,
+  membershipKey: Uint8Array,
+  tbs: FramedContentTBS,
+  msg: MemberPublicMessage,
+  cs: CiphersuiteImpl,
+): Promise<boolean> {
+  return (
+    (await verifyMembershipTag(membershipKey, { auth: msg.auth, contentTbs: tbs }, msg.membershipTag, cs.hash)) &&
+    verifyFramedContent(signKey, confirmationKey, confirmedTranscriptHash, tbs, msg.auth, cs)
+  )
 }

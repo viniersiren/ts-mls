@@ -7,8 +7,7 @@ import { deriveSecret, Kdf } from "./crypto/kdf"
 import { Signature, signWithLabel, verifyWithLabel } from "./crypto/signature"
 import { decodeExtension, encodeExtension, Extension } from "./extension"
 import { decodeGroupContext, encodeGroupContext, extractEpochSecret, GroupContext } from "./groupContext"
-
-import { Welcome, welcomeKey, welcomeNonce } from "./welcome"
+import { decodeRatchetTree, RatchetTree } from "./ratchetTree"
 
 export type GroupInfoTBS = Readonly<{
   groupContext: GroupContext
@@ -50,6 +49,16 @@ export const decodeGroupInfo: Decoder<GroupInfo> = mapDecoders(
   }),
 )
 
+export function ratchetTreeFromExtension(info: GroupInfo): RatchetTree | undefined {
+  const treeExtension = info.extensions.find((ex) => ex.extensionType === "ratchet_tree")
+
+  if (treeExtension !== undefined) {
+    const tree = decodeRatchetTree(treeExtension.extensionData, 0)
+    if (tree === undefined) throw new Error("Could not decode RatchetTree")
+    return tree[0]
+  }
+}
+
 export function signGroupInfo(tbs: GroupInfoTBS, privateKey: Uint8Array, s: Signature): GroupInfo {
   const signature = signWithLabel(privateKey, "GroupInfoTBS", encodeGroupInfoTBS(tbs), s)
   return { ...tbs, signature }
@@ -59,7 +68,7 @@ export function verifyGroupInfoSignature(gi: GroupInfo, publicKey: Uint8Array, s
   return verifyWithLabel(publicKey, "GroupInfoTBS", encodeGroupInfoTBS(gi), gi.signature, s)
 }
 
-export async function verifyConfirmationTag(
+export async function verifyGroupInfoConfirmationTag(
   gi: GroupInfo,
   joinerSecret: Uint8Array,
   pskSecret: Uint8Array,
@@ -72,20 +81,4 @@ export async function verifyConfirmationTag(
 
 export async function extractWelcomeSecret(joinerSecret: Uint8Array, pskSecret: Uint8Array, kdf: Kdf) {
   return deriveSecret(await kdf.extract(joinerSecret, pskSecret), "welcome", kdf)
-}
-
-export async function decryptGroupInfo(
-  w: Welcome,
-  joinerSecret: Uint8Array,
-  pskSecret: Uint8Array,
-  cs: CiphersuiteImpl,
-): Promise<GroupInfo | undefined> {
-  const welcomeSecret = await extractWelcomeSecret(joinerSecret, pskSecret, cs.kdf)
-
-  const key = await welcomeKey(welcomeSecret, cs)
-  const nonce = await welcomeNonce(welcomeSecret, cs)
-  const decryted = await cs.hpke.decryptAead(key, nonce, new Uint8Array(), w.encryptedGroupInfo)
-
-  const decoded = decodeGroupInfo(decryted, 0)
-  return decoded?.[0]
 }

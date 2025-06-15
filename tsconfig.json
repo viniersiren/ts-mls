@@ -13,6 +13,7 @@
     "declaration": true,
     "incremental": false,
     "sourceMap": true,
+    "resolveJsonModule": true,
 
     /* Linting */
     "strict": true,
@@ -22,5 +23,5 @@
     "noFallthroughCasesInSwitch": true,
     "noUncheckedSideEffectImports": true
   },
-  "include": ["src"]
+  "include": ["src", "test"]
 }

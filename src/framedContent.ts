@@ -6,7 +6,7 @@ import { Commit, decodeCommit, encodeCommit } from "./commit"
 import { ContentTypeName, decodeContentType, encodeContentType } from "./contentType"
 import { CiphersuiteImpl } from "./crypto/ciphersuite"
 import { Hash } from "./crypto/hash"
-import { signWithLabel, verifyWithLabel } from "./crypto/signature"
+import { Signature, signWithLabel, verifyWithLabel } from "./crypto/signature"
 import { decodeGroupContext, encodeGroupContext, GroupContext } from "./groupContext"
 import { decodeWireformat, encodeWireformat, WireformatName } from "./wireformat"
 import { decodeProposal, encodeProposal, Proposal } from "./proposal"
@@ -96,7 +96,7 @@ export function toTbs(content: FramedContent, wireformat: WireformatName, contex
 // }
 
 export type FramedContent = FramedContentData & FramedContentInfo
-type FramedContentData = Readonly<{
+export type FramedContentData = Readonly<{
   groupId: Uint8Array
   epoch: bigint
   sender: Sender
@@ -287,13 +287,17 @@ export async function signFramedContentCommit(
   tbs: FramedContentTBSCommit,
   cs: CiphersuiteImpl,
 ): Promise<FramedContentAuthDataCommit> {
-  const signature = signWithLabel(signKey, "FramedContentTBS", encodeFramedContentTBS(tbs), cs.signature)
+  const signature = signFramedContentTBS(signKey, tbs, cs.signature)
 
   return {
     contentType: tbs.content.contentType,
     signature,
     confirmationTag: await createConfirmationTag(confirmationKey, confirmedTranscriptHash, cs.hash),
   }
+}
+
+export function signFramedContentTBS(signKey: Uint8Array, tbs: FramedContentTBS, s: Signature): Uint8Array {
+  return signWithLabel(signKey, "FramedContentTBS", encodeFramedContentTBS(tbs), s)
 }
 
 export async function verifyFramedContentCommit(
@@ -315,7 +319,7 @@ export function signFramedContentApplicationOrProposal(
   tbs: FramedContentTBSApplicationOrProposal,
   cs: CiphersuiteImpl,
 ): FramedContentAuthDataApplicationOrProposal {
-  const signature = signWithLabel(signKey, "FramedContentTBS", encodeFramedContentTBS(tbs), cs.signature)
+  const signature = signFramedContentTBS(signKey, tbs, cs.signature)
   return {
     contentType: tbs.content.contentType,
     signature,

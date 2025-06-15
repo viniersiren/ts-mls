@@ -150,6 +150,10 @@ export type LeafNodeTBS = LeafNodeData & LeafNodeInfo & LeafNodeExtensions & { i
 
 export type LeafNodeTBSCommit = LeafNodeData & LeafNodeInfoCommit & LeafNodeExtensions & { info: GroupIdLeafIndex }
 
+export type LeafNodeTBSKeyPackage = LeafNodeData &
+  LeafNodeInfoKeyPackage &
+  LeafNodeExtensions & { info: { leafNodeSource: "key_package" } }
+
 export const encodeLeafNodeTBS: Encoder<LeafNodeTBS> = contramapEncoders(
   [encodeLeafNodeData, encodeLeafNodeInfo, encodeLeafNodeExtensions, encodeLeafNodeGroupInfo],
   (tbs) => [tbs, tbs, tbs, tbs.info] as const,
@@ -185,6 +189,12 @@ export const decodeLeafNode: Decoder<LeafNode> = mapDecoders(
   }),
 )
 
+export type LeafNodeKeyPackage = LeafNode & LeafNodeInfoKeyPackage
+
+export const decodeLeafNodeKeyPackage: Decoder<LeafNodeKeyPackage> = mapDecoderOption(decodeLeafNode, (ln) =>
+  ln.leafNodeSource === "key_package" ? ln : undefined,
+)
+
 export type LeafNodeCommit = LeafNode & LeafNodeInfoCommit
 
 export const decodeLeafNodeCommit: Decoder<LeafNodeCommit> = mapDecoderOption(decodeLeafNode, (ln) =>
@@ -200,6 +210,14 @@ export function signLeafNodeCommit(
   signaturePrivateKey: Uint8Array,
   sig: Signature,
 ): LeafNodeCommit {
+  return { ...tbs, signature: signWithLabel(signaturePrivateKey, "LeafNodeTBS", encodeLeafNodeTBS(tbs), sig) }
+}
+
+export function signLeafNodeKeyPackage(
+  tbs: LeafNodeTBSKeyPackage,
+  signaturePrivateKey: Uint8Array,
+  sig: Signature,
+): LeafNodeKeyPackage {
   return { ...tbs, signature: signWithLabel(signaturePrivateKey, "LeafNodeTBS", encodeLeafNodeTBS(tbs), sig) }
 }
 

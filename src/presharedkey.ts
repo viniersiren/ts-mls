@@ -37,14 +37,14 @@ export const decodeResumptionPSKUsage: Decoder<ResumptionPSKUsageName> = mapDeco
   enumNumberToKey(resumptionPSKUsages),
 )
 
-type PSKInfoExternal = { psktype: "external"; pskId: Uint8Array }
-type PSKInfoResumption = {
+export type PSKInfoExternal = { psktype: "external"; pskId: Uint8Array }
+export type PSKInfoResumption = {
   psktype: "resumption"
   usage: ResumptionPSKUsageName
   pskGroupId: Uint8Array
   pskEpoch: bigint
 }
-type PSKInfo = PSKInfoExternal | PSKInfoResumption
+export type PSKInfo = PSKInfoExternal | PSKInfoResumption
 
 const encodePskInfoExternal: Encoder<PSKInfoExternal> = contramapEncoders(
   [encodePskType, encodeVarLenData],
@@ -120,20 +120,32 @@ export const decodePskLabel: Decoder<PSKLabel> = mapDecoders(
 export type PreSharedKeyIdExternal = PSKInfoExternal & PSKNonce
 export type PreSharedKeyIdResumption = PSKInfoResumption & PSKNonce
 
-export async function computePskSecret(psks: [PreSharedKeyIdExternal, Uint8Array][], impl: CiphersuiteImpl) {
+export async function computePskSecret(psks: [PreSharedKeyID, Uint8Array][], impl: CiphersuiteImpl) {
   const zeroes: Uint8Array = new Uint8Array(impl.kdf.size)
 
-  return psks.reduce(async (acc, [curId, curPsk], index) => {
-    const secret = await impl.kdf.extract(
-      await expandWithLabel(
-        await impl.kdf.extract(zeroes, curPsk),
-        "derived psk",
-        encodePskLabel({ id: curId, index, count: psks.length }),
-        impl.kdf.size,
-        impl.kdf,
-      ),
-      await acc,
-    )
-    return secret
-  }, Promise.resolve(zeroes))
+  return psks.reduce(
+    async (acc, [curId, curPsk], index) => updatePskSecret(await acc, curId, curPsk, index, psks.length, impl),
+    Promise.resolve(zeroes),
+  )
+}
+
+export async function updatePskSecret(
+  secret: Uint8Array,
+  pskId: PreSharedKeyID,
+  psk: Uint8Array,
+  index: number,
+  count: number,
+  impl: CiphersuiteImpl,
+) {
+  const zeroes: Uint8Array = new Uint8Array(impl.kdf.size)
+  return impl.kdf.extract(
+    await expandWithLabel(
+      await impl.kdf.extract(zeroes, psk),
+      "derived psk",
+      encodePskLabel({ id: pskId, index, count }),
+      impl.kdf.size,
+      impl.kdf,
+    ),
+    secret,
+  )
 }

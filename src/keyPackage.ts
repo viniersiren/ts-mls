@@ -1,18 +1,27 @@
 import { Decoder, mapDecoders } from "./codec/tlsDecoder"
 import { contramapEncoders, Encoder } from "./codec/tlsEncoder"
 import { decodeVarLenData, decodeVarLenType, encodeVarLenData, encodeVarLenType } from "./codec/variableLength"
-import { CiphersuiteName, decodeCiphersuite, encodeCiphersuite } from "./crypto/ciphersuite"
+import { CiphersuiteImpl, CiphersuiteName, decodeCiphersuite, encodeCiphersuite } from "./crypto/ciphersuite"
 import { Hash, refhash } from "./crypto/hash"
 import { Signature } from "./crypto/signature"
 import { decodeExtension, encodeExtension, Extension } from "./extension"
 import { decodeProtocolVersion, encodeProtocolVersion, ProtocolVersionName } from "./protocolVersion"
-import { decodeLeafNode, encodeLeafNode, LeafNode } from "./leafNode"
+import {
+  decodeLeafNodeKeyPackage,
+  encodeLeafNode,
+  LeafNodeKeyPackage,
+  LeafNodeTBSKeyPackage,
+  signLeafNodeKeyPackage,
+} from "./leafNode"
+import { Capabilities } from "./capabilities"
+import { Lifetime } from "./lifetime"
+import { Credential } from "./credential"
 
 type KeyPackageTBS = Readonly<{
   version: ProtocolVersionName
   cipherSuite: CiphersuiteName
   initKey: Uint8Array
-  leafNode: LeafNode
+  leafNode: LeafNodeKeyPackage
   extensions: Extension[]
 }>
 
@@ -29,7 +38,13 @@ export const encodeKeyPackageTBS: Encoder<KeyPackageTBS> = contramapEncoders(
 )
 
 export const decodeKeyPackageTBS: Decoder<KeyPackageTBS> = mapDecoders(
-  [decodeProtocolVersion, decodeCiphersuite, decodeVarLenData, decodeLeafNode, decodeVarLenType(decodeExtension)],
+  [
+    decodeProtocolVersion,
+    decodeCiphersuite,
+    decodeVarLenData,
+    decodeLeafNodeKeyPackage,
+    decodeVarLenType(decodeExtension),
+  ],
   (version, cipherSuite, initKey, leafNode, extensions) => ({
     version,
     cipherSuite,
@@ -54,10 +69,59 @@ export const decodeKeyPackage: Decoder<KeyPackage> = mapDecoders(
   }),
 )
 
+export function signKeyPackage(tbs: KeyPackageTBS, signKey: Uint8Array, s: Signature): KeyPackage {
+  return { ...tbs, signature: s.sign(signKey, encodeKeyPackageTBS(tbs)) }
+}
+
 export function verifySignature(kp: KeyPackage, s: Signature): boolean {
   return s.verify(kp.leafNode.signaturePublicKey, encodeKeyPackageTBS(kp), kp.signature)
 }
 
 export function makeKeyPackageRef(value: KeyPackage, h: Hash) {
   return refhash("MLS 1.0 KeyPackage Reference", encodeKeyPackage(value), h)
+}
+
+export type PrivateKeyPackage = {
+  initPrivateKey: Uint8Array
+  hpkePrivateKey: Uint8Array
+  signaturePrivateKey: Uint8Array
+}
+
+export async function generateKeyPackage(
+  credential: Credential,
+  capabilities: Capabilities,
+  lifetime: Lifetime,
+  extensions: Extension[],
+  cs: CiphersuiteImpl,
+): Promise<{ publicPackage: KeyPackage; privatePackage: PrivateKeyPackage }> {
+  const sigKeys = cs.signature.keygen()
+  const initKeys = await cs.hpke.generateKeyPair()
+  const hpkeKeys = await cs.hpke.generateKeyPair()
+
+  const privatePackage = {
+    initPrivateKey: await cs.hpke.exportPrivateKey(initKeys.privateKey),
+    hpkePrivateKey: await cs.hpke.exportPrivateKey(hpkeKeys.privateKey),
+    signaturePrivateKey: sigKeys.signKey,
+  }
+
+  const leafNodeTbs: LeafNodeTBSKeyPackage = {
+    leafNodeSource: "key_package",
+    hpkePublicKey: await cs.hpke.exportPublicKey(hpkeKeys.publicKey),
+    signaturePublicKey: sigKeys.publicKey,
+    info: { leafNodeSource: "key_package" },
+    extensions,
+    credential,
+    capabilities,
+    lifetime,
+  }
+
+  const tbs: KeyPackageTBS = {
+    version: "mls10",
+    cipherSuite: cs.name,
+    initKey: await cs.hpke.exportPublicKey(initKeys.publicKey),
+    leafNode: signLeafNodeKeyPackage(leafNodeTbs, sigKeys.signKey, cs.signature),
+    extensions,
+  }
+
+  return { publicPackage: signKeyPackage(tbs, sigKeys.signKey, cs.signature), privatePackage }
 }

@@ -64,7 +64,7 @@ test("encode and decode works for array of uint8", () => {
 })
 
 test("encode and decode works for array of uint64", () => {
-  arrayRoundtrip(encodeUint64, decodeUint64, [1n, 2n, 3n, 4n, 5n, 3945349583495384533409534n])
+  arrayRoundtrip(encodeUint64, decodeUint64, [1n, 2n, 3n, 4n, 5n, 18446744073709551615n])
 })
 
 test("encode and decode works for array of optional random bytes", () => {
@@ -82,5 +82,5 @@ test("encode and decode works for array of optional random bytes", () => {
 const varLenRoundtrip = createRoundtripTest(encodeVarLenData, decodeVarLenData)
 
 function arrayRoundtrip<T>(enc: Encoder<T>, dec: Decoder<T>, ts: T[]) {
-  return createRoundtripTest(encodeVarLenType(enc), decodeVarLenType(dec))
+  return createRoundtripTest(encodeVarLenType(enc), decodeVarLenType(dec))(ts)
 }

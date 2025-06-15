@@ -67,12 +67,16 @@ async function testMessageProtection(data: MessageProtectionData, impl: Ciphersu
 
   await publicProposal(data, gc, impl)
   await protectThenUnprotectProposalPublic(data, gc, impl)
+
   await publicCommit(data, gc, impl)
-  await protectThenUnprotectProposalCommit(data, gc, impl)
+  await protectThenUnprotectCommitPublic(data, gc, impl)
+
   await proposal(data, impl)
   await protectThenUnprotectProposal(data, gc, impl)
+
   await application(data, impl)
   await protectThenUnprotectApplication(data, gc, impl)
+
   await commit(data, impl)
   await protectThenUnprotectCommit(data, gc, impl)
 
@@ -105,11 +109,7 @@ async function protectThenUnprotectProposalPublic(
   expect(encodeProposal(unprotected.content.proposal)).toStrictEqual(hexToBytes(data.proposal))
 }
 
-async function protectThenUnprotectProposalCommit(
-  data: MessageProtectionData,
-  gc: GroupContext,
-  impl: CiphersuiteImpl,
-) {
+async function protectThenUnprotectCommitPublic(data: MessageProtectionData, gc: GroupContext, impl: CiphersuiteImpl) {
   const p = decodeCommit(hexToBytes(data.commit), 0)
   if (p === undefined) throw new Error("could not decode commit")
 
@@ -171,19 +171,19 @@ async function publicApplicationFails(data: MessageProtectionData, gc: GroupCont
     impl,
   )
 
-  if (unprotected === undefined || unprotected.contentType !== "application")
+  if (unprotected === undefined || unprotected.content.content.contentType !== "application")
     throw new Error("could not unprotect mls private message")
 
   const content: AuthenticatedContent = {
     content: {
-      ...unprotected,
+      ...unprotected.content.content,
       contentType: "application",
       groupId: gc.groupId,
       sender: { leafIndex: 0, senderType: "member" },
       epoch: gc.epoch,
       authenticatedData: new Uint8Array(),
     },
-    auth: unprotected.auth,
+    auth: unprotected.content.auth,
     wireformat: "mls_public_message",
   }
 
@@ -204,10 +204,10 @@ async function commit(data: MessageProtectionData, impl: CiphersuiteImpl) {
     impl,
   )
 
-  if (unprotected === undefined || unprotected.contentType !== "commit")
+  if (unprotected === undefined || unprotected.content.content.contentType !== "commit")
     throw new Error("could not unprotect mls private message")
 
-  expect(encodeCommit(unprotected.commit)).toStrictEqual(hexToBytes(data.commit))
+  expect(encodeCommit(unprotected.content.content.commit)).toStrictEqual(hexToBytes(data.commit))
 }
 
 async function application(data: MessageProtectionData, impl: CiphersuiteImpl) {
@@ -224,10 +224,10 @@ async function application(data: MessageProtectionData, impl: CiphersuiteImpl) {
     impl,
   )
 
-  if (unprotected === undefined || unprotected.contentType !== "application")
+  if (unprotected === undefined || unprotected.content.content.contentType !== "application")
     throw new Error("could not unprotect mls private message")
 
-  expect(unprotected.applicationData).toStrictEqual(hexToBytes(data.application))
+  expect(unprotected.content.content.applicationData).toStrictEqual(hexToBytes(data.application))
 }
 
 async function protectThenUnprotectProposal(data: MessageProtectionData, gc: GroupContext, impl: CiphersuiteImpl) {
@@ -244,16 +244,20 @@ async function protectThenUnprotectProposal(data: MessageProtectionData, gc: Gro
     gc,
     secretTree,
     1,
-    0,
     impl,
   )
 
-  const unprotected = await unprotectPrivateMessage(hexToBytes(data.sender_data_secret), pro, secretTree, impl)
+  const unprotected = await unprotectPrivateMessage(
+    hexToBytes(data.sender_data_secret),
+    pro.privateMessage,
+    secretTree,
+    impl,
+  )
 
-  if (unprotected === undefined || unprotected.contentType !== "proposal")
+  if (unprotected === undefined || unprotected.content.content.contentType !== "proposal")
     throw new Error("could not unprotect mls private message")
 
-  expect(encodeProposal(unprotected.proposal)).toStrictEqual(hexToBytes(data.proposal))
+  expect(encodeProposal(unprotected.content.content.proposal)).toStrictEqual(hexToBytes(data.proposal))
 }
 
 async function protectThenUnprotectApplication(data: MessageProtectionData, gc: GroupContext, impl: CiphersuiteImpl) {
@@ -269,16 +273,20 @@ async function protectThenUnprotectApplication(data: MessageProtectionData, gc: 
     gc,
     secretTree,
     1,
-    0,
     impl,
   )
 
-  const unprotected = await unprotectPrivateMessage(hexToBytes(data.sender_data_secret), pro, secretTree, impl)
+  const unprotected = await unprotectPrivateMessage(
+    hexToBytes(data.sender_data_secret),
+    pro.privateMessage,
+    secretTree,
+    impl,
+  )
 
-  if (unprotected === undefined || unprotected.contentType !== "application")
+  if (unprotected === undefined || unprotected.content.content.contentType !== "application")
     throw new Error("could not unprotect mls private message")
 
-  expect(unprotected.applicationData).toStrictEqual(hexToBytes(data.application))
+  expect(unprotected.content.content.applicationData).toStrictEqual(hexToBytes(data.application))
 }
 
 async function protectThenUnprotectCommit(data: MessageProtectionData, gc: GroupContext, impl: CiphersuiteImpl) {
@@ -297,16 +305,20 @@ async function protectThenUnprotectCommit(data: MessageProtectionData, gc: Group
     gc,
     secretTree,
     1,
-    0,
     impl,
   )
 
-  const unprotected = await unprotectPrivateMessage(hexToBytes(data.sender_data_secret), pro, secretTree, impl)
+  const unprotected = await unprotectPrivateMessage(
+    hexToBytes(data.sender_data_secret),
+    pro.privateMessage,
+    secretTree,
+    impl,
+  )
 
-  if (unprotected === undefined || unprotected.contentType !== "commit")
+  if (unprotected === undefined || unprotected.content.content.contentType !== "commit")
     throw new Error("could not unprotect mls private message")
 
-  expect(encodeCommit(unprotected.commit)).toStrictEqual(hexToBytes(data.commit))
+  expect(encodeCommit(unprotected.content.content.commit)).toStrictEqual(hexToBytes(data.commit))
 }
 
 async function proposal(data: MessageProtectionData, impl: CiphersuiteImpl) {
@@ -323,8 +335,8 @@ async function proposal(data: MessageProtectionData, impl: CiphersuiteImpl) {
     impl,
   )
 
-  if (unprotected === undefined || unprotected.contentType !== "proposal")
+  if (unprotected === undefined || unprotected.content.content.contentType !== "proposal")
     throw new Error("could not unprotect mls private message")
 
-  expect(encodeProposal(unprotected.proposal)).toStrictEqual(hexToBytes(data.proposal))
+  expect(encodeProposal(unprotected.content.content.proposal)).toStrictEqual(hexToBytes(data.proposal))
 }

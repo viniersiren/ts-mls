@@ -1,5 +1,3 @@
-import { randomBytes } from "@noble/ciphers/webcrypto"
-import { bytesToHex } from "@noble/ciphers/utils"
 import {
   encodeUint8,
   encodeUint16,
@@ -91,6 +89,6 @@ function uint64RoundTrip(num: bigint) {
 
   const decoded = decodeUint64(encoded, 0)
 
-  expect(decoded?.[0]).toBe(num)
+  expect(decoded?.[0]).toEqual(num)
   expect(decoded?.[1]).toBe(8)
 }

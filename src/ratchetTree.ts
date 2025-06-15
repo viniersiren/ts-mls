@@ -18,6 +18,7 @@ import {
   root,
 } from "./treemath"
 import { LeafNode, encodeLeafNode, decodeLeafNode } from "./leafNode"
+import { constantTimeEqual } from "./util/constantTimeCompare"
 
 export type Node = NodeParent | NodeLeaf
 type NodeParent = { nodeType: "parent"; parent: ParentNode }
@@ -319,4 +320,18 @@ export function findFirstNonBlankAncestor(tree: RatchetTree, nodeIndex: number):
     traverseToRoot(tree, nodeToLeafIndex(nodeIndex), (nodeIndex: number, _node: ParentNode) => nodeIndex)?.[0] ??
     root(leafWidth(tree.length))
   )
+}
+
+export function findLeafIndex(tree: RatchetTree, leaf: LeafNode): number | undefined {
+  const foundIndex = tree.findIndex((node, nodeIndex) => {
+    if (isLeaf(nodeIndex) && node !== undefined) {
+      if (node.nodeType === "parent") throw new Error("Found parent node in leaf node position")
+      //todo is there a better comparison method?
+      return constantTimeEqual(encodeLeafNode(node.leaf), encodeLeafNode(leaf))
+    }
+
+    return false
+  })
+
+  return foundIndex === -1 ? undefined : nodeToLeafIndex(foundIndex)
 }

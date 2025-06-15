@@ -76,6 +76,10 @@ export const decodeSender: Decoder<Sender> = flatMapDecoder(decodeSenderType, (s
   }
 })
 
+export function getSenderLeafNodeIndex(sender: Sender): number | undefined {
+  return sender.senderType === "member" ? sender.leafIndex : undefined
+}
+
 export type SenderData = Readonly<{
   leafIndex: number
   generation: number

@@ -6,6 +6,9 @@ import {
   DhkemX448HkdfSha512,
   KemInterface,
 } from "@hpke/core"
+import { XWing } from "@hpke/hybridkem-x-wing"
+
+import { MlKem768, MlKem512, MlKem1024 } from "@hpke/ml-kem"
 
 export type KemAlgorithm =
   | "DHKEM-P256-HKDF-SHA256"
@@ -13,6 +16,10 @@ export type KemAlgorithm =
   | "DHKEM-X448-HKDF-SHA512"
   | "DHKEM-P521-HKDF-SHA512"
   | "DHKEM-P384-HKDF-SHA384"
+  | "ML-KEM-512"
+  | "ML-KEM-768"
+  | "ML-KEM-1024"
+  | "X-Wing"
 
 export function makeDhKem(kemAlg: KemAlgorithm): KemInterface {
   switch (kemAlg) {
@@ -26,5 +33,13 @@ export function makeDhKem(kemAlg: KemAlgorithm): KemInterface {
       return new DhkemP521HkdfSha512()
     case "DHKEM-P384-HKDF-SHA384":
       return new DhkemP384HkdfSha384()
+    case "ML-KEM-512":
+      return new MlKem512()
+    case "ML-KEM-768":
+      return new MlKem768()
+    case "ML-KEM-1024":
+      return new MlKem1024()
+    case "X-Wing":
+      return new XWing()
   }
 }

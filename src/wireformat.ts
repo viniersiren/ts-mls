@@ -14,6 +14,7 @@ export const wireformats = {
 export type WireformatName = keyof typeof wireformats
 export type WireformatValue = (typeof wireformats)[WireformatName]
 
-export const encodeWireformat: Encoder<WireformatName> = contramapEncoder(encodeUint16, (t) => wireformats[t])
+export const encodeWireformat: Encoder<WireformatName> = (s) =>
+  contramapEncoder(encodeUint16, (t: WireformatName) => wireformats[t])(s)
 
 export const decodeWireformat: Decoder<WireformatName> = mapDecoderOption(decodeUint16, enumNumberToKey(wireformats))

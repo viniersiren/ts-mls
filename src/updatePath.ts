@@ -1,10 +1,9 @@
-import { PrivateKeyPath } from "./clientState"
 import { Decoder, mapDecoders } from "./codec/tlsDecoder"
 import { contramapEncoders, Encoder } from "./codec/tlsEncoder"
 import { decodeVarLenData, decodeVarLenType, encodeVarLenData, encodeVarLenType } from "./codec/variableLength"
 import { CiphersuiteImpl } from "./crypto/ciphersuite"
 import { Hash } from "./crypto/hash"
-import { decryptWithLabel, encryptWithLabel } from "./crypto/hpke"
+import { encryptWithLabel } from "./crypto/hpke"
 import { deriveSecret } from "./crypto/kdf"
 import { encodeGroupContext, GroupContext } from "./groupContext"
 import { decodeLeafNodeCommit, encodeLeafNode, LeafNodeCommit, LeafNodeTBSCommit, signLeafNodeCommit } from "./leafNode"
@@ -20,7 +19,7 @@ import { treeHashRoot } from "./treeHash"
 import { directPath, leafToNodeIndex, leafWidth } from "./treemath"
 import { updateArray } from "./util/array"
 import { constantTimeEqual } from "./util/constantTimeCompare"
-import { decodeHpkeCiphertext, encodeHpkeCiphertext, HPKECiphertext } from "./welcome" //todo move this
+import { decodeHpkeCiphertext, encodeHpkeCiphertext, HPKECiphertext } from "./hpkeCiphertext"
 
 export type UpdatePathNode = Readonly<{
   hpkePublicKey: Uint8Array
@@ -52,7 +51,7 @@ export const decodeUpdatePath: Decoder<UpdatePath> = mapDecoders(
   (leafNode, nodes) => ({ leafNode, nodes }),
 )
 
-type PathSecret = { nodeIndex: number; secret: Uint8Array; sendTo: number[] }
+export type PathSecret = { nodeIndex: number; secret: Uint8Array; sendTo: number[] }
 
 export async function createUpdatePath(
   tree: RatchetTree,
@@ -64,7 +63,7 @@ export async function createUpdatePath(
   const leafNode = tree[leafToNodeIndex(senderLeafIndex)]
   if (leafNode === undefined || leafNode.nodeType === "parent") throw new Error("Expected non-blank leaf node")
 
-  const pathSecret = crypto.getRandomValues(new Uint8Array(cs.kdf.size))
+  const pathSecret = cs.rng.randomBytes(cs.kdf.size)
 
   const leafNodeSecret = await deriveSecret(pathSecret, "node", cs.kdf)
   const leafKeypair = await cs.hpke.deriveKeyPair(leafNodeSecret)
@@ -247,7 +246,19 @@ function isAncestor(tree: RatchetTree, leafIndex: number, nodeIndex: number): bo
   )
 }
 
-function firstMatchAncestor(
+export function firstCommonAncestor(tree: RatchetTree, leafIndex: number, senderLeafIndex: number): number {
+  const fdp = filteredDirectPathAndCopathResolution(senderLeafIndex, tree)
+
+  for (const { nodeIndex } of fdp) {
+    if (isAncestor(tree, leafIndex, nodeIndex)) {
+      return nodeIndex
+    }
+  }
+
+  throw new Error("Could not find common ancestor")
+}
+
+export function firstMatchAncestor(
   tree: RatchetTree,
   leafIndex: number,
   senderLeafIndex: number,
@@ -262,38 +273,4 @@ function firstMatchAncestor(
   }
 
   throw new Error("Could not find common ancestor")
-}
-
-export async function applyUpdatePathSecret(
-  tree: RatchetTree,
-  privatePath: PrivateKeyPath,
-  senderLeafIndex: number,
-  gc: GroupContext,
-  path: UpdatePath,
-  cs: CiphersuiteImpl,
-): Promise<{ nodeIndex: number; pathSecret: Uint8Array }> {
-  const {
-    nodeIndex: ancestorNodeIndex,
-    resolution,
-    updateNode,
-  } = firstMatchAncestor(tree, privatePath.leafIndex, senderLeafIndex, path)
-
-  for (const [i, nodeIndex] of resolution.entries()) {
-    if (privatePath.privateKeys[nodeIndex] !== undefined) {
-      const key = await cs.hpke.importPrivateKey(privatePath.privateKeys[nodeIndex]!)
-      const ct = updateNode?.encryptedPathSecret[i]!
-
-      const pathSecret = await decryptWithLabel(
-        key,
-        "UpdatePathNode",
-        encodeGroupContext(gc),
-        ct.kemOutput,
-        ct.ciphertext,
-        cs.hpke,
-      )
-      return { nodeIndex: ancestorNodeIndex, pathSecret }
-    }
-  }
-
-  throw new Error("No overlap between provided private keys and update path")
 }

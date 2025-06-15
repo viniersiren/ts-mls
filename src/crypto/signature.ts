@@ -7,6 +7,7 @@ import { encodeVarLenData } from "../codec/variableLength"
 export interface Signature {
   sign(signKey: Uint8Array, message: Uint8Array): Uint8Array
   verify(publicKey: Uint8Array, message: Uint8Array, signature: Uint8Array): boolean
+  keygen(): { publicKey: Uint8Array; signKey: Uint8Array }
 }
 
 export type SignatureAlgorithm = "Ed25519" | "Ed448" | "P256" | "P384" | "P521"
@@ -60,6 +61,30 @@ export function makeNobleSignatureImpl(alg: SignatureAlgorithm): Signature {
           return p384.verify(signature, message, publicKey, { prehash: true })
         case "P521":
           return p521.verify(signature, message, publicKey, { prehash: true })
+      }
+    },
+    keygen() {
+      switch (alg) {
+        case "Ed25519": {
+          const signKey = ed25519.utils.randomPrivateKey()
+          return { signKey, publicKey: ed25519.getPublicKey(signKey) }
+        }
+        case "Ed448": {
+          const signKey = ed448.utils.randomPrivateKey()
+          return { signKey, publicKey: ed25519.getPublicKey(signKey) }
+        }
+        case "P256": {
+          const signKey = p256.utils.randomPrivateKey()
+          return { signKey, publicKey: p256.getPublicKey(signKey) }
+        }
+        case "P384": {
+          const signKey = p384.utils.randomPrivateKey()
+          return { signKey, publicKey: p384.getPublicKey(signKey) }
+        }
+        case "P521": {
+          const signKey = p521.utils.randomPrivateKey()
+          return { signKey, publicKey: p521.getPublicKey(signKey) }
+        }
       }
     },
   }

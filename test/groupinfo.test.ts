@@ -16,12 +16,12 @@ describe("GroupInfo signing and verification", () => {
     epoch: BigInt(42),
     treeHash: new Uint8Array([0xaa]),
     confirmedTranscriptHash: new Uint8Array([0xbb]),
-    extensions: [{ extensionType: 1, extensionData: new Uint8Array([0x11]) }],
+    extensions: [{ extensionType: "application_id", extensionData: new Uint8Array([0x11]) }],
   }
 
   const baseTBS: GroupInfoTBS = {
     groupContext,
-    extensions: [{ extensionType: 2, extensionData: new Uint8Array([0x22]) }],
+    extensions: [{ extensionType: "ratchet_tree", extensionData: new Uint8Array([0x22]) }],
     confirmationTag: new Uint8Array([0xcc]),
     signer: 7,
   }
