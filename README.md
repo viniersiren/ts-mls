@@ -6,30 +6,27 @@ Typescript implementation of Messaging Layer Security (RFC 9420, MLS).
 
 This project is work in progress, but it will focus on immutability, type safety, minimal dependencies and extensibility.
 
-
 ## Supported Ciphersuites
 
 The following cipher suites are supported:
 
-| KEM                      | AEAD             | KDF         | Hash    | Signature | Name                                                     | ID |
-| ------------------------ | ---------------- | ----------- | ------- | --------- | -------------------------------------------------------- | -- |
-| DHKEM-X25519-HKDF-SHA256 | AES128GCM        | HKDF-SHA256 | SHA-256 | Ed25519   | MLS\_128\_DHKEMX25519\_AES128GCM\_SHA256\_Ed25519        | 1  |
-| DHKEM-P256-HKDF-SHA256   | AES128GCM        | HKDF-SHA256 | SHA-256 | P256      | MLS\_128\_DHKEMP256\_AES128GCM\_SHA256\_P256             | 2  |
-| DHKEM-X25519-HKDF-SHA256 | CHACHA20POLY1305 | HKDF-SHA256 | SHA-256 | Ed25519   | MLS\_128\_DHKEMX25519\_CHACHA20POLY1305\_SHA256\_Ed25519 | 3  |
-| DHKEM-X448-HKDF-SHA512   | AES256GCM        | HKDF-SHA512 | SHA-512 | Ed448     | MLS\_256\_DHKEMX448\_AES256GCM\_SHA512\_Ed448            | 4  |
-| DHKEM-P521-HKDF-SHA512   | AES256GCM        | HKDF-SHA512 | SHA-512 | P521      | MLS\_256\_DHKEMP521\_AES256GCM\_SHA512\_P521             | 5  |
-| DHKEM-X448-HKDF-SHA512   | CHACHA20POLY1305 | HKDF-SHA512 | SHA-512 | Ed448     | MLS\_256\_DHKEMX448\_CHACHA20POLY1305\_SHA512\_Ed448     | 6  |
-| DHKEM-P384-HKDF-SHA384   | AES256GCM        | HKDF-SHA384 | SHA-384 | P384      | MLS\_256\_DHKEMP384\_AES256GCM\_SHA384\_P384             | 7  |
-| ML-KEM-512               | AES256GCM        | HKDF-SHA256 | SHA-256 | Ed25519   | MLS\_128\_MLKEM512\_AES128GCM\_SHA256\_Ed25519           | 77 |
-| ML-KEM-512               | CHACHA20POLY1305 | HKDF-SHA256 | SHA-256 | Ed25519   | MLS\_128\_MLKEM512\_CHACHA20POLY1305\_SHA256\_Ed25519    | 78 |
-| ML-KEM-768               | AES256GCM        | HKDF-SHA384 | SHA-384 | Ed25519   | MLS\_256\_MLKEM768\_AES256GCM\_SHA384\_Ed25519           | 79 |
-| ML-KEM-768               | CHACHA20POLY1305 | HKDF-SHA384 | SHA-384 | Ed25519   | MLS\_256\_MLKEM768\_CHACHA20POLY1305\_SHA384\_Ed25519    | 80 |
-| ML-KEM-1024              | AES256GCM        | HKDF-SHA512 | SHA-512 | Ed25519   | MLS\_256\_MLKEM1024\_AES256GCM\_SHA512\_Ed25519          | 81 |
-| ML-KEM-1024              | CHACHA20POLY1305 | HKDF-SHA512 | SHA-512 | Ed25519   | MLS\_256\_MLKEM1024\_CHACHA20POLY1305\_SHA512\_Ed25519   | 82 |
-| X-Wing                   | AES256GCM        | HKDF-SHA512 | SHA-512 | Ed25519   | MLS\_256\_XWING\_AES256GCM\_SHA512\_Ed25519              | 83 |
-| X-Wing                   | CHACHA20POLY1305 | HKDF-SHA512 | SHA-512 | Ed25519   | MLS\_256\_XWING\_CHACHA20POLY1305\_SHA512\_Ed25519       | 84 |
-
-
+| KEM                      | AEAD             | KDF         | Hash    | Signature | Name                                                | ID  |
+| ------------------------ | ---------------- | ----------- | ------- | --------- | --------------------------------------------------- | --- |
+| DHKEM-X25519-HKDF-SHA256 | AES128GCM        | HKDF-SHA256 | SHA-256 | Ed25519   | MLS_128_DHKEMX25519_AES128GCM_SHA256_Ed25519        | 1   |
+| DHKEM-P256-HKDF-SHA256   | AES128GCM        | HKDF-SHA256 | SHA-256 | P256      | MLS_128_DHKEMP256_AES128GCM_SHA256_P256             | 2   |
+| DHKEM-X25519-HKDF-SHA256 | CHACHA20POLY1305 | HKDF-SHA256 | SHA-256 | Ed25519   | MLS_128_DHKEMX25519_CHACHA20POLY1305_SHA256_Ed25519 | 3   |
+| DHKEM-X448-HKDF-SHA512   | AES256GCM        | HKDF-SHA512 | SHA-512 | Ed448     | MLS_256_DHKEMX448_AES256GCM_SHA512_Ed448            | 4   |
+| DHKEM-P521-HKDF-SHA512   | AES256GCM        | HKDF-SHA512 | SHA-512 | P521      | MLS_256_DHKEMP521_AES256GCM_SHA512_P521             | 5   |
+| DHKEM-X448-HKDF-SHA512   | CHACHA20POLY1305 | HKDF-SHA512 | SHA-512 | Ed448     | MLS_256_DHKEMX448_CHACHA20POLY1305_SHA512_Ed448     | 6   |
+| DHKEM-P384-HKDF-SHA384   | AES256GCM        | HKDF-SHA384 | SHA-384 | P384      | MLS_256_DHKEMP384_AES256GCM_SHA384_P384             | 7   |
+| ML-KEM-512               | AES256GCM        | HKDF-SHA256 | SHA-256 | Ed25519   | MLS_128_MLKEM512_AES128GCM_SHA256_Ed25519           | 77  |
+| ML-KEM-512               | CHACHA20POLY1305 | HKDF-SHA256 | SHA-256 | Ed25519   | MLS_128_MLKEM512_CHACHA20POLY1305_SHA256_Ed25519    | 78  |
+| ML-KEM-768               | AES256GCM        | HKDF-SHA384 | SHA-384 | Ed25519   | MLS_256_MLKEM768_AES256GCM_SHA384_Ed25519           | 79  |
+| ML-KEM-768               | CHACHA20POLY1305 | HKDF-SHA384 | SHA-384 | Ed25519   | MLS_256_MLKEM768_CHACHA20POLY1305_SHA384_Ed25519    | 80  |
+| ML-KEM-1024              | AES256GCM        | HKDF-SHA512 | SHA-512 | Ed25519   | MLS_256_MLKEM1024_AES256GCM_SHA512_Ed25519          | 81  |
+| ML-KEM-1024              | CHACHA20POLY1305 | HKDF-SHA512 | SHA-512 | Ed25519   | MLS_256_MLKEM1024_CHACHA20POLY1305_SHA512_Ed25519   | 82  |
+| X-Wing                   | AES256GCM        | HKDF-SHA512 | SHA-512 | Ed25519   | MLS_256_XWING_AES256GCM_SHA512_Ed25519              | 83  |
+| X-Wing                   | CHACHA20POLY1305 | HKDF-SHA512 | SHA-512 | Ed25519   | MLS_256_XWING_CHACHA20POLY1305_SHA512_Ed25519       | 84  |
 
 ## Basic Usage
 
