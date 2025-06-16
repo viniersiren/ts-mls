@@ -24,7 +24,13 @@ import {
 import { KeyPackage, makeKeyPackageRef, PrivateKeyPackage } from "./keyPackage"
 import { deriveKeySchedule, initializeEpoch, initializeKeySchedule, KeySchedule } from "./keySchedule"
 import { computePskSecret, PreSharedKeyID, updatePskSecret } from "./presharedkey"
-import { PrivateMessage, protect, unprotectPrivateMessage } from "./privateMessage"
+import {
+  PrivateMessage,
+  protect,
+  protectApplicationData,
+  protectProposal,
+  unprotectPrivateMessage,
+} from "./privateMessage"
 import {
   Proposal,
   ProposalAdd,
@@ -43,7 +49,7 @@ import { createSecretTree, SecretTree } from "./secretTree"
 import { getSenderLeafNodeIndex, Sender } from "./sender"
 import { createConfirmedHash, createInterimHash } from "./transcriptHash"
 import { treeHashRoot } from "./treeHash"
-import { leafToNodeIndex, leafWidth, root } from "./treemath"
+import { leafToNodeIndex, leafWidth, nodeToLeafIndex, root } from "./treemath"
 import {
   PathSecret,
   UpdatePath,
@@ -164,7 +170,7 @@ type R =
       kind: "newState"
       newState: ClientState
     }
-  | { kind: "applicationMessage"; message: Uint8Array }
+  | { kind: "applicationMessage"; message: Uint8Array; newState: ClientState }
 
 /**
  * Process private message and apply proposal or commit and return the updated ClientState or return an application message
@@ -177,17 +183,19 @@ export async function processPrivateMessage(
 ): Promise<R> {
   const result = await unprotectPrivateMessage(state.keySchedule.senderDataSecret, pm, state.secretTree, cs)
 
+  const newState = { ...state, secretTree: result.tree }
+
   if (result.content.content.contentType === "application") {
-    return { kind: "applicationMessage", message: result.content.content.applicationData }
+    return { kind: "applicationMessage", message: result.content.content.applicationData, newState }
   } else if (result.content.content.contentType === "commit") {
     return {
       kind: "newState",
-      newState: await processCommit(state, result.content as AuthenticatedContentCommit, psks, cs), //todo solve with types
+      newState: await processCommit(newState, result.content as AuthenticatedContentCommit, psks, cs), //todo solve with types
     }
   } else {
     return {
       kind: "newState",
-      newState: await processProposal(state, result.content, result.content.content.proposal, cs.hash),
+      newState: await processProposal(newState, result.content, result.content.content.proposal, cs.hash),
     }
   }
 }
@@ -224,8 +232,6 @@ async function processCommit(
   const groupContextWithExtensions =
     result.extensions.length === 0 ? state.groupContext : { ...state.groupContext, extensions: result.extensions }
 
-  result.addedLeafNodes
-
   const [pkp, commitSecret, tree] = await applyTreeUpdate(
     content.content.commit.path,
     content.content.sender,
@@ -233,9 +239,9 @@ async function processCommit(
     cs,
     state,
     groupContextWithExtensions,
-    result.addedLeafNodes.map((l) => l[0]),
+    result.addedLeafNodes.map((l) => leafToNodeIndex(l[0])),
     cs.kdf,
-  ) //: [state.privatePath, new Uint8Array(cs.kdf.size), x.tree]
+  )
 
   const newTreeHash = await treeHashRoot(tree, cs.hash)
 
@@ -251,9 +257,6 @@ async function processCommit(
     cs.hash,
   )
 
-  // console.log(x.pskSecret)
-  // console.log(commitSecret)
-  // console.log(updatedGroupContext)
   const epochSecrets = await initializeEpoch(
     state.keySchedule.initSecret,
     commitSecret,
@@ -261,10 +264,6 @@ async function processCommit(
     result.pskSecret,
     cs.kdf,
   )
-
-  // console.log(epochSecrets.keySchedule.confirmationKey)
-  // console.log(updatedGroupContext.confirmedTranscriptHash)
-  // console.log(content.auth.confirmationTag)
 
   const confirmationTagValid = await verifyConfirmationTag(
     epochSecrets.keySchedule.confirmationKey,
@@ -290,8 +289,8 @@ async function processCommit(
   }
 }
 
-function filterNewLeaves(resolution: number[], excludeLeaves: number[]): number[] {
-  const set = new Set(excludeLeaves)
+function filterNewLeaves(resolution: number[], excludeNodes: number[]): number[] {
+  const set = new Set(excludeNodes)
   return resolution.filter((i) => !set.has(i))
 }
 
@@ -302,7 +301,7 @@ async function applyTreeUpdate(
   cs: CiphersuiteImpl,
   state: ClientState,
   groupContext: GroupContext,
-  excludeLeaves: number[],
+  excludeNodes: number[],
   kdf: Kdf,
 ): Promise<[PrivateKeyPath, Uint8Array, RatchetTree]> {
   if (path === undefined) return [state.privatePath, new Uint8Array(kdf.size), tree] as const
@@ -315,7 +314,7 @@ async function applyTreeUpdate(
       sender.leafIndex,
       { ...groupContext, treeHash: await treeHashRoot(updatedTree, cs.hash), epoch: groupContext.epoch + 1n },
       path,
-      excludeLeaves,
+      excludeNodes,
       cs,
     )
     return [pkp, commitSecret, updatedTree] as const
@@ -328,7 +327,7 @@ async function applyTreeUpdate(
       leafNodeIndex,
       { ...groupContext, treeHash: await treeHashRoot(updatedTree, cs.hash), epoch: groupContext.epoch + 1n },
       path,
-      excludeLeaves,
+      excludeNodes,
       cs,
     )
     return [pkp, commitSecret, updatedTree] as const
@@ -341,7 +340,7 @@ async function updatePrivateKeyPath(
   leafNodeIndex: number,
   groupContext: GroupContext,
   path: UpdatePath,
-  excludeLeaves: number[],
+  excludeNodes: number[],
   cs: CiphersuiteImpl,
 ): Promise<[PrivateKeyPath, Uint8Array]> {
   const secret = await applyUpdatePathSecret(
@@ -350,7 +349,7 @@ async function updatePrivateKeyPath(
     leafNodeIndex,
     groupContext,
     path,
-    excludeLeaves,
+    excludeNodes,
     cs,
   )
   const pathSecrets = await pathToRoot(tree, secret.nodeIndex, secret.pathSecret, cs.kdf)
@@ -404,12 +403,6 @@ const emptyProposals: Proposals = {
   group_context_extensions: [],
 }
 
-// type CommitResult = {
-//   clientState: ClientState
-//   commit: Commit
-//   welcomes: Welcome[]
-// }
-
 type ApplyProposalsResult = {
   tree: RatchetTree
   extensions: Extension[]
@@ -456,7 +449,7 @@ async function applyProposals(
     (acc, { proposal }) => {
       const [tree, ws] = acc
       const [updatedTree, leafNodeIndex] = addLeafNode(tree, proposal.add.keyPackage.leafNode)
-      return [updatedTree, [...ws, [leafNodeIndex, proposal.add.keyPackage] as [number, KeyPackage]]]
+      return [updatedTree, [...ws, [nodeToLeafIndex(leafNodeIndex), proposal.add.keyPackage] as [number, KeyPackage]]]
     },
     [treeAfterRemove, []] as [RatchetTree, [number, KeyPackage][]],
   )
@@ -497,22 +490,29 @@ async function applyProposals(
   return res
 }
 
+export type CreateCommitResult = { newState: ClientState; welcome: Welcome | undefined; commit: MLSMessage }
+
 export async function createCommit(
   state: ClientState,
   psks: Record<string, Uint8Array>,
   publicMessage: boolean,
+  extraProposals: Proposal[] = [],
   cs: CiphersuiteImpl,
-) {
-  const proposals: ProposalOrRef[] = Object.keys(state.unappliedProposals).map((p) => ({
+): Promise<CreateCommitResult> {
+  const refs: ProposalOrRef[] = Object.keys(state.unappliedProposals).map((p) => ({
     proposalOrRefType: "reference",
     reference: base64ToBytes(p),
   }))
 
-  const res = await applyProposals(state, proposals, state.privatePath.leafIndex, psks, cs)
+  const proposals: ProposalOrRef[] = extraProposals.map((p) => ({ proposalOrRefType: "proposal", proposal: p }))
+
+  const allProposals = [...refs, ...proposals]
+
+  const res = await applyProposals(state, allProposals, state.privatePath.leafIndex, psks, cs)
 
   const [tree, updatePath, pathSecrets] = res.needsUpdatePath
-    ? await createUpdatePath(state.ratchetTree, state.privatePath.leafIndex, state.groupContext, new Uint8Array(), cs)
-    : [state.ratchetTree, undefined, [] as PathSecret[]]
+    ? await createUpdatePath(res.tree, state.privatePath.leafIndex, state.groupContext, new Uint8Array(), cs)
+    : [res.tree, undefined, [] as PathSecret[]]
 
   const privateKeys = await toPrivateKeyPath(pathToNodeSecrets(pathSecrets), state.privatePath.leafIndex, cs)
 
@@ -532,7 +532,7 @@ export async function createCommit(
     wireformat: "mls_private_message",
     content: {
       contentType: "commit",
-      commit: { proposals, path: updatePath },
+      commit: { proposals: allProposals, path: updatePath },
       groupId: state.groupContext.groupId,
       epoch: state.groupContext.epoch,
       sender: {
@@ -603,11 +603,14 @@ export async function createCommit(
     }),
   )
 
-  const welcome: Welcome = {
-    cipherSuite: updatedGroupContext.cipherSuite,
-    secrets: encryptedGroupSecrets,
-    encryptedGroupInfo,
-  }
+  const welcome: Welcome | undefined =
+    encryptGroupSecrets.length > 0
+      ? {
+          cipherSuite: updatedGroupContext.cipherSuite,
+          secrets: encryptedGroupSecrets,
+          encryptedGroupInfo,
+        }
+      : undefined
 
   const authData: FramedContentAuthDataCommit = {
     contentType: tbs.content.contentType,
@@ -615,7 +618,7 @@ export async function createCommit(
     confirmationTag,
   }
 
-  const [msg] = await protectCommit(publicMessage, state, wireformat, authenticatedData, tbs.content, authData, cs)
+  const [commit] = await protectCommit(publicMessage, state, wireformat, authenticatedData, tbs.content, authData, cs)
 
   const newState: ClientState = {
     groupContext: updatedGroupContext,
@@ -633,7 +636,7 @@ export async function createCommit(
     signaturePrivateKey: state.signaturePrivateKey,
   }
 
-  return { newState, welcome, msg }
+  return { newState, welcome, commit }
 }
 
 async function protectCommit(
@@ -683,7 +686,7 @@ export async function applyUpdatePathSecret(
   senderLeafIndex: number,
   gc: GroupContext,
   path: UpdatePath,
-  excludeLeaves: number[],
+  excludeNodes: number[],
   cs: CiphersuiteImpl,
 ): Promise<{ nodeIndex: number; pathSecret: Uint8Array }> {
   const {
@@ -692,18 +695,10 @@ export async function applyUpdatePathSecret(
     updateNode,
   } = firstMatchAncestor(tree, privatePath.leafIndex, senderLeafIndex, path)
 
-  // console.log(resolution)
-  // console.log(ancestorNodeIndex)
-  // console.log(updateNode)
-  // console.log(privatePath)
-
-  for (const [i, nodeIndex] of filterNewLeaves(resolution, excludeLeaves).entries()) {
+  for (const [i, nodeIndex] of filterNewLeaves(resolution, excludeNodes).entries()) {
     if (privatePath.privateKeys[nodeIndex] !== undefined) {
       const key = await cs.hpke.importPrivateKey(privatePath.privateKeys[nodeIndex]!)
       const ct = updateNode?.encryptedPathSecret[i]!
-
-      // console.log(privatePath.privateKeys[nodeIndex])
-      // console.log(ct)
 
       const pathSecret = await decryptWithLabel(
         key,
@@ -820,7 +815,7 @@ export async function joinGroup(
 
   const updatedPkp =
     groupSecrets.pathSecret === undefined
-      ? privateKeyPath //todo insert privateKeys.hpkePrivateKey
+      ? privateKeyPath
       : mergePrivateKeyPaths(
           await toPrivateKeyPath(
             await pathToRoot(tree, ancestorNodeIndex, groupSecrets.pathSecret, cs.kdf),
@@ -838,15 +833,10 @@ export async function joinGroup(
 
   const secretTree = await createSecretTree(leafWidth(tree.length), keySchedule.encryptionSecret, cs.kdf)
 
-  // const newInterimHash = await createInterimHash(
-  //   gi.groupContext.confirmedTranscriptHash,
-  //   { confirmationTag: gi.confirmationTag },
-  //   cs.hash,
-  // )
-
   const newGroupContext = { ...gi.groupContext }
+
   if (includesResumption) {
-    //validate resumption
+    //todo validate resumption
   }
 
   return {
@@ -907,4 +897,36 @@ export async function createGroup(
     groupContext,
     confirmationTag,
   }
+}
+
+export async function propose(state: ClientState, proposal: Proposal, impl: CiphersuiteImpl) {
+  const result = await protectProposal(
+    state.signaturePrivateKey,
+    state.keySchedule.senderDataSecret,
+    proposal,
+    new Uint8Array(),
+    state.groupContext,
+    state.secretTree,
+    state.privatePath.leafIndex,
+    impl,
+  )
+
+  //processProposal(state, result.)
+
+  return { newState: { ...state, secretTree: result.tree }, privateMessage: result.privateMessage }
+}
+
+export async function createApplicationMessage(state: ClientState, message: Uint8Array, impl: CiphersuiteImpl) {
+  const result = await protectApplicationData(
+    state.signaturePrivateKey,
+    state.keySchedule.senderDataSecret,
+    message,
+    new Uint8Array(),
+    state.groupContext,
+    state.secretTree,
+    state.privatePath.leafIndex,
+    impl,
+  )
+
+  return { newState: { ...state, secretTree: result.tree }, privateMessage: result.privateMessage }
 }

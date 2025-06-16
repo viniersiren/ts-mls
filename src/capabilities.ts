@@ -5,12 +5,12 @@ import { decodeProtocolVersion, encodeProtocolVersion, ProtocolVersionName } fro
 import { Encoder, contramapEncoders } from "./codec/tlsEncoder"
 import { Decoder, mapDecoders } from "./codec/tlsDecoder"
 import { decodeVarLenType, encodeVarLenType } from "./codec/variableLength"
-import { decodeUint16, encodeUint16 } from "./codec/number"
+import { decodeExtensionType, encodeExtensionType, ExtensionTypeName } from "./extensionType"
 
 export type Capabilities = {
   versions: ProtocolVersionName[]
   ciphersuites: CiphersuiteName[]
-  extensions: number[]
+  extensions: ExtensionTypeName[]
   proposals: ProposalTypeName[]
   credentials: CredentialTypeName[]
 }
@@ -19,7 +19,7 @@ export const encodeCapabilities: Encoder<Capabilities> = contramapEncoders(
   [
     encodeVarLenType(encodeProtocolVersion),
     encodeVarLenType(encodeCiphersuite),
-    encodeVarLenType(encodeUint16),
+    encodeVarLenType(encodeExtensionType),
     encodeVarLenType(encodeProposalType),
     encodeVarLenType(encodeCredentialType),
   ],
@@ -30,7 +30,7 @@ export const decodeCapabilities: Decoder<Capabilities> = mapDecoders(
   [
     decodeVarLenType(decodeProtocolVersion),
     decodeVarLenType(decodeCiphersuite),
-    decodeVarLenType(decodeUint16),
+    decodeVarLenType(decodeExtensionType),
     decodeVarLenType(decodeProposalType),
     decodeVarLenType(decodeCredentialType),
   ],

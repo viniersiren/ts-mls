@@ -76,8 +76,7 @@ async function testPassiveClientScenario(data: MlsGroupState, impl: CiphersuiteI
 
       if (mlsProposal[0].wireformat === "mls_private_message") {
         const res = await processPrivateMessage(state, mlsProposal[0].privateMessage, psks, impl)
-        if (res.kind === "applicationMessage") console.log("FOOBAR")
-        else {
+        if (res.kind !== "applicationMessage") {
           state = res.newState
         }
       } else {
@@ -94,8 +93,7 @@ async function testPassiveClientScenario(data: MlsGroupState, impl: CiphersuiteI
 
     if (mlsCommit[0].wireformat === "mls_private_message") {
       const res = await processPrivateMessage(state, mlsCommit[0].privateMessage, psks, impl)
-      if (res.kind === "applicationMessage") console.log("FOOBAR")
-      else {
+      if (res.kind !== "applicationMessage") {
         state = res.newState
       }
     } else {

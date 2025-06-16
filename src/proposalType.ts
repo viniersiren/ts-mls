@@ -11,7 +11,6 @@ const proposalTypes = {
   reinit: 5,
   external_init: 6,
   group_context_extensions: 7,
-  grease: 8,
 } as const
 
 export type ProposalTypeName = keyof typeof proposalTypes

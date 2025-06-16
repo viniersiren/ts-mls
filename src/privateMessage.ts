@@ -365,6 +365,8 @@ export async function protectProposal(
     auth,
   }
 
+  //todo processProposal?
+
   return protect(senderDataSecret, authenticatedData, groupContext, secretTree, content, leafIndex, cs)
 }
 

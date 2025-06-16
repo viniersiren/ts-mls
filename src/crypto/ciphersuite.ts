@@ -17,7 +17,7 @@ export type CiphersuiteImpl = {
   name: CiphersuiteName
 }
 
-const ciphersuites = {
+export const ciphersuites = {
   MLS_128_DHKEMX25519_AES128GCM_SHA256_Ed25519: 1,
   MLS_128_DHKEMP256_AES128GCM_SHA256_P256: 2,
   MLS_128_DHKEMX25519_CHACHA20POLY1305_SHA256_Ed25519: 3,
@@ -58,6 +58,10 @@ export function getCiphersuiteNameFromId(id: CiphersuiteId): CiphersuiteName {
 
 export function getCiphersuiteFromId(id: CiphersuiteId): Ciphersuite {
   return ciphersuiteValues[id]
+}
+
+export function getCiphersuiteFromName(name: CiphersuiteName): Ciphersuite {
+  return ciphersuiteValues[ciphersuites[name]]
 }
 
 export function getCiphersuiteImpl(cs: Ciphersuite): CiphersuiteImpl {
