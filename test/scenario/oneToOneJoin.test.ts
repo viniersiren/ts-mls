@@ -1,4 +1,3 @@
-import { Capabilities } from "../../src/capabilities"
 import {
   createApplicationMessage,
   createCommit,
@@ -9,46 +8,15 @@ import {
 import { Credential } from "../../src/credential"
 import { CiphersuiteName, ciphersuites, getCiphersuiteFromName, getCiphersuiteImpl } from "../../src/crypto/ciphersuite"
 import { generateKeyPackage } from "../../src/keyPackage"
-import { Lifetime } from "../../src/lifetime"
 import { decodeMlsMessage, encodeMlsMessage } from "../../src/message"
 import { ProposalAdd } from "../../src/proposal"
+import { defaultCapabilities, defaultLifetime } from "./common"
 
-const defaultCapabilities: Capabilities = {
-  versions: ["mls10"],
-  ciphersuites: Object.keys(ciphersuites) as CiphersuiteName[],
-  extensions: ["ratchet_tree"],
-  proposals: [],
-  credentials: ["basic", "x509"],
+for (const cs of Object.keys(ciphersuites)) {
+  test(`1:1 join ${cs}`, async () => {
+    await oneToOne(cs as CiphersuiteName)
+  })
 }
-
-const defaultLifetime: Lifetime = {
-  notBefore: 0n,
-  notAfter: 9223372036854775807n,
-}
-
-test("1:1 join MLS_128_DHKEMP256_AES128GCM_SHA256_P256", async () => {
-  await oneToOne("MLS_128_DHKEMP256_AES128GCM_SHA256_P256")
-})
-
-test("1:1 join MLS_128_DHKEMX25519_AES128GCM_SHA256_Ed25519", async () => {
-  await oneToOne("MLS_128_DHKEMX25519_AES128GCM_SHA256_Ed25519")
-})
-
-test("1:1 join MLS_128_DHKEMX25519_CHACHA20POLY1305_SHA256_Ed25519", async () => {
-  await oneToOne("MLS_128_DHKEMX25519_CHACHA20POLY1305_SHA256_Ed25519")
-})
-
-test("1:1 join MLS_256_XWING_AES256GCM_SHA512_Ed25519", async () => {
-  await oneToOne("MLS_256_XWING_AES256GCM_SHA512_Ed25519")
-})
-
-test("1:1 join MLS_256_MLKEM768_AES256GCM_SHA384_Ed25519", async () => {
-  await oneToOne("MLS_256_MLKEM768_AES256GCM_SHA384_Ed25519")
-})
-
-test("1:1 join MLS_256_XWING_CHACHA20POLY1305_SHA512_MLDSA87", async () => {
-  await oneToOne("MLS_256_XWING_CHACHA20POLY1305_SHA512_MLDSA87")
-})
 
 async function oneToOne(cipherSuite: CiphersuiteName) {
   const impl = getCiphersuiteImpl(getCiphersuiteFromName(cipherSuite))

@@ -76,7 +76,7 @@ export function makeNobleSignatureImpl(alg: SignatureAlgorithm): Signature {
         }
         case "Ed448": {
           const signKey = ed448.utils.randomPrivateKey()
-          return { signKey, publicKey: ed25519.getPublicKey(signKey) }
+          return { signKey, publicKey: ed448.getPublicKey(signKey) }
         }
         case "P256": {
           const signKey = p256.utils.randomPrivateKey()

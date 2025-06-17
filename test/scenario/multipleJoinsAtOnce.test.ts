@@ -1,17 +1,17 @@
-import { createGroup, createCommit, joinGroup, processPrivateMessage } from "../../src/clientState"
+import { createCommit, createGroup, joinGroup } from "../../src/clientState"
 import { Credential } from "../../src/credential"
-import { CiphersuiteName, getCiphersuiteImpl, getCiphersuiteFromName, ciphersuites } from "../../src/crypto/ciphersuite"
+import { CiphersuiteName, ciphersuites, getCiphersuiteFromName, getCiphersuiteImpl } from "../../src/crypto/ciphersuite"
 import { generateKeyPackage } from "../../src/keyPackage"
 import { ProposalAdd } from "../../src/proposal"
 import { defaultCapabilities, defaultLifetime, testEveryoneCanMessageEveryone } from "./common"
 
 for (const cs of Object.keys(ciphersuites)) {
-  test(`3-party join ${cs}`, async () => {
-    await threePartyJoin(cs as CiphersuiteName)
+  test(`Multiple joins at once ${cs}`, async () => {
+    await multipleJoinsAtOnce(cs as CiphersuiteName)
   })
 }
 
-async function threePartyJoin(cipherSuite: CiphersuiteName) {
+async function multipleJoinsAtOnce(cipherSuite: CiphersuiteName) {
   const impl = getCiphersuiteImpl(getCiphersuiteFromName(cipherSuite))
 
   const aliceCredential: Credential = { credentialType: "basic", identity: new TextEncoder().encode("alice") }
@@ -34,12 +34,25 @@ async function threePartyJoin(cipherSuite: CiphersuiteName) {
     },
   }
 
-  const addBobCommitResult = await createCommit(aliceGroup, {}, false, [addBobProposal], impl)
+  const addCharlieProposal: ProposalAdd = {
+    proposalType: "add",
+    add: {
+      keyPackage: charlie.publicPackage,
+    },
+  }
 
-  aliceGroup = addBobCommitResult.newState
+  const addBobAndCharlieCommitResult = await createCommit(
+    aliceGroup,
+    {},
+    false,
+    [addBobProposal, addCharlieProposal],
+    impl,
+  )
+
+  aliceGroup = addBobAndCharlieCommitResult.newState
 
   let bobGroup = await joinGroup(
-    addBobCommitResult.welcome!,
+    addBobAndCharlieCommitResult.welcome!,
     bob.publicPackage,
     bob.privatePackage,
     [],
@@ -49,27 +62,8 @@ async function threePartyJoin(cipherSuite: CiphersuiteName) {
 
   expect(bobGroup.keySchedule.epochAuthenticator).toStrictEqual(aliceGroup.keySchedule.epochAuthenticator)
 
-  const addCharlieProposal: ProposalAdd = {
-    proposalType: "add",
-    add: {
-      keyPackage: charlie.publicPackage,
-    },
-  }
-
-  const addCharlieCommitResult = await createCommit(aliceGroup, {}, false, [addCharlieProposal], impl)
-
-  aliceGroup = addCharlieCommitResult.newState
-
-  if (addCharlieCommitResult.commit.wireformat !== "mls_private_message") throw new Error("Expected private message")
-
-  const res = await processPrivateMessage(bobGroup, addCharlieCommitResult.commit.privateMessage, {}, impl)
-
-  bobGroup = res.newState
-
-  expect(bobGroup.keySchedule.epochAuthenticator).toStrictEqual(aliceGroup.keySchedule.epochAuthenticator)
-
   let charlieGroup = await joinGroup(
-    addCharlieCommitResult.welcome!,
+    addBobAndCharlieCommitResult.welcome!,
     charlie.publicPackage,
     charlie.privatePackage,
     [],
