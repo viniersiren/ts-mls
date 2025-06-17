@@ -12,12 +12,12 @@ import json from "../../test_vectors/tree-operations.json"
 import { decodeProposal, Proposal } from "../../src/proposal"
 import { treeHashRoot } from "../../src/treeHash"
 
-test("tree-operations test vectors", async () => {
-  for (const x of json) {
+for (const [index, x] of json.entries()) {
+  test(`tree-operations test vectors ${index}`, async () => {
     const impl = getCiphersuiteImpl(getCiphersuiteFromId(x.cipher_suite as CiphersuiteId))
     await treeOperationsTest(x, impl)
-  }
-})
+  })
+}
 
 type TreeOperationData = {
   proposal: string

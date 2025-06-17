@@ -1,11 +1,11 @@
 import json from "../../test_vectors/tree-math.json"
 import { left, nodeWidth, parent, right, root, sibling } from "../../src/treemath"
 
-test("tree math test vectors", () => {
-  for (const x of json) {
+for (const [index, x] of json.entries()) {
+  test(`tree math test vectors ${index}`, () => {
     treemathTest(x)
-  }
-})
+  })
+}
 
 function treemathTest(t: {
   n_leaves: number

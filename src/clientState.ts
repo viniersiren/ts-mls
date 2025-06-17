@@ -521,7 +521,7 @@ export async function createCommit(
   const res = await applyProposals(state, allProposals, state.privatePath.leafIndex, psks, cs)
 
   const [tree, updatePath, pathSecrets] = res.needsUpdatePath
-    ? await createUpdatePath(res.tree, state.privatePath.leafIndex, state.groupContext, new Uint8Array(), cs)
+    ? await createUpdatePath(res.tree, state.privatePath.leafIndex, state.groupContext, state.signaturePrivateKey, cs)
     : [res.tree, undefined, [] as PathSecret[]]
 
   const privateKeys = await toPrivateKeyPath(pathToNodeSecrets(pathSecrets), state.privatePath.leafIndex, cs)

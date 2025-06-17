@@ -6,8 +6,8 @@ import { refhash } from "../../src/crypto/hash"
 import { deriveSecret, deriveTreeSecret, expandWithLabel } from "../../src/crypto/kdf"
 import { decryptWithLabel, encryptWithLabel } from "../../src/crypto/hpke"
 
-test("crypto-basics test vectors", async () => {
-  for (const x of json) {
+for (const [index, x] of json.entries()) {
+  test(`crypto-basics test vectors ${index}`, async () => {
     const impl = getCiphersuiteImpl(getCiphersuiteFromId(x.cipher_suite as CiphersuiteId))
     await test_ref_hash(impl, x.ref_hash)
     await test_derive_secret(impl, x.derive_secret)
@@ -15,8 +15,8 @@ test("crypto-basics test vectors", async () => {
     await test_expand_with_label(impl, x.expand_with_label)
     await test_encrypt_with_label(impl, x.encrypt_with_label)
     test_sign_with_label(impl, x.sign_with_label)
-  }
-})
+  })
+}
 
 async function test_derive_secret(impl: CiphersuiteImpl, o: { label: string; secret: string; out: string }) {
   //out == DeriveSecret(secret, label)

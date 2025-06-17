@@ -5,8 +5,8 @@ import { expandSenderDataKey, expandSenderDataNonce } from "../../src/sender"
 import { createSecretTree, deriveKey, deriveNonce, ratchetUntil } from "../../src/secretTree"
 import { leafToNodeIndex } from "../../src/treemath"
 
-test("secret-tree test vectors", async () => {
-  for (const x of json) {
+for (const [index, x] of json.entries()) {
+  test(`secret-tree test vectors ${index}`, async () => {
     const impl = getCiphersuiteImpl(getCiphersuiteFromId(x.cipher_suite as CiphersuiteId))
     await testSecretTree(
       x.sender_data.sender_data_secret,
@@ -17,8 +17,8 @@ test("secret-tree test vectors", async () => {
       x.leaves,
       impl,
     )
-  }
-})
+  })
+}
 
 type Leaf = {
   generation: number

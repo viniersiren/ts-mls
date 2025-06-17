@@ -7,12 +7,12 @@ import { verifyLeafNodeSignature } from "../../src/leafNode"
 import { nodeToLeafIndex } from "../../src/treemath"
 import { verifyParentHashes } from "../../src/parentHash"
 
-test("tree-validation test vectors", async () => {
-  for (const x of json) {
+for (const [index, x] of json.entries()) {
+  test(`tree-validation test vectors" ${index}`, async () => {
     const impl = getCiphersuiteImpl(getCiphersuiteFromId(x.cipher_suite as CiphersuiteId))
     await treeOperationsTest(x, impl)
-  }
-}, 15000)
+  })
+}
 
 type TreeValidationData = {
   tree: string

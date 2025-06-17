@@ -4,8 +4,8 @@ import json from "../../test_vectors/transcript-hashes.json"
 import { decodeAuthenticatedContent } from "../../src/authenticatedContent"
 import { createConfirmedHash, createInterimHash } from "../../src/transcriptHash"
 
-test("transcript-hashes test vectors", async () => {
-  for (const x of json) {
+for (const [index, x] of json.entries()) {
+  test(`transcript-hashes test vectors ${index}`, async () => {
     const impl = getCiphersuiteImpl(getCiphersuiteFromId(x.cipher_suite as CiphersuiteId))
     await testTranscriptHash(
       x.authenticated_content,
@@ -15,8 +15,8 @@ test("transcript-hashes test vectors", async () => {
       x.interim_transcript_hash_before,
       impl,
     )
-  }
-})
+  })
+}
 
 async function testTranscriptHash(
   authenticatedContent: string,

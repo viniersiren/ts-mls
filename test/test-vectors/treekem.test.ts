@@ -22,12 +22,12 @@ import {
 } from "../../src/clientState"
 import { hpkeKeysMatch } from "../crypto/keyMatch"
 
-test("treekem test vectors", async () => {
-  for (const x of json) {
+for (const [index, x] of json.entries()) {
+  test(`treekem test vectors ${index}`, async () => {
     const impl = getCiphersuiteImpl(getCiphersuiteFromId(x.cipher_suite as CiphersuiteId))
     await treekemTest(x, impl)
-  }
-}, 80000)
+  })
+}
 
 interface TreeKEMState {
   cipher_suite: number

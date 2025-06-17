@@ -24,11 +24,11 @@ import {
 import { decodeRatchetTree, encodeRatchetTree } from "../../src/ratchetTree"
 import { decodeGroupSecrets, encodeGroupSecrets } from "../../src/groupSecrets"
 
-test("messages test vectors", () => {
-  for (const x of json) {
+for (const [index, x] of json.entries()) {
+  test(`messages test vectors ${index}`, () => {
     codecRoundtrip(x)
-  }
-})
+  })
+}
 
 type Messages = {
   mls_welcome: string

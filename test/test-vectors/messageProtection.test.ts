@@ -26,12 +26,12 @@ import {
 import { AuthenticatedContent } from "../../src/authenticatedContent"
 import { createSecretTree } from "../../src/secretTree"
 
-test("message-protection test vectors", async () => {
-  for (const x of json) {
+for (const [index, x] of json.entries()) {
+  test(`message-protection test vectors ${index}`, async () => {
     const impl = getCiphersuiteImpl(getCiphersuiteFromId(x.cipher_suite as CiphersuiteId))
     await testMessageProtection(x, impl)
-  }
-})
+  })
+}
 
 type MessageProtectionData = {
   cipher_suite: number

@@ -8,12 +8,12 @@ import { verifyGroupInfoConfirmationTag, verifyGroupInfoSignature } from "../../
 import { decryptGroupInfo, decryptGroupSecrets } from "../../src/welcome"
 import { PrivateKey } from "../../src/crypto/hpke"
 
-test("welcome test vectors", async () => {
-  for (const x of json) {
+for (const [index, x] of json.entries()) {
+  test(`welcome test vectors ${index}`, async () => {
     const impl = getCiphersuiteImpl(getCiphersuiteFromId(x.cipher_suite as CiphersuiteId))
     await testWelcome(x.init_priv, x.key_package, x.signer_pub, x.welcome, impl)
-  }
-})
+  })
+}
 
 async function testWelcome(
   init_priv: string,

@@ -103,7 +103,6 @@ async function remove(cipherSuite: CiphersuiteName) {
     impl,
   )
 
-  // bob is removed here
   charlieGroup = charlieProcessCommitResult.newState
 
   await testEveryoneCanMessageEveryone([aliceGroup, charlieGroup], impl)

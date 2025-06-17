@@ -11,26 +11,26 @@ import { decodeRatchetTree } from "../../src/ratchetTree"
 import { joinGroup, processPrivateMessage, processPublicMessage } from "../../src/clientState"
 import { bytesToBase64 } from "../../src/util/byteArray"
 
-test("passive-client-handling-commit test vectors", async () => {
-  for (const x of jsonCommit) {
+for (const [index, x] of jsonCommit.entries()) {
+  test(`passive-client-handling-commit test vectors ${index}`, async () => {
     const impl = getCiphersuiteImpl(getCiphersuiteFromId(x.cipher_suite as CiphersuiteId))
     await testPassiveClientScenario(x, impl)
-  }
-}, 50000)
+  })
+}
 
-test("passive-client-random test vectors", async () => {
-  for (const x of jsonRandom) {
+for (const [index, x] of jsonRandom.entries()) {
+  test(`passive-client-random test vectors ${index}`, async () => {
     const impl = getCiphersuiteImpl(getCiphersuiteFromId(x.cipher_suite as CiphersuiteId))
     await testPassiveClientScenario(x, impl)
-  }
-}, 50000)
+  }, 20000)
+}
 
-test("passive-client-welcome test vectors", async () => {
-  for (const x of jsonWelcome) {
+for (const [index, x] of jsonWelcome.entries()) {
+  test(`passive-client-welcome test vectors ${index}`, async () => {
     const impl = getCiphersuiteImpl(getCiphersuiteFromId(x.cipher_suite as CiphersuiteId))
     await testPassiveClientScenario(x, impl)
-  }
-}, 50000)
+  })
+}
 
 async function testPassiveClientScenario(data: MlsGroupState, impl: CiphersuiteImpl) {
   const kp = decodeMlsMessage(hexToBytes(data.key_package), 0)

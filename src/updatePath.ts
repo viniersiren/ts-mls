@@ -112,7 +112,7 @@ export async function createUpdatePath(
   const pathSecrets = ps.slice(0, ps.length - 1).reverse()
 
   const updatePathNodes: UpdatePathNode[] = await Promise.all(
-    pathSecrets.map(encryptSecretsForPath(tree, updatedGroupContext, cs)),
+    pathSecrets.map(encryptSecretsForPath(treeWithHashes, updatedGroupContext, cs)),
   )
 
   const updatePath: UpdatePath = { leafNode: updatedLeafNode, nodes: updatePathNodes }

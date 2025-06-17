@@ -11,13 +11,13 @@ import json from "../../test_vectors/key-schedule.json"
 
 import { initializeEpoch, mlsExporter } from "../../src/keySchedule"
 
-test("key-schedule test vectors", async () => {
-  for (const x of json) {
+for (const [index, x] of json.entries()) {
+  test(`key-schedule test vectors ${index}`, async () => {
     const cipherSuite = x.cipher_suite as CiphersuiteId
     const impl = getCiphersuiteImpl(getCiphersuiteFromId(cipherSuite))
     await testKeySchedule(x.group_id, x.initial_init_secret, x.epochs, cipherSuite, impl)
-  }
-})
+  })
+}
 
 async function testKeySchedule(
   group_id: string,
