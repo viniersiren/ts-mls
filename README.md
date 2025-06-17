@@ -35,6 +35,23 @@ The following cipher suites are supported:
 ## Basic Usage
 
 ```typescript
+import {
+  createApplicationMessage,
+  createCommit,
+  createGroup,
+  joinGroup,
+  processPrivateMessage,
+  getCiphersuiteImpl,
+  getCiphersuiteFromName,
+  Credential,
+  defaultCapabilities,
+  defaultLifetime,
+  generateKeyPackage,
+  encodeMlsMessage,
+  decodeMlsMessage,
+  ProposalAdd,
+} from "ts-mls"
+
 const impl = getCiphersuiteImpl(getCiphersuiteFromName("MLS_256_XWING_AES256GCM_SHA512_Ed25519"))
 
 // alice generates her key package
@@ -96,9 +113,6 @@ let bobGroup = await joinGroup(
   impl,
   aliceGroup.ratchetTree,
 )
-
-// ensure epochAuthenticator values are equal
-expect(bobGroup.keySchedule.epochAuthenticator).toStrictEqual(aliceGroup.keySchedule.epochAuthenticator)
 
 const messageToBob = new TextEncoder().encode("Hello bob!")
 
