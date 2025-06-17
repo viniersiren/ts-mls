@@ -17,6 +17,7 @@
   "dependencies": {
     "@hpke/hybridkem-x-wing": "0.5.1",
     "@hpke/ml-kem": "0.1.0",
+    "@noble/post-quantum": "0.4.1",
     "hpke-js": "^1.6.2",
     "patch-package": "^8.0.0"
   },

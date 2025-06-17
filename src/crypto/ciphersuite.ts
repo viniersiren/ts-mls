@@ -33,6 +33,10 @@ export const ciphersuites = {
   MLS_256_MLKEM1024_CHACHA20POLY1305_SHA512_Ed25519: 82,
   MLS_256_XWING_AES256GCM_SHA512_Ed25519: 83,
   MLS_256_XWING_CHACHA20POLY1305_SHA512_Ed25519: 84,
+  MLS_256_MLKEM1024_AES256GCM_SHA512_MLDSA87: 85,
+  MLS_256_MLKEM1024_CHACHA20POLY1305_SHA512_MLDSA87: 86,
+  MLS_256_XWING_AES256GCM_SHA512_MLDSA87: 87,
+  MLS_256_XWING_CHACHA20POLY1305_SHA512_MLDSA87: 88,
 } as const
 
 export type CiphersuiteName = keyof typeof ciphersuites
@@ -227,6 +231,46 @@ const ciphersuiteValues: Record<CiphersuiteId, Ciphersuite> = {
     },
     signature: "Ed25519",
     name: "MLS_256_XWING_CHACHA20POLY1305_SHA512_Ed25519",
+  },
+  85: {
+    hash: "SHA-512",
+    hpke: {
+      kem: "ML-KEM-1024",
+      aead: "AES256GCM",
+      kdf: "HKDF-SHA512",
+    },
+    signature: "ML-DSA-87",
+    name: "MLS_256_MLKEM1024_AES256GCM_SHA512_MLDSA87",
+  },
+  86: {
+    hash: "SHA-512",
+    hpke: {
+      kem: "ML-KEM-1024",
+      aead: "CHACHA20POLY1305",
+      kdf: "HKDF-SHA512",
+    },
+    signature: "ML-DSA-87",
+    name: "MLS_256_MLKEM1024_CHACHA20POLY1305_SHA512_MLDSA87",
+  },
+  87: {
+    hash: "SHA-512",
+    hpke: {
+      kem: "X-Wing",
+      aead: "AES256GCM",
+      kdf: "HKDF-SHA512",
+    },
+    signature: "ML-DSA-87",
+    name: "MLS_256_XWING_AES256GCM_SHA512_MLDSA87",
+  },
+  88: {
+    hash: "SHA-512",
+    hpke: {
+      kem: "X-Wing",
+      aead: "CHACHA20POLY1305",
+      kdf: "HKDF-SHA512",
+    },
+    signature: "ML-DSA-87",
+    name: "MLS_256_XWING_CHACHA20POLY1305_SHA512_MLDSA87",
   },
 } as const
 

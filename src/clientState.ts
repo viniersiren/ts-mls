@@ -165,7 +165,7 @@ export async function pathToRoot(
   return pathSecrets
 }
 
-type R =
+export type ProcessPrivateMessageResult =
   | {
       kind: "newState"
       newState: ClientState
@@ -180,7 +180,7 @@ export async function processPrivateMessage(
   pm: PrivateMessage,
   psks: Record<string, Uint8Array>,
   cs: CiphersuiteImpl,
-): Promise<R> {
+): Promise<ProcessPrivateMessageResult> {
   const result = await unprotectPrivateMessage(state.keySchedule.senderDataSecret, pm, state.secretTree, cs)
 
   const newState = { ...state, secretTree: result.tree }
@@ -190,7 +190,13 @@ export async function processPrivateMessage(
   } else if (result.content.content.contentType === "commit") {
     return {
       kind: "newState",
-      newState: await processCommit(newState, result.content as AuthenticatedContentCommit, psks, cs), //todo solve with types
+      newState: await processCommit(
+        newState,
+        result.content as AuthenticatedContentCommit,
+        "mls_private_message",
+        psks,
+        cs,
+      ), //todo solve with types
     }
   } else {
     return {
@@ -213,13 +219,14 @@ export async function processPublicMessage(
   if (content.content.contentType === "proposal")
     return processProposal(state, content, content.content.proposal, cs.hash)
   else {
-    return processCommit(state, content as AuthenticatedContentCommit, psks, cs) //todo solve with types
+    return processCommit(state, content as AuthenticatedContentCommit, "mls_public_message", psks, cs) //todo solve with types
   }
 }
 
 async function processCommit(
   state: ClientState,
   content: AuthenticatedContentCommit,
+  wireformat: WireformatName,
   psks: Record<string, Uint8Array<ArrayBufferLike>>,
   cs: CiphersuiteImpl,
 ) {
@@ -248,7 +255,7 @@ async function processCommit(
   if (content.auth.contentType !== "commit") throw new Error("Received content as commit, but not auth") //todo solve this with types?
   const updatedGroupContext = await nextEpochContext(
     groupContextWithExtensions,
-    "mls_public_message",
+    wireformat, //todo fix this
     content.content,
     content.auth.signature,
     newTreeHash,
@@ -274,8 +281,11 @@ async function processCommit(
 
   if (!confirmationTagValid) throw new Error("Could not verify confirmation tag")
 
+  const secretTree = await createSecretTree(leafWidth(tree.length), epochSecrets.keySchedule.encryptionSecret, cs.kdf)
+
   return {
     ...state,
+    secretTree,
     ratchetTree: tree,
     privatePath: pkp,
     groupContext: updatedGroupContext,
@@ -529,7 +539,7 @@ export async function createCommit(
 
   const tbs: FramedContentTBSCommit = {
     protocolVersion: state.groupContext.version,
-    wireformat: "mls_private_message",
+    wireformat,
     content: {
       contentType: "commit",
       commit: { proposals: allProposals, path: updatePath },
@@ -911,7 +921,7 @@ export async function propose(state: ClientState, proposal: Proposal, impl: Ciph
     impl,
   )
 
-  //processProposal(state, result.)
+  // processProposal(state, result.)
 
   return { newState: { ...state, secretTree: result.tree }, privateMessage: result.privateMessage }
 }

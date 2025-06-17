@@ -46,6 +46,10 @@ test("1:1 join MLS_256_MLKEM768_AES256GCM_SHA384_Ed25519", async () => {
   await oneToOne("MLS_256_MLKEM768_AES256GCM_SHA384_Ed25519")
 })
 
+test("1:1 join MLS_256_XWING_CHACHA20POLY1305_SHA512_MLDSA87", async () => {
+  await oneToOne("MLS_256_XWING_CHACHA20POLY1305_SHA512_MLDSA87")
+})
+
 async function oneToOne(cipherSuite: CiphersuiteName) {
   const impl = getCiphersuiteImpl(getCiphersuiteFromName(cipherSuite))
 

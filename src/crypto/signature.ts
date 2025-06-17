@@ -3,6 +3,7 @@ import { ed448 } from "@noble/curves/ed448"
 import { p256, p384, p521 } from "@noble/curves/nist"
 import { utf8ToBytes } from "@noble/ciphers/utils"
 import { encodeVarLenData } from "../codec/variableLength"
+import { ml_dsa87 } from "@noble/post-quantum/ml-dsa"
 
 export interface Signature {
   sign(signKey: Uint8Array, message: Uint8Array): Uint8Array
@@ -10,7 +11,7 @@ export interface Signature {
   keygen(): { publicKey: Uint8Array; signKey: Uint8Array }
 }
 
-export type SignatureAlgorithm = "Ed25519" | "Ed448" | "P256" | "P384" | "P521"
+export type SignatureAlgorithm = "Ed25519" | "Ed448" | "P256" | "P384" | "P521" | "ML-DSA-87"
 
 export function signWithLabel(signKey: Uint8Array, label: string, content: Uint8Array, s: Signature): Uint8Array {
   return s.sign(
@@ -47,6 +48,8 @@ export function makeNobleSignatureImpl(alg: SignatureAlgorithm): Signature {
           return p384.sign(message, signKey, { prehash: true }).toCompactRawBytes()
         case "P521":
           return p521.sign(message, signKey, { prehash: true }).toCompactRawBytes()
+        case "ML-DSA-87":
+          return ml_dsa87.sign(signKey, message)
       }
     },
     verify(publicKey, message, signature) {
@@ -61,6 +64,8 @@ export function makeNobleSignatureImpl(alg: SignatureAlgorithm): Signature {
           return p384.verify(signature, message, publicKey, { prehash: true })
         case "P521":
           return p521.verify(signature, message, publicKey, { prehash: true })
+        case "ML-DSA-87":
+          return ml_dsa87.verify(publicKey, message, signature)
       }
     },
     keygen() {
@@ -84,6 +89,10 @@ export function makeNobleSignatureImpl(alg: SignatureAlgorithm): Signature {
         case "P521": {
           const signKey = p521.utils.randomPrivateKey()
           return { signKey, publicKey: p521.getPublicKey(signKey) }
+        }
+        case "ML-DSA-87": {
+          const keys = ml_dsa87.keygen(crypto.getRandomValues(new Uint8Array(32)))
+          return { signKey: keys.secretKey, publicKey: keys.publicKey }
         }
       }
     },
