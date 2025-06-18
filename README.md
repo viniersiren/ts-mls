@@ -32,6 +32,19 @@ The following cipher suites are supported:
 | X-Wing                   | AES256GCM        | HKDF-SHA512 | SHA-512 | ML-DSA-87 | MLS_256_XWING_AES256GCM_SHA512_MLDSA78              | 87  |
 | X-Wing                   | CHACHA20POLY1305 | HKDF-SHA512 | SHA-512 | ML-DSA-87 | MLS_256_XWING_CHACHA20POLY1305_SHA512_MLDSA78       | 88  |
 
+## Installation
+
+```bash
+# npm
+npm install ts-mls
+
+# yarn
+yarn add ts-mls
+
+# pnpm
+pnpm add ts-mls
+```
+
 ## Basic Usage
 
 ```typescript
