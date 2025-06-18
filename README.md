@@ -1,6 +1,6 @@
 # ts-mls
 
-[![CI](https://github.com/LukaJCB/ts-mls/actions/workflows/ci.yml/badge.svg)](https://github.com/LukaJCB/ts-mls/actions/workflows/ci.yml)
+[![CI](https://github.com/LukaJCB/ts-mls/actions/workflows/ci.yml/badge.svg)](https://github.com/LukaJCB/ts-mls/actions/workflows/ci.yml) [![npm version](https://badge.fury.io/js/ts-mls.svg)](https://badge.fury.io/js/ts-mls)
 
 Typescript implementation of Messaging Layer Security (RFC 9420, MLS).
 
