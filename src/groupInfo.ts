@@ -59,12 +59,12 @@ export function ratchetTreeFromExtension(info: GroupInfo): RatchetTree | undefin
   }
 }
 
-export function signGroupInfo(tbs: GroupInfoTBS, privateKey: Uint8Array, s: Signature): GroupInfo {
-  const signature = signWithLabel(privateKey, "GroupInfoTBS", encodeGroupInfoTBS(tbs), s)
+export async function signGroupInfo(tbs: GroupInfoTBS, privateKey: Uint8Array, s: Signature): Promise<GroupInfo> {
+  const signature = await signWithLabel(privateKey, "GroupInfoTBS", encodeGroupInfoTBS(tbs), s)
   return { ...tbs, signature }
 }
 
-export function verifyGroupInfoSignature(gi: GroupInfo, publicKey: Uint8Array, s: Signature): boolean {
+export function verifyGroupInfoSignature(gi: GroupInfo, publicKey: Uint8Array, s: Signature): Promise<boolean> {
   return verifyWithLabel(publicKey, "GroupInfoTBS", encodeGroupInfoTBS(gi), gi.signature, s)
 }
 

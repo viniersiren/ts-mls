@@ -17,8 +17,12 @@ export async function hpkeKeysMatch(publicKey: Uint8Array, privateKey: Uint8Arra
   }
 }
 
-export function signatureKeysMatch(publicKey: Uint8Array, privateKey: Uint8Array, s: Signature): boolean {
+export async function signatureKeysMatch(
+  publicKey: Uint8Array,
+  privateKey: Uint8Array,
+  s: Signature,
+): Promise<boolean> {
   const testMessage = new TextEncoder().encode("test")
-  const signature = s.sign(privateKey, testMessage)
+  const signature = await s.sign(privateKey, testMessage)
   return s.verify(publicKey, testMessage, signature)
 }

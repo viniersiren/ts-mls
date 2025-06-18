@@ -555,7 +555,7 @@ export async function createCommit(
     context: state.groupContext,
   }
 
-  const signature = signFramedContentTBS(state.signaturePrivateKey, tbs, cs.signature)
+  const signature = await signFramedContentTBS(state.signaturePrivateKey, tbs, cs.signature)
 
   const treeHash = await treeHashRoot(tree, cs.hash)
 
@@ -591,7 +591,7 @@ export async function createCommit(
     signer: state.privatePath.leafIndex,
   }
 
-  const groupInfo = signGroupInfo(groupInfoTbs, state.signaturePrivateKey, cs.signature)
+  const groupInfo = await signGroupInfo(groupInfoTbs, state.signaturePrivateKey, cs.signature)
 
   const encryptedGroupInfo = await encryptGroupInfo(groupInfo, epochSecrets.welcomeSecret, cs)
 

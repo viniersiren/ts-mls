@@ -119,7 +119,7 @@ export async function protectProposalPublic(
     context: groupContext,
   } as const
 
-  const auth = signFramedContentApplicationOrProposal(signKey, tbs, cs)
+  const auth = await signFramedContentApplicationOrProposal(signKey, tbs, cs)
 
   const authenticatedContent: AuthenticatedContent = {
     wireformat: "mls_public_message",

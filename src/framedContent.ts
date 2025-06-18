@@ -287,7 +287,7 @@ export async function signFramedContentCommit(
   tbs: FramedContentTBSCommit,
   cs: CiphersuiteImpl,
 ): Promise<FramedContentAuthDataCommit> {
-  const signature = signFramedContentTBS(signKey, tbs, cs.signature)
+  const signature = await signFramedContentTBS(signKey, tbs, cs.signature)
 
   return {
     contentType: tbs.content.contentType,
@@ -296,7 +296,7 @@ export async function signFramedContentCommit(
   }
 }
 
-export function signFramedContentTBS(signKey: Uint8Array, tbs: FramedContentTBS, s: Signature): Uint8Array {
+export function signFramedContentTBS(signKey: Uint8Array, tbs: FramedContentTBS, s: Signature): Promise<Uint8Array> {
   return signWithLabel(signKey, "FramedContentTBS", encodeFramedContentTBS(tbs), s)
 }
 
@@ -309,17 +309,17 @@ export async function verifyFramedContentCommit(
   cs: CiphersuiteImpl,
 ): Promise<boolean> {
   return (
-    verifyWithLabel(signKey, "FramedContentTBS", encodeFramedContentTBS(tbs), auth.signature, cs.signature) &&
+    (await verifyWithLabel(signKey, "FramedContentTBS", encodeFramedContentTBS(tbs), auth.signature, cs.signature)) &&
     (await verifyConfirmationTag(confirmationKey, auth.confirmationTag, confirmedTranscriptHash, cs.hash))
   )
 }
 
-export function signFramedContentApplicationOrProposal(
+export async function signFramedContentApplicationOrProposal(
   signKey: Uint8Array,
   tbs: FramedContentTBSApplicationOrProposal,
   cs: CiphersuiteImpl,
-): FramedContentAuthDataApplicationOrProposal {
-  const signature = signFramedContentTBS(signKey, tbs, cs.signature)
+): Promise<FramedContentAuthDataApplicationOrProposal> {
+  const signature = await signFramedContentTBS(signKey, tbs, cs.signature)
   return {
     contentType: tbs.content.contentType,
     signature,

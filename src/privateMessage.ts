@@ -281,7 +281,7 @@ export async function protectApplicationData(
     context: groupContext,
   }
 
-  const auth = signFramedContentApplicationOrProposal(signKey, tbs, cs)
+  const auth = await signFramedContentApplicationOrProposal(signKey, tbs, cs)
 
   const content = {
     ...tbs.content,
@@ -358,7 +358,7 @@ export async function protectProposal(
     context: groupContext,
   }
 
-  const auth = signFramedContentApplicationOrProposal(signKey, tbs, cs)
+  const auth = await signFramedContentApplicationOrProposal(signKey, tbs, cs)
 
   const content = {
     ...tbs.content,

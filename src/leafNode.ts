@@ -205,20 +205,20 @@ function toTbs(leafNode: LeafNode, groupId: Uint8Array, leafIndex: number): Leaf
   return { ...leafNode, info: { leafNodeSource: leafNode.leafNodeSource, groupId, leafIndex } }
 }
 
-export function signLeafNodeCommit(
+export async function signLeafNodeCommit(
   tbs: LeafNodeTBSCommit,
   signaturePrivateKey: Uint8Array,
   sig: Signature,
-): LeafNodeCommit {
-  return { ...tbs, signature: signWithLabel(signaturePrivateKey, "LeafNodeTBS", encodeLeafNodeTBS(tbs), sig) }
+): Promise<LeafNodeCommit> {
+  return { ...tbs, signature: await signWithLabel(signaturePrivateKey, "LeafNodeTBS", encodeLeafNodeTBS(tbs), sig) }
 }
 
-export function signLeafNodeKeyPackage(
+export async function signLeafNodeKeyPackage(
   tbs: LeafNodeTBSKeyPackage,
   signaturePrivateKey: Uint8Array,
   sig: Signature,
-): LeafNodeKeyPackage {
-  return { ...tbs, signature: signWithLabel(signaturePrivateKey, "LeafNodeTBS", encodeLeafNodeTBS(tbs), sig) }
+): Promise<LeafNodeKeyPackage> {
+  return { ...tbs, signature: await signWithLabel(signaturePrivateKey, "LeafNodeTBS", encodeLeafNodeTBS(tbs), sig) }
 }
 
 export function verifyLeafNodeSignature(
@@ -226,7 +226,7 @@ export function verifyLeafNodeSignature(
   groupId: Uint8Array,
   leafIndex: number,
   sig: Signature,
-): boolean {
+): Promise<boolean> {
   return verifyWithLabel(
     leaf.signaturePublicKey,
     "LeafNodeTBS",

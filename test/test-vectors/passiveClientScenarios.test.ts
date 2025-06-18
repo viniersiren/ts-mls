@@ -111,7 +111,7 @@ async function verifyKeys(data: MlsGroupState, kp: KeyPackage, impl: Ciphersuite
   const hpkeInit = await hpkeKeysMatch(kp.initKey, hexToBytes(data.init_priv), impl.hpke)
   expect(hpkeInit).toBe(true)
 
-  const sig = signatureKeysMatch(kp.leafNode.signaturePublicKey, hexToBytes(data.signature_priv), impl.signature)
+  const sig = await signatureKeysMatch(kp.leafNode.signaturePublicKey, hexToBytes(data.signature_priv), impl.signature)
   expect(sig).toBe(true)
   hexToBytes(data.init_priv)
 }

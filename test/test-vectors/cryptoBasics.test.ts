@@ -14,7 +14,7 @@ for (const [index, x] of json.entries()) {
     await test_derive_tree_secret(impl, x.derive_tree_secret)
     await test_expand_with_label(impl, x.expand_with_label)
     await test_encrypt_with_label(impl, x.encrypt_with_label)
-    test_sign_with_label(impl, x.sign_with_label)
+    await test_sign_with_label(impl, x.sign_with_label)
   })
 }
 
@@ -48,17 +48,23 @@ async function test_ref_hash(impl: CiphersuiteImpl, o: { label: string; value: s
   expect(bytesToHex(res)).toBe(o.out)
 }
 
-function test_sign_with_label(
+async function test_sign_with_label(
   impl: CiphersuiteImpl,
   o: { label: string; content: string; priv: string; pub: string; signature: string },
 ) {
   //VerifyWithLabel(pub, label, content, signature) == true
-  const v = verifyWithLabel(hexToBytes(o.pub), o.label, hexToBytes(o.content), hexToBytes(o.signature), impl.signature)
+  const v = await verifyWithLabel(
+    hexToBytes(o.pub),
+    o.label,
+    hexToBytes(o.content),
+    hexToBytes(o.signature),
+    impl.signature,
+  )
   expect(v).toBe(true)
 
   //VerifyWithLabel(pub, label, content, SignWithLabel(priv, label, content)) == true
-  const signature = signWithLabel(hexToBytes(o.priv), o.label, hexToBytes(o.content), impl.signature)
-  const v2 = verifyWithLabel(hexToBytes(o.pub), o.label, hexToBytes(o.content), signature, impl.signature)
+  const signature = await signWithLabel(hexToBytes(o.priv), o.label, hexToBytes(o.content), impl.signature)
+  const v2 = await verifyWithLabel(hexToBytes(o.pub), o.label, hexToBytes(o.content), signature, impl.signature)
   expect(v2).toBe(true)
 }
 

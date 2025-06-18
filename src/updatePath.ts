@@ -93,7 +93,7 @@ export async function createUpdatePath(
     info: { leafNodeSource: "commit", groupId: groupContext.groupId, leafIndex: senderLeafIndex },
   }
 
-  const updatedLeafNode = signLeafNodeCommit(updatedLeafNodeTbs, signaturePrivateKey, cs.signature)
+  const updatedLeafNode = await signLeafNodeCommit(updatedLeafNodeTbs, signaturePrivateKey, cs.signature)
 
   const finalTree = updateArray(treeWithHashes, leafToNodeIndex(senderLeafIndex), {
     nodeType: "leaf",

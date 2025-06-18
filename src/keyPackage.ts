@@ -69,11 +69,11 @@ export const decodeKeyPackage: Decoder<KeyPackage> = mapDecoders(
   }),
 )
 
-export function signKeyPackage(tbs: KeyPackageTBS, signKey: Uint8Array, s: Signature): KeyPackage {
-  return { ...tbs, signature: s.sign(signKey, encodeKeyPackageTBS(tbs)) }
+export async function signKeyPackage(tbs: KeyPackageTBS, signKey: Uint8Array, s: Signature): Promise<KeyPackage> {
+  return { ...tbs, signature: await s.sign(signKey, encodeKeyPackageTBS(tbs)) }
 }
 
-export function verifySignature(kp: KeyPackage, s: Signature): boolean {
+export async function verifySignature(kp: KeyPackage, s: Signature): Promise<boolean> {
   return s.verify(kp.leafNode.signaturePublicKey, encodeKeyPackageTBS(kp), kp.signature)
 }
 
@@ -94,7 +94,7 @@ export async function generateKeyPackage(
   extensions: Extension[],
   cs: CiphersuiteImpl,
 ): Promise<{ publicPackage: KeyPackage; privatePackage: PrivateKeyPackage }> {
-  const sigKeys = cs.signature.keygen()
+  const sigKeys = await cs.signature.keygen()
   const initKeys = await cs.hpke.generateKeyPair()
   const hpkeKeys = await cs.hpke.generateKeyPair()
 
@@ -119,9 +119,9 @@ export async function generateKeyPackage(
     version: "mls10",
     cipherSuite: cs.name,
     initKey: await cs.hpke.exportPublicKey(initKeys.publicKey),
-    leafNode: signLeafNodeKeyPackage(leafNodeTbs, sigKeys.signKey, cs.signature),
+    leafNode: await signLeafNodeKeyPackage(leafNodeTbs, sigKeys.signKey, cs.signature),
     extensions,
   }
 
-  return { publicPackage: signKeyPackage(tbs, sigKeys.signKey, cs.signature), privatePackage }
+  return { publicPackage: await signKeyPackage(tbs, sigKeys.signKey, cs.signature), privatePackage }
 }

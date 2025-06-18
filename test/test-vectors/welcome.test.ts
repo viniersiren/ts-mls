@@ -49,6 +49,6 @@ async function testWelcome(
   const tagOk = await verifyGroupInfoConfirmationTag(gi, groupSecrets.joinerSecret, pskSecret, impl)
   expect(tagOk).toBe(true)
 
-  const signatureOk = verifyGroupInfoSignature(gi, hexToBytes(signer_pub), impl.signature)
+  const signatureOk = await verifyGroupInfoSignature(gi, hexToBytes(signer_pub), impl.signature)
   expect(signatureOk).toBe(true)
 }

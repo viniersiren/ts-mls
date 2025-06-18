@@ -41,9 +41,9 @@ async function treeOperationsTest(data: TreeValidationData, impl: CiphersuiteImp
   for (const [i, n] of tree[0].entries()) {
     if (n !== undefined) {
       if (n.nodeType === "leaf") {
-        expect(verifyLeafNodeSignature(n.leaf, hexToBytes(data.group_id), nodeToLeafIndex(i), impl.signature)).toBe(
-          true,
-        )
+        expect(
+          await verifyLeafNodeSignature(n.leaf, hexToBytes(data.group_id), nodeToLeafIndex(i), impl.signature),
+        ).toBe(true)
       }
     }
   }
