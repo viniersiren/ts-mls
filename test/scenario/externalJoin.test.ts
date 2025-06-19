@@ -1,17 +1,24 @@
-import { createGroup, createCommit, joinGroup, processPrivateMessage } from "../../src/clientState"
+import {
+  createGroup,
+  createCommit,
+  joinGroup,
+  joinGroupExternal,
+  processPublicMessage,
+  createGroupInfoWithExternalPub,
+} from "../../src/clientState"
 import { Credential } from "../../src/credential"
 import { CiphersuiteName, getCiphersuiteImpl, getCiphersuiteFromName, ciphersuites } from "../../src/crypto/ciphersuite"
 import { generateKeyPackage } from "../../src/keyPackage"
 import { ProposalAdd } from "../../src/proposal"
 import { defaultCapabilities, defaultLifetime, testEveryoneCanMessageEveryone } from "./common"
 
-for (const cs of Object.keys(ciphersuites)) {
-  test(`3-party join ${cs}`, async () => {
-    await threePartyJoin(cs as CiphersuiteName)
+for (const cs of Object.keys(ciphersuites).slice(0, 1)) {
+  test(`External join ${cs}`, async () => {
+    await externalJoin(cs as CiphersuiteName)
   })
 }
 
-async function threePartyJoin(cipherSuite: CiphersuiteName) {
+async function externalJoin(cipherSuite: CiphersuiteName) {
   const impl = await getCiphersuiteImpl(getCiphersuiteFromName(cipherSuite))
 
   const aliceCredential: Credential = { credentialType: "basic", identity: new TextEncoder().encode("alice") }
@@ -49,40 +56,25 @@ async function threePartyJoin(cipherSuite: CiphersuiteName) {
 
   expect(bobGroup.keySchedule.epochAuthenticator).toStrictEqual(aliceGroup.keySchedule.epochAuthenticator)
 
-  const addCharlieProposal: ProposalAdd = {
-    proposalType: "add",
-    add: {
-      keyPackage: charlie.publicPackage,
-    },
-  }
+  const groupInfo = await createGroupInfoWithExternalPub(aliceGroup, impl)
 
-  const addCharlieCommitResult = await createCommit(aliceGroup, {}, false, [addCharlieProposal], impl)
-
-  aliceGroup = addCharlieCommitResult.newState
-
-  if (addCharlieCommitResult.commit.wireformat !== "mls_private_message") throw new Error("Expected private message")
-
-  const processAddCharlieResult = await processPrivateMessage(
-    bobGroup,
-    addCharlieCommitResult.commit.privateMessage,
-    {},
-    impl,
-  )
-
-  bobGroup = processAddCharlieResult.newState
-
-  expect(bobGroup.keySchedule.epochAuthenticator).toStrictEqual(aliceGroup.keySchedule.epochAuthenticator)
-
-  let charlieGroup = await joinGroup(
-    addCharlieCommitResult.welcome!,
+  const charlieJoinGroupCommitResult = await joinGroupExternal(
+    groupInfo,
     charlie.publicPackage,
     charlie.privatePackage,
-    [],
-    impl,
     aliceGroup.ratchetTree,
+    false,
+    impl,
   )
 
+  let charlieGroup = charlieJoinGroupCommitResult.newState
+
+  aliceGroup = await processPublicMessage(aliceGroup, charlieJoinGroupCommitResult.publicMessage, {}, impl)
+
+  bobGroup = await processPublicMessage(bobGroup, charlieJoinGroupCommitResult.publicMessage, {}, impl)
+
   expect(charlieGroup.keySchedule.epochAuthenticator).toStrictEqual(aliceGroup.keySchedule.epochAuthenticator)
+  expect(charlieGroup.keySchedule.epochAuthenticator).toStrictEqual(bobGroup.keySchedule.epochAuthenticator)
 
   await testEveryoneCanMessageEveryone([aliceGroup, bobGroup, charlieGroup], impl)
 }

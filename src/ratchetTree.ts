@@ -138,7 +138,7 @@ export const decodeRatchetTree: Decoder<RatchetTree> = mapDecoder(
   extendRatchetTree,
 )
 
-function findBlankLeafNodeIndex(tree: RatchetTree): number | undefined {
+export function findBlankLeafNodeIndex(tree: RatchetTree): number | undefined {
   const nodeIndex = tree.findIndex((node, nodeIndex) => node === undefined && isLeaf(nodeIndex))
   if (nodeIndex < 0) return undefined
   else return nodeIndex
@@ -334,4 +334,12 @@ export function findLeafIndex(tree: RatchetTree, leaf: LeafNode): number | undef
   })
 
   return foundIndex === -1 ? undefined : nodeToLeafIndex(foundIndex)
+}
+
+export function getSignaturePublicKeyFromLeafIndex(ratchetTree: RatchetTree, leafIndex: number) {
+  const senderLeafNode = ratchetTree[leafToNodeIndex(leafIndex)]
+
+  if (senderLeafNode === undefined || senderLeafNode.nodeType === "parent")
+    throw new Error("Unable to find leafnode for sender")
+  return senderLeafNode.leaf.signaturePublicKey
 }

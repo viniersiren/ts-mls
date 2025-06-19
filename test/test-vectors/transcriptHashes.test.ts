@@ -46,6 +46,6 @@ async function testTranscriptHash(
 
   expect(computedConfirmedHash).toStrictEqual(hexToBytes(confirmedHashAfter))
 
-  const computedInterimHash = await createInterimHash(hexToBytes(confirmedHashAfter), { confirmationTag }, impl.hash)
+  const computedInterimHash = await createInterimHash(hexToBytes(confirmedHashAfter), confirmationTag, impl.hash)
   expect(computedInterimHash).toStrictEqual(hexToBytes(interimHashAfter))
 }

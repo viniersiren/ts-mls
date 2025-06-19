@@ -7,12 +7,12 @@ export async function testEveryoneCanMessageEveryone(clients: ClientState[], imp
   const encoder = new TextEncoder()
   const updatedGroups = [...clients]
 
-  for (const [senderIndex, senderGroup] of updatedGroups.entries()) {
+  for (const [senderIndex, senderState] of updatedGroups.entries()) {
     const messageText = `Hello from member ${senderIndex}`
     const encodedMessage = encoder.encode(messageText)
 
     const { privateMessage, newState: newSenderState } = await createApplicationMessage(
-      senderGroup,
+      senderState,
       encodedMessage,
       impl,
     )

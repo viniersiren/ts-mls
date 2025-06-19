@@ -16,7 +16,7 @@ export type KeySchedule = {
   initSecret: Uint8Array
 }
 
-type EpochSecrets = {
+export type EpochSecrets = {
   keySchedule: KeySchedule
   joinerSecret: Uint8Array
   welcomeSecret: Uint8Array

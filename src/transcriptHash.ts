@@ -1,5 +1,5 @@
-import { Decoder, mapDecoder, mapDecodersOption } from "./codec/tlsDecoder"
-import { contramapEncoder, contramapEncoders, Encoder } from "./codec/tlsEncoder"
+import { Decoder, mapDecodersOption } from "./codec/tlsDecoder"
+import { contramapEncoders, Encoder } from "./codec/tlsEncoder"
 import { decodeVarLenData, encodeVarLenData } from "./codec/variableLength"
 import { Hash } from "./crypto/hash"
 import { decodeFramedContent, encodeFramedContent, FramedContentCommit } from "./framedContent"
@@ -29,18 +29,6 @@ export const decodeConfirmedTranscriptHashInput: Decoder<ConfirmedTranscriptHash
   },
 )
 
-export type InterimTranscriptHashInput = { confirmationTag: Uint8Array }
-
-export const encodeInterimTranscriptHashInput: Encoder<InterimTranscriptHashInput> = contramapEncoder(
-  encodeVarLenData,
-  (i) => i.confirmationTag,
-)
-
-export const decodeInterimTranscriptHashInput: Decoder<InterimTranscriptHashInput> = mapDecoder(
-  decodeVarLenData,
-  (confirmationTag) => ({ confirmationTag }),
-)
-
 export function createConfirmedHash(
   interimTranscriptHash: Uint8Array,
   input: ConfirmedTranscriptHashInput,
@@ -51,8 +39,8 @@ export function createConfirmedHash(
 
 export function createInterimHash(
   confirmedHash: Uint8Array,
-  input: InterimTranscriptHashInput,
+  confirmationTag: Uint8Array,
   hash: Hash,
 ): Promise<Uint8Array> {
-  return hash.digest(new Uint8Array([...confirmedHash, ...encodeInterimTranscriptHashInput(input)]))
+  return hash.digest(new Uint8Array([...confirmedHash, ...encodeVarLenData(confirmationTag)]))
 }

@@ -11,10 +11,12 @@ import {
   FramedContentCommit,
   FramedContentTBSCommit,
   signFramedContentTBS,
+  toTbs,
   verifyConfirmationTag,
 } from "./framedContent"
 import { encodeGroupContext, GroupContext } from "./groupContext"
 import {
+  GroupInfo,
   GroupInfoTBS,
   ratchetTreeFromExtension,
   signGroupInfo,
@@ -43,7 +45,15 @@ import {
 } from "./proposal"
 
 import { protectPublicMessage, PublicMessage, unprotectPublicMessage } from "./publicMessage"
-import { addLeafNode, findFirstNonBlankAncestor, findLeafIndex, removeLeafNode, updateLeafNode } from "./ratchetTree"
+import {
+  addLeafNode,
+  findBlankLeafNodeIndex,
+  findFirstNonBlankAncestor,
+  findLeafIndex,
+  getSignaturePublicKeyFromLeafIndex,
+  removeLeafNode,
+  updateLeafNode,
+} from "./ratchetTree"
 import { RatchetTree } from "./ratchetTree"
 import { createSecretTree, SecretTree } from "./secretTree"
 import { getSenderLeafNodeIndex, Sender } from "./sender"
@@ -71,6 +81,7 @@ import {
 import { WireformatName } from "./wireformat"
 import { ProposalOrRef } from "./proposalOrRefType"
 import { MLSMessage } from "./message"
+import { encodeCredential } from "./credential"
 
 export type ClientState = {
   groupContext: GroupContext
@@ -181,7 +192,14 @@ export async function processPrivateMessage(
   psks: Record<string, Uint8Array>,
   cs: CiphersuiteImpl,
 ): Promise<ProcessPrivateMessageResult> {
-  const result = await unprotectPrivateMessage(state.keySchedule.senderDataSecret, pm, state.secretTree, cs)
+  const result = await unprotectPrivateMessage(
+    state.keySchedule.senderDataSecret,
+    pm,
+    state.secretTree,
+    state.ratchetTree,
+    state.groupContext,
+    cs,
+  )
 
   const newState = { ...state, secretTree: result.tree }
 
@@ -212,7 +230,13 @@ export async function processPublicMessage(
   psks: Record<string, Uint8Array>,
   cs: CiphersuiteImpl,
 ): Promise<ClientState> {
-  const content = await unprotectPublicMessage(state.keySchedule.membershipKey, state.groupContext, pm, cs)
+  const content = await unprotectPublicMessage(
+    state.keySchedule.membershipKey,
+    state.groupContext,
+    state.ratchetTree,
+    pm,
+    cs,
+  )
 
   if (content === undefined) throw new Error("Could not unprotect private message")
 
@@ -229,15 +253,22 @@ async function processCommit(
   wireformat: WireformatName,
   psks: Record<string, Uint8Array<ArrayBufferLike>>,
   cs: CiphersuiteImpl,
-) {
+): Promise<ClientState> {
+  if (content.content.epoch !== state.groupContext.epoch) throw new Error("Could not validate epoch")
+
   const senderLeafIndex = content.content.sender.senderType === "member" ? content.content.sender.leafIndex : undefined
+
+  //TODO Verify that the proposals vector is valid according to the rules in Section 12.2.
+  //TODO Verify that all PreSharedKey proposals in the proposals vector are available.
 
   const result = await applyProposals(state, content.content.commit.proposals, senderLeafIndex, psks, cs)
 
   if (result.needsUpdatePath && content.content.commit.path === undefined) throw new Error("Update path is required")
 
   const groupContextWithExtensions =
-    result.extensions.length === 0 ? state.groupContext : { ...state.groupContext, extensions: result.extensions }
+    result.additionalResult.kind === "memberCommit" && result.additionalResult.extensions.length > 0
+      ? { ...state.groupContext, extensions: result.additionalResult.extensions }
+      : state.groupContext
 
   const [pkp, commitSecret, tree] = await applyTreeUpdate(
     content.content.commit.path,
@@ -246,7 +277,9 @@ async function processCommit(
     cs,
     state,
     groupContextWithExtensions,
-    result.addedLeafNodes.map((l) => leafToNodeIndex(l[0])),
+    result.additionalResult.kind === "memberCommit"
+      ? result.additionalResult.addedLeafNodes.map((l) => leafToNodeIndex(l[0]))
+      : [findBlankLeafNodeIndex(result.tree) ?? result.tree.length + 1],
     cs.kdf,
   )
 
@@ -255,22 +288,20 @@ async function processCommit(
   if (content.auth.contentType !== "commit") throw new Error("Received content as commit, but not auth") //todo solve this with types?
   const updatedGroupContext = await nextEpochContext(
     groupContextWithExtensions,
-    wireformat, //todo fix this
+    wireformat,
     content.content,
     content.auth.signature,
     newTreeHash,
     state.confirmationTag,
-    result.extensions,
     cs.hash,
   )
 
-  const epochSecrets = await initializeEpoch(
-    state.keySchedule.initSecret,
-    commitSecret,
-    updatedGroupContext,
-    result.pskSecret,
-    cs.kdf,
-  )
+  const initSecret =
+    result.additionalResult.kind === "externalCommit"
+      ? result.additionalResult.externalInitSecret
+      : state.keySchedule.initSecret
+
+  const epochSecrets = await initializeEpoch(initSecret, commitSecret, updatedGroupContext, result.pskSecret, cs.kdf)
 
   const confirmationTagValid = await verifyConfirmationTag(
     epochSecrets.keySchedule.confirmationKey,
@@ -330,11 +361,14 @@ async function applyTreeUpdate(
     return [pkp, commitSecret, updatedTree] as const
   } else {
     const [treeWithLeafNode, leafNodeIndex] = addLeafNode(tree, path.leafNode)
-    const updatedTree = await applyUpdatePath(treeWithLeafNode, leafNodeIndex, path, cs.hash)
+
+    const senderLeafIndex = nodeToLeafIndex(leafNodeIndex)
+    const updatedTree = await applyUpdatePath(treeWithLeafNode, senderLeafIndex, path, cs.hash)
+
     const [pkp, commitSecret] = await updatePrivateKeyPath(
       updatedTree,
       state,
-      leafNodeIndex,
+      senderLeafIndex,
       { ...groupContext, treeHash: await treeHashRoot(updatedTree, cs.hash), epoch: groupContext.epoch + 1n },
       path,
       excludeNodes,
@@ -415,12 +449,15 @@ const emptyProposals: Proposals = {
 
 type ApplyProposalsResult = {
   tree: RatchetTree
-  extensions: Extension[]
   pskSecret: Uint8Array<ArrayBufferLike>
   pskIds: PreSharedKeyID[]
-  addedLeafNodes: [number, KeyPackage][]
   needsUpdatePath: boolean
+  additionalResult: ApplyProposalsData
 }
+
+type ApplyProposalsData =
+  | { kind: "memberCommit"; addedLeafNodes: [number, KeyPackage][]; extensions: Extension[] }
+  | { kind: "externalCommit"; externalInitSecret: Uint8Array }
 
 async function applyProposals(
   state: ClientState,
@@ -442,62 +479,124 @@ async function applyProposals(
     return { ...acc, [cur.proposal.proposalType]: [...proposal, cur] }
   }, emptyProposals)
 
-  const newExtensions = grouped.group_context_extensions.reduce((acc, { proposal }) => {
-    return [...acc, ...proposal.groupContextExtensions.extensions]
-  }, [] as Extension[])
+  const isExternalInit = grouped.external_init.length > 0
 
-  const treeAfterUpdate = grouped.update.reduce((acc, { senderLeafIndex, proposal }) => {
-    if (senderLeafIndex === undefined) throw new Error("No sender index found for update proposal")
-    return updateLeafNode(acc, proposal.update.leafNode, senderLeafIndex)
-  }, state.ratchetTree)
+  if (!isExternalInit) {
+    const newExtensions = grouped.group_context_extensions.reduce((acc, { proposal }) => {
+      return [...acc, ...proposal.groupContextExtensions.extensions]
+    }, [] as Extension[])
 
-  const treeAfterRemove = grouped.remove.reduce((acc, { proposal }) => {
-    return removeLeafNode(acc, proposal.remove.removed)
-  }, treeAfterUpdate)
+    const treeAfterUpdate = grouped.update.reduce((acc, { senderLeafIndex, proposal }) => {
+      if (senderLeafIndex === undefined) throw new Error("No sender index found for update proposal")
+      return updateLeafNode(acc, proposal.update.leafNode, senderLeafIndex)
+    }, state.ratchetTree)
 
-  const [treeAfterAdd, addedLeafNodes] = grouped.add.reduce(
-    (acc, { proposal }) => {
-      const [tree, ws] = acc
-      const [updatedTree, leafNodeIndex] = addLeafNode(tree, proposal.add.keyPackage.leafNode)
-      return [updatedTree, [...ws, [nodeToLeafIndex(leafNodeIndex), proposal.add.keyPackage] as [number, KeyPackage]]]
-    },
-    [treeAfterRemove, []] as [RatchetTree, [number, KeyPackage][]],
-  )
+    const treeAfterRemove = grouped.remove.reduce((acc, { proposal }) => {
+      return removeLeafNode(acc, proposal.remove.removed)
+    }, treeAfterUpdate)
 
-  const zeroes: Uint8Array = new Uint8Array(cs.kdf.size)
+    const [treeAfterAdd, addedLeafNodes] = grouped.add.reduce(
+      (acc, { proposal }) => {
+        const [tree, ws] = acc
+        const [updatedTree, leafNodeIndex] = addLeafNode(tree, proposal.add.keyPackage.leafNode)
+        return [updatedTree, [...ws, [nodeToLeafIndex(leafNodeIndex), proposal.add.keyPackage] as [number, KeyPackage]]]
+      },
+      [treeAfterRemove, []] as [RatchetTree, [number, KeyPackage][]],
+    )
 
-  const [updatedPskSecret, pskIds] = await grouped.psk.reduce(
-    async (acc, cur, index) => {
-      const [previousSecret, ids] = await acc
-      const psk = findPsk(state, psks, cur.proposal.psk.preSharedKeyId)
-      if (psk === undefined) throw new Error("Could not find pskId referenced in proposal")
+    const zeroes: Uint8Array = new Uint8Array(cs.kdf.size)
 
-      const pskSecret = await updatePskSecret(
-        previousSecret,
-        cur.proposal.psk.preSharedKeyId,
-        psk,
-        index,
-        grouped.psk.length,
-        cs,
-      )
-      return [pskSecret, [...ids, cur.proposal.psk.preSharedKeyId]]
-    },
-    Promise.resolve([zeroes, [] as PreSharedKeyID[]] as const),
-  )
+    const [updatedPskSecret, pskIds] = await grouped.psk.reduce(
+      async (acc, cur, index) => {
+        const [previousSecret, ids] = await acc
+        const psk = findPsk(state, psks, cur.proposal.psk.preSharedKeyId)
+        if (psk === undefined) throw new Error("Could not find pskId referenced in proposal")
 
-  const needsUpdatePath =
-    allProposals.length === 0 || Object.values(grouped.update).length > 1 || Object.values(grouped.remove).length > 1
+        const pskSecret = await updatePskSecret(
+          previousSecret,
+          cur.proposal.psk.preSharedKeyId,
+          psk,
+          index,
+          grouped.psk.length,
+          cs,
+        )
+        return [pskSecret, [...ids, cur.proposal.psk.preSharedKeyId]]
+      },
+      Promise.resolve([zeroes, [] as PreSharedKeyID[]] as const),
+    )
 
-  const res = {
-    tree: treeAfterAdd,
-    extensions: newExtensions,
-    pskSecret: updatedPskSecret,
-    pskIds,
-    addedLeafNodes,
-    needsUpdatePath,
+    const needsUpdatePath =
+      allProposals.length === 0 || Object.values(grouped.update).length > 1 || Object.values(grouped.remove).length > 1
+
+    const res = {
+      tree: treeAfterAdd,
+      pskSecret: updatedPskSecret,
+      additionalResult: {
+        kind: "memberCommit" as const,
+        addedLeafNodes,
+        extensions: newExtensions,
+      },
+      pskIds,
+      needsUpdatePath,
+    }
+
+    return res
+  } else {
+    if (grouped.external_init.length > 1) throw new Error("Cannot contain more than one external_init proposal")
+
+    if (grouped.remove.length > 1) throw new Error("Cannot contain more than one remove proposal")
+
+    if (
+      grouped.add.length > 0 ||
+      grouped.group_context_extensions.length > 0 ||
+      grouped.reinit.length > 0 ||
+      grouped.update.length > 0
+    )
+      throw new Error("Invalid proposals")
+
+    const treeAfterRemove = grouped.remove.reduce((acc, { proposal }) => {
+      return removeLeafNode(acc, proposal.remove.removed)
+    }, state.ratchetTree)
+
+    const zeroes: Uint8Array = new Uint8Array(cs.kdf.size)
+
+    const [updatedPskSecret, pskIds] = await grouped.psk.reduce(
+      async (acc, cur, index) => {
+        const [previousSecret, ids] = await acc
+        const psk = findPsk(state, psks, cur.proposal.psk.preSharedKeyId)
+        if (psk === undefined) throw new Error("Could not find pskId referenced in proposal")
+
+        const pskSecret = await updatePskSecret(
+          previousSecret,
+          cur.proposal.psk.preSharedKeyId,
+          psk,
+          index,
+          grouped.psk.length,
+          cs,
+        )
+        return [pskSecret, [...ids, cur.proposal.psk.preSharedKeyId]]
+      },
+      Promise.resolve([zeroes, [] as PreSharedKeyID[]] as const),
+    )
+
+    const initProposal = grouped.external_init.at(0)!
+
+    const externalKeyPair = await cs.hpke.deriveKeyPair(state.keySchedule.externalSecret)
+
+    const externalInitSecret = await importSecret(
+      await cs.hpke.exportPrivateKey(externalKeyPair.privateKey),
+      initProposal.proposal.externalInit.kemOutput,
+      cs,
+    )
+
+    return {
+      needsUpdatePath: true,
+      tree: treeAfterRemove,
+      pskSecret: updatedPskSecret,
+      pskIds,
+      additionalResult: { kind: "externalCommit", externalInitSecret },
+    }
   }
-
-  return res
 }
 
 export type CreateCommitResult = { newState: ClientState; welcome: Welcome | undefined; commit: MLSMessage }
@@ -520,11 +619,21 @@ export async function createCommit(
 
   const res = await applyProposals(state, allProposals, state.privatePath.leafIndex, psks, cs)
 
+  if (res.additionalResult.kind === "externalCommit") throw new Error("Cannot create externalCommit as a member")
+
   const [tree, updatePath, pathSecrets] = res.needsUpdatePath
     ? await createUpdatePath(res.tree, state.privatePath.leafIndex, state.groupContext, state.signaturePrivateKey, cs)
     : [res.tree, undefined, [] as PathSecret[]]
 
-  const privateKeys = await toPrivateKeyPath(pathToNodeSecrets(pathSecrets), state.privatePath.leafIndex, cs)
+  const groupContextWithExtensions =
+    res.additionalResult.extensions.length > 0
+      ? { ...state.groupContext, extensions: res.additionalResult.extensions }
+      : state.groupContext
+
+  const privateKeys = mergePrivateKeyPaths(
+    await toPrivateKeyPath(pathToNodeSecrets(pathSecrets), state.privatePath.leafIndex, cs),
+    state.privatePath,
+  )
 
   const lastPathSecret = pathSecrets.at(-1)
 
@@ -560,13 +669,12 @@ export async function createCommit(
   const treeHash = await treeHashRoot(tree, cs.hash)
 
   const updatedGroupContext = await nextEpochContext(
-    state.groupContext,
+    groupContextWithExtensions,
     wireformat,
     tbs.content,
     signature,
     treeHash,
     state.confirmationTag,
-    res.extensions,
     cs.hash,
   )
 
@@ -584,19 +692,12 @@ export async function createCommit(
     cs.hash,
   )
 
-  const groupInfoTbs: GroupInfoTBS = {
-    groupContext: updatedGroupContext,
-    extensions: updatedGroupContext.extensions,
-    confirmationTag,
-    signer: state.privatePath.leafIndex,
-  }
-
-  const groupInfo = await signGroupInfo(groupInfoTbs, state.signaturePrivateKey, cs.signature)
+  const groupInfo = await createGroupInfo(updatedGroupContext, confirmationTag, state, cs)
 
   const encryptedGroupInfo = await encryptGroupInfo(groupInfo, epochSecrets.welcomeSecret, cs)
 
   const encryptedGroupSecrets: EncryptedGroupSecrets[] = await Promise.all(
-    res.addedLeafNodes.map(async ([leafNodeIndex, keyPackage]) => {
+    res.additionalResult.addedLeafNodes.map(async ([leafNodeIndex, keyPackage]) => {
       const nodeIndex = firstCommonAncestor(tree, leafNodeIndex, state.privatePath.leafIndex)
       const pathSecret = pathSecrets.find((ps) => ps.nodeIndex === nodeIndex)
       const pk = await cs.hpke.importPublicKey(keyPackage.initKey)
@@ -614,7 +715,7 @@ export async function createCommit(
   )
 
   const welcome: Welcome | undefined =
-    encryptGroupSecrets.length > 0
+    encryptedGroupSecrets.length > 0
       ? {
           cipherSuite: updatedGroupContext.cipherSuite,
           secrets: encryptedGroupSecrets,
@@ -647,6 +748,31 @@ export async function createCommit(
   }
 
   return { newState, welcome, commit }
+}
+
+export async function createGroupInfo(
+  groupContext: GroupContext,
+  confirmationTag: Uint8Array,
+  state: ClientState,
+  cs: CiphersuiteImpl,
+): Promise<GroupInfo> {
+  const groupInfoTbs: GroupInfoTBS = {
+    groupContext: groupContext,
+    extensions: groupContext.extensions,
+    confirmationTag,
+    signer: state.privatePath.leafIndex,
+  }
+
+  return signGroupInfo(groupInfoTbs, state.signaturePrivateKey, cs.signature)
+}
+
+export async function createGroupInfoWithExternalPub(state: ClientState, cs: CiphersuiteImpl): Promise<GroupInfo> {
+  const gi = await createGroupInfo(state.groupContext, state.confirmationTag, state, cs)
+
+  const externalKeyPair = await cs.hpke.deriveKeyPair(state.keySchedule.externalSecret)
+  const externalPub = await cs.hpke.exportPublicKey(externalKeyPair.publicKey)
+
+  return { ...gi, extensions: [...gi.extensions, { extensionType: "external_pub", extensionData: externalPub }] }
 }
 
 async function protectCommit(
@@ -745,19 +871,150 @@ export async function nextEpochContext(
   signature: Uint8Array,
   updatedTreeHash: Uint8Array,
   confirmationTag: Uint8Array,
-  newExtensions: Extension[],
   h: Hash,
 ): Promise<GroupContext> {
-  const interimTranscriptHash = await createInterimHash(groupContext.confirmedTranscriptHash, { confirmationTag }, h)
+  const interimTranscriptHash = await createInterimHash(groupContext.confirmedTranscriptHash, confirmationTag, h)
   const newConfirmedHash = await createConfirmedHash(interimTranscriptHash, { wireformat, content, signature }, h)
 
   return {
     ...groupContext,
     epoch: groupContext.epoch + 1n,
     treeHash: updatedTreeHash,
-    extensions: newExtensions,
     confirmedTranscriptHash: newConfirmedHash,
   }
+}
+
+export async function joinGroupExternal(
+  groupInfo: GroupInfo,
+  keyPackage: KeyPackage,
+  privateKeys: PrivateKeyPackage,
+  tree: RatchetTree | undefined,
+  resync: boolean,
+  cs: CiphersuiteImpl,
+) {
+  const externalPub = groupInfo.extensions.find((ex) => ex.extensionType === "external_pub")
+
+  if (externalPub === undefined) throw new Error("Could not find external_pub extension")
+
+  const { enc, secret: initSecret } = await exportSecret(externalPub.extensionData, cs)
+
+  const ratchetTree = ratchetTreeFromExtension(groupInfo) ?? tree
+
+  if (ratchetTree === undefined) throw new Error("No RatchetTree passed and no ratchet_tree extension")
+
+  const signaturePublicKey = getSignaturePublicKeyFromLeafIndex(ratchetTree, groupInfo.signer)
+
+  const groupInfoSignatureVerified = verifyGroupInfoSignature(groupInfo, signaturePublicKey, cs.signature)
+
+  if (!groupInfoSignatureVerified) throw new Error("Could not verify groupInfo Signature")
+
+  const formerLeafIndex = resync
+    ? nodeToLeafIndex(
+        ratchetTree.findIndex((n) => {
+          if (n !== undefined && n.nodeType === "leaf") {
+            return constantTimeEqual(
+              encodeCredential(n.leaf.credential),
+              encodeCredential(keyPackage.leafNode.credential),
+            )
+          }
+          return false
+        }),
+      )
+    : undefined
+
+  const updatedTree = formerLeafIndex !== undefined ? removeLeafNode(ratchetTree, formerLeafIndex) : ratchetTree
+
+  const [treeWithNewLeafNode, newLeafNodeIndex] = addLeafNode(updatedTree, keyPackage.leafNode)
+
+  const [newTree, updatePath, pathSecrets] = await createUpdatePath(
+    treeWithNewLeafNode,
+    nodeToLeafIndex(newLeafNodeIndex),
+    groupInfo.groupContext,
+    privateKeys.signaturePrivateKey,
+    cs,
+  )
+
+  const privateKeyPath = await toPrivateKeyPath(pathToNodeSecrets(pathSecrets), nodeToLeafIndex(newLeafNodeIndex), cs)
+
+  const lastPathSecret = pathSecrets.at(-1)
+
+  const commitSecret =
+    lastPathSecret === undefined
+      ? new Uint8Array(cs.kdf.size) //todo is this right?
+      : await deriveSecret(lastPathSecret.secret, "path", cs.kdf)
+
+  const externalInitProposal: ProposalExternalInit = {
+    proposalType: "external_init",
+    externalInit: { kemOutput: enc },
+  }
+  const proposals: Proposal[] =
+    formerLeafIndex !== undefined
+      ? [{ proposalType: "remove", remove: { removed: formerLeafIndex } }, externalInitProposal]
+      : [externalInitProposal]
+
+  const pskSecret = new Uint8Array(cs.kdf.size)
+
+  const framedContent: FramedContentCommit = {
+    groupId: groupInfo.groupContext.groupId,
+    epoch: groupInfo.groupContext.epoch,
+    sender: {
+      senderType: "new_member_commit",
+    },
+    authenticatedData: new Uint8Array(),
+    contentType: "commit",
+    commit: {
+      proposals: proposals.map((p) => ({ proposalOrRefType: "proposal", proposal: p })),
+      path: updatePath,
+    },
+  }
+
+  const signature = await signFramedContentTBS(
+    privateKeys.signaturePrivateKey,
+    toTbs(framedContent, "mls_public_message", groupInfo.groupContext),
+    cs.signature,
+  )
+
+  const treeHash = await treeHashRoot(newTree, cs.hash)
+
+  const groupContext = await nextEpochContext(
+    groupInfo.groupContext,
+    "mls_public_message",
+    framedContent,
+    signature,
+    treeHash,
+    groupInfo.confirmationTag,
+    cs.hash,
+  )
+
+  const epochSecrets = await initializeEpoch(initSecret, commitSecret, groupContext, pskSecret, cs.kdf)
+
+  const confirmationTag = await createConfirmationTag(
+    epochSecrets.keySchedule.confirmationKey,
+    groupContext.confirmedTranscriptHash,
+    cs.hash,
+  )
+
+  const state: ClientState = {
+    ratchetTree: newTree,
+    groupContext: groupContext,
+    secretTree: await createSecretTree(leafWidth(newTree.length), epochSecrets.keySchedule.encryptionSecret, cs.kdf),
+    privatePath: privateKeyPath,
+    confirmationTag,
+    historicalResumptionPsks: new Map(),
+    signaturePrivateKey: privateKeys.signaturePrivateKey,
+    keySchedule: epochSecrets.keySchedule,
+    unappliedProposals: {},
+  }
+
+  const authenticatedContent: AuthenticatedContentCommit = {
+    content: framedContent,
+    auth: { signature, confirmationTag, contentType: "commit" },
+    wireformat: "mls_public_message",
+  }
+
+  const msg = await protectPublicMessage(epochSecrets.keySchedule.membershipKey, groupContext, authenticatedContent, cs)
+
+  return { publicMessage: msg, newState: state }
 }
 
 export async function joinGroup(
@@ -939,4 +1196,26 @@ export async function createApplicationMessage(state: ClientState, message: Uint
   )
 
   return { newState: { ...state, secretTree: result.tree }, privateMessage: result.privateMessage }
+}
+
+async function exportSecret(
+  publicKey: Uint8Array,
+  cs: CiphersuiteImpl,
+): Promise<{ enc: Uint8Array; secret: Uint8Array }> {
+  return cs.hpke.exportSecret(
+    await cs.hpke.importPublicKey(publicKey),
+    new TextEncoder().encode("MLS 1.0 external init secret"),
+    cs.kdf.size,
+    new Uint8Array(),
+  )
+}
+
+async function importSecret(privateKey: Uint8Array, kemOutput: Uint8Array, cs: CiphersuiteImpl): Promise<Uint8Array> {
+  return cs.hpke.importSecret(
+    await cs.hpke.importPrivateKey(privateKey),
+    new TextEncoder().encode("MLS 1.0 external init secret"),
+    kemOutput,
+    cs.kdf.size,
+    new Uint8Array(),
+  )
 }

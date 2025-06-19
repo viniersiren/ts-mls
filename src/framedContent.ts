@@ -253,31 +253,21 @@ export async function signFramedContent(
   }
 }
 
-export async function verifyFramedContent(
+export async function verifyFramedContentSignature(
   signKey: Uint8Array,
-  confirmationKey: Uint8Array,
-  confirmedTranscriptHash: Uint8Array,
-  tbs: FramedContentTBS,
+  wireformat: WireformatName,
+  content: FramedContent,
   auth: FramedContentAuthData,
-  cs: CiphersuiteImpl,
+  context: GroupContext,
+  s: Signature,
 ): Promise<boolean> {
-  if (tbs.content.contentType == "commit") {
-    return verifyFramedContentCommit(
-      signKey,
-      confirmationKey,
-      confirmedTranscriptHash,
-      tbs as FramedContentTBSCommit,
-      auth as FramedContentAuthDataCommit,
-      cs,
-    )
-  } else {
-    return verifyFramedContentApplicationOrProposal(
-      signKey,
-      tbs as FramedContentTBSApplicationOrProposal,
-      auth as FramedContentAuthDataApplicationOrProposal,
-      cs,
-    )
-  }
+  return verifyWithLabel(
+    signKey,
+    "FramedContentTBS",
+    encodeFramedContentTBS(toTbs(content, wireformat, context)),
+    auth.signature,
+    s,
+  )
 }
 
 export async function signFramedContentCommit(
@@ -298,20 +288,6 @@ export async function signFramedContentCommit(
 
 export function signFramedContentTBS(signKey: Uint8Array, tbs: FramedContentTBS, s: Signature): Promise<Uint8Array> {
   return signWithLabel(signKey, "FramedContentTBS", encodeFramedContentTBS(tbs), s)
-}
-
-export async function verifyFramedContentCommit(
-  signKey: Uint8Array,
-  confirmationKey: Uint8Array,
-  confirmedTranscriptHash: Uint8Array,
-  tbs: FramedContentTBSCommit,
-  auth: FramedContentAuthDataCommit,
-  cs: CiphersuiteImpl,
-): Promise<boolean> {
-  return (
-    (await verifyWithLabel(signKey, "FramedContentTBS", encodeFramedContentTBS(tbs), auth.signature, cs.signature)) &&
-    (await verifyConfirmationTag(confirmationKey, auth.confirmationTag, confirmedTranscriptHash, cs.hash))
-  )
 }
 
 export async function signFramedContentApplicationOrProposal(

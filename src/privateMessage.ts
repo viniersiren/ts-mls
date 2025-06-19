@@ -20,9 +20,11 @@ import {
   FramedContentTBSCommit,
   signFramedContentApplicationOrProposal,
   signFramedContentCommit,
+  verifyFramedContentSignature,
 } from "./framedContent"
 import { GroupContext } from "./groupContext"
 import { decodeProposal, encodeProposal, Proposal } from "./proposal"
+import { getSignaturePublicKeyFromLeafIndex, RatchetTree } from "./ratchetTree"
 import { consumeRatchet, deriveKey, deriveNonce, GenerationSecret, ratchetToGeneration, SecretTree } from "./secretTree"
 import {
   decodeSenderData,
@@ -365,7 +367,7 @@ export async function protectProposal(
     auth,
   }
 
-  //todo processProposal?
+  //todo store proposal?
 
   return protect(senderDataSecret, authenticatedData, groupContext, secretTree, content, leafIndex, cs)
 }
@@ -438,7 +440,10 @@ export async function unprotectPrivateMessage(
   senderDataSecret: Uint8Array,
   msg: PrivateMessage,
   secretTree: SecretTree,
+  ratchetTree: RatchetTree,
+  groupContext: GroupContext,
   cs: CiphersuiteImpl,
+  overrideSignatureKey?: Uint8Array,
 ): Promise<UnprotectResult> {
   const senderData = await decryptSenderData(msg, senderDataSecret, cs)
 
@@ -455,11 +460,27 @@ export async function unprotectPrivateMessage(
 
   const decrypted = await cs.hpke.decryptAead(key, nonce, encodePrivateContentAAD(aad), msg.ciphertext)
 
-  //todo verify signature & MAC
-
   const pmc = decodePrivateMessageContent(msg.contentType)(decrypted, 0)?.[0]
 
   if (pmc === undefined) throw new Error("Could not decode PrivateMessageContent")
 
-  return { content: toAuthenticatedContent(pmc, msg, senderData.leafIndex), tree: newTree }
+  const content = toAuthenticatedContent(pmc, msg, senderData.leafIndex)
+
+  const signaturePublicKey =
+    overrideSignatureKey !== undefined
+      ? overrideSignatureKey
+      : getSignaturePublicKeyFromLeafIndex(ratchetTree, senderData.leafIndex)
+
+  const signatureValid = await verifyFramedContentSignature(
+    signaturePublicKey,
+    "mls_private_message",
+    content.content,
+    content.auth,
+    groupContext,
+    cs.signature,
+  )
+
+  if (!signatureValid) throw new Error("Signature invalid")
+
+  return { tree: newTree, content }
 }

@@ -74,6 +74,21 @@ export async function makeHpke(hpkealg: HpkeAlgorithm): Promise<Hpke> {
         enc: new Uint8Array(result.enc),
       }
     },
+    async exportSecret(publicKey, exporterContext, length, info) {
+      const context = await cs.createSenderContext({ recipientPublicKey: publicKey, info: bytesToBuffer(info) })
+      return {
+        enc: new Uint8Array(context.enc),
+        secret: new Uint8Array(await context.export(bytesToBuffer(exporterContext), length)),
+      }
+    },
+    async importSecret(privateKey, exporterContext, kemOutput, length, info) {
+      const context = await cs.createRecipientContext({
+        recipientKey: privateKey,
+        info: bytesToBuffer(info),
+        enc: bytesToBuffer(kemOutput),
+      })
+      return new Uint8Array(await context.export(bytesToBuffer(exporterContext), length))
+    },
     async importPrivateKey(k) {
       // See https://github.com/mlswg/mls-implementations/issues/176#issuecomment-1817043142
       const key = hpkealg.kem === "DHKEM-P521-HKDF-SHA512" ? prepadPrivateKeyP521(k) : k
@@ -137,11 +152,25 @@ export interface Hpke {
     aad: Uint8Array | undefined,
     ciphertext: Uint8Array,
   ): Promise<Uint8Array>
+  exportSecret(
+    publicKey: PublicKey,
+    exporterContext: Uint8Array,
+    length: number,
+    info: Uint8Array,
+  ): Promise<{ enc: Uint8Array; secret: Uint8Array }>
+  importSecret(
+    privateKey: PrivateKey,
+    exporterContext: Uint8Array,
+    kemOutput: Uint8Array,
+    length: number,
+    info: Uint8Array,
+  ): Promise<Uint8Array>
   deriveKeyPair(ikm: Uint8Array): Promise<{ privateKey: PrivateKey; publicKey: PublicKey }>
   generateKeyPair(): Promise<{ privateKey: PrivateKey; publicKey: PublicKey }>
   keyLength: number
   nonceLength: number
 }
+
 function prepadPrivateKeyP521(k: Uint8Array) {
   const lengthDifference = 66 - k.byteLength
   return new Uint8Array([...new Uint8Array(lengthDifference), ...k])
