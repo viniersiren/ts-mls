@@ -1,5 +1,8 @@
+import { ClientState } from "../../src/clientState"
+import { CiphersuiteImpl } from "../../src/crypto/ciphersuite"
 import { Hpke } from "../../src/crypto/hpke"
 import { Signature } from "../../src/crypto/signature"
+import { getHpkePublicKey } from "../../src/ratchetTree"
 
 export async function hpkeKeysMatch(publicKey: Uint8Array, privateKey: Uint8Array, hpke: Hpke): Promise<boolean> {
   const encoder = new TextEncoder()
@@ -25,4 +28,15 @@ export async function signatureKeysMatch(
   const testMessage = new TextEncoder().encode("test")
   const signature = await s.sign(privateKey, testMessage)
   return s.verify(publicKey, testMessage, signature)
+}
+
+export async function checkHpkeKeysMatch(group: ClientState, impl: CiphersuiteImpl): Promise<boolean> {
+  for (const [nodeIndex, privateKey] of Object.entries(group.privatePath.privateKeys)) {
+    const pub = getHpkePublicKey(group.ratchetTree[Number(nodeIndex)]!)
+    const x = await hpkeKeysMatch(pub, privateKey, impl.hpke)
+    if (!x) {
+      return false
+    }
+  }
+  return true
 }

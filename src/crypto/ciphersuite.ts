@@ -157,7 +157,7 @@ const ciphersuiteValues: Record<CiphersuiteId, Ciphersuite> = {
     hpke: {
       kem: "ML-KEM-512",
       aead: "AES256GCM",
-      kdf: "HKDF-SHA256",
+      kdf: "HKDF-SHA512",
     },
     signature: "Ed25519",
     name: "MLS_128_MLKEM512_AES128GCM_SHA256_Ed25519",
@@ -167,7 +167,7 @@ const ciphersuiteValues: Record<CiphersuiteId, Ciphersuite> = {
     hpke: {
       kem: "ML-KEM-512",
       aead: "CHACHA20POLY1305",
-      kdf: "HKDF-SHA256",
+      kdf: "HKDF-SHA512",
     },
     signature: "Ed25519",
     name: "MLS_128_MLKEM512_CHACHA20POLY1305_SHA256_Ed25519",
@@ -177,7 +177,7 @@ const ciphersuiteValues: Record<CiphersuiteId, Ciphersuite> = {
     hpke: {
       kem: "ML-KEM-768",
       aead: "AES256GCM",
-      kdf: "HKDF-SHA384",
+      kdf: "HKDF-SHA512",
     },
     signature: "Ed25519",
     name: "MLS_256_MLKEM768_AES256GCM_SHA384_Ed25519",
@@ -187,7 +187,7 @@ const ciphersuiteValues: Record<CiphersuiteId, Ciphersuite> = {
     hpke: {
       kem: "ML-KEM-768",
       aead: "CHACHA20POLY1305",
-      kdf: "HKDF-SHA384",
+      kdf: "HKDF-SHA512",
     },
     signature: "Ed25519",
     name: "MLS_256_MLKEM768_CHACHA20POLY1305_SHA384_Ed25519",

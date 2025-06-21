@@ -3,6 +3,7 @@ import { Credential } from "../../src/credential"
 import { CiphersuiteName, ciphersuites, getCiphersuiteFromName, getCiphersuiteImpl } from "../../src/crypto/ciphersuite"
 import { generateKeyPackage } from "../../src/keyPackage"
 import { ProposalAdd } from "../../src/proposal"
+import { checkHpkeKeysMatch } from "../crypto/keyMatch"
 import { defaultCapabilities, defaultLifetime, testEveryoneCanMessageEveryone } from "./common"
 
 for (const cs of Object.keys(ciphersuites)) {
@@ -12,7 +13,7 @@ for (const cs of Object.keys(ciphersuites)) {
 }
 
 async function multipleJoinsAtOnce(cipherSuite: CiphersuiteName) {
-  const impl = await await getCiphersuiteImpl(getCiphersuiteFromName(cipherSuite))
+  const impl = await getCiphersuiteImpl(getCiphersuiteFromName(cipherSuite))
 
   const aliceCredential: Credential = { credentialType: "basic", identity: new TextEncoder().encode("alice") }
   const alice = await generateKeyPackage(aliceCredential, defaultCapabilities, defaultLifetime, [], impl)
@@ -73,5 +74,8 @@ async function multipleJoinsAtOnce(cipherSuite: CiphersuiteName) {
 
   expect(charlieGroup.keySchedule.epochAuthenticator).toStrictEqual(aliceGroup.keySchedule.epochAuthenticator)
 
+  await checkHpkeKeysMatch(aliceGroup, impl)
+  await checkHpkeKeysMatch(bobGroup, impl)
+  await checkHpkeKeysMatch(charlieGroup, impl)
   await testEveryoneCanMessageEveryone([aliceGroup, bobGroup, charlieGroup], impl)
 }

@@ -16,7 +16,7 @@ import { leafToNodeIndex } from "../../src/treemath"
 import {
   applyUpdatePathSecret,
   getCommitSecret,
-  NodeSecrets,
+  PathSecrets,
   PrivateKeyPath,
   toPrivateKeyPath,
 } from "../../src/clientState"
@@ -156,7 +156,7 @@ async function testCommitSecret(
 async function getPrivatePaths(data: TreeKEMState, impl: CiphersuiteImpl): Promise<PrivateKeyPath[]> {
   return await Promise.all(
     data.leaves_private.map(async (leaf) => {
-      const nodeSecrets: NodeSecrets = leaf.path_secrets.reduce(
+      const nodeSecrets: PathSecrets = leaf.path_secrets.reduce(
         (acc, ps) => ({ ...acc, [ps.node]: hexToBytes(ps.path_secret) }),
         {},
       )
@@ -173,7 +173,7 @@ async function getPrivatePaths(data: TreeKEMState, impl: CiphersuiteImpl): Promi
 
 async function testTreeKeys(data: TreeKEMState, tree: [RatchetTree, number], impl: CiphersuiteImpl) {
   for (const leaf of data.leaves_private) {
-    const nodeSecrets: NodeSecrets = leaf.path_secrets.reduce(
+    const nodeSecrets: PathSecrets = leaf.path_secrets.reduce(
       (acc, ps) => ({ ...acc, [ps.node]: hexToBytes(ps.path_secret) }),
       {},
     )

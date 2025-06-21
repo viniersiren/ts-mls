@@ -3,7 +3,7 @@ import { contramapEncoders, Encoder } from "./codec/tlsEncoder"
 import { decodeVarLenData, decodeVarLenType, encodeVarLenData, encodeVarLenType } from "./codec/variableLength"
 import { CiphersuiteImpl } from "./crypto/ciphersuite"
 import { Hash } from "./crypto/hash"
-import { encryptWithLabel } from "./crypto/hpke"
+import { encryptWithLabel, PrivateKey } from "./crypto/hpke"
 import { deriveSecret } from "./crypto/kdf"
 import { encodeGroupContext, GroupContext } from "./groupContext"
 import { decodeLeafNodeCommit, encodeLeafNode, LeafNodeCommit, LeafNodeTBSCommit, signLeafNodeCommit } from "./leafNode"
@@ -54,27 +54,28 @@ export const decodeUpdatePath: Decoder<UpdatePath> = mapDecoders(
 export type PathSecret = { nodeIndex: number; secret: Uint8Array; sendTo: number[] }
 
 export async function createUpdatePath(
-  tree: RatchetTree,
+  originalTree: RatchetTree,
   senderLeafIndex: number,
   groupContext: GroupContext,
   signaturePrivateKey: Uint8Array,
   cs: CiphersuiteImpl,
-): Promise<[RatchetTree, UpdatePath, PathSecret[]]> {
-  const leafNode = tree[leafToNodeIndex(senderLeafIndex)]
-  if (leafNode === undefined || leafNode.nodeType === "parent") throw new Error("Expected non-blank leaf node")
+): Promise<[RatchetTree, UpdatePath, PathSecret[], PrivateKey]> {
+  const originalLeafNode = originalTree[leafToNodeIndex(senderLeafIndex)]
+  if (originalLeafNode === undefined || originalLeafNode.nodeType === "parent")
+    throw new Error("Expected non-blank leaf node")
 
   const pathSecret = cs.rng.randomBytes(cs.kdf.size)
 
   const leafNodeSecret = await deriveSecret(pathSecret, "node", cs.kdf)
   const leafKeypair = await cs.hpke.deriveKeyPair(leafNodeSecret)
 
-  const fdp = filteredDirectPathAndCopathResolution(senderLeafIndex, tree)
+  const fdp = filteredDirectPathAndCopathResolution(senderLeafIndex, originalTree)
 
   const [ps, updatedTree]: [PathSecret[], RatchetTree] = await applyInitialTreeUpdate(
     fdp,
     pathSecret,
     senderLeafIndex,
-    tree,
+    originalTree,
     cs,
   )
 
@@ -85,10 +86,10 @@ export async function createUpdatePath(
   const updatedLeafNodeTbs: LeafNodeTBSCommit = {
     leafNodeSource: "commit",
     hpkePublicKey: await cs.hpke.exportPublicKey(leafKeypair.publicKey),
-    extensions: leafNode.leaf.extensions,
-    capabilities: leafNode.leaf.capabilities,
-    credential: leafNode.leaf.credential,
-    signaturePublicKey: leafNode.leaf.signaturePublicKey,
+    extensions: originalLeafNode.leaf.extensions,
+    capabilities: originalLeafNode.leaf.capabilities,
+    credential: originalLeafNode.leaf.credential,
+    signaturePublicKey: originalLeafNode.leaf.signaturePublicKey,
     parentHash: leafParentHash[0],
     info: { leafNodeSource: "commit", groupId: groupContext.groupId, leafIndex: senderLeafIndex },
   }
@@ -111,29 +112,31 @@ export async function createUpdatePath(
   // we have to remove the leaf secret since we don't send it to anyone
   const pathSecrets = ps.slice(0, ps.length - 1).reverse()
 
+  // we have to pass the old tree here since the receiver won't have the updated public keys yet
   const updatePathNodes: UpdatePathNode[] = await Promise.all(
-    pathSecrets.map(encryptSecretsForPath(treeWithHashes, updatedGroupContext, cs)),
+    pathSecrets.map(encryptSecretsForPath(originalTree, finalTree, updatedGroupContext, cs)),
   )
 
   const updatePath: UpdatePath = { leafNode: updatedLeafNode, nodes: updatePathNodes }
 
-  return [finalTree, updatePath, pathSecrets] as const
+  return [finalTree, updatePath, pathSecrets, leafKeypair.privateKey] as const
 }
 
 function encryptSecretsForPath(
-  tree: RatchetTree,
+  originalTree: RatchetTree,
+  updatedTree: RatchetTree,
   updatedGroupContext: GroupContext,
   cs: CiphersuiteImpl,
-): (value: PathSecret) => Promise<UpdatePathNode> {
+): (pathSecret: PathSecret) => Promise<UpdatePathNode> {
   return async (pathSecret) => {
-    const key = getHpkePublicKey(tree[pathSecret.nodeIndex]!)
+    const key = getHpkePublicKey(updatedTree[pathSecret.nodeIndex]!)
 
     const res: UpdatePathNode = {
       hpkePublicKey: key,
       encryptedPathSecret: await Promise.all(
         pathSecret.sendTo.map(async (nodeIndex) => {
           const { ct, enc } = await encryptWithLabel(
-            await cs.hpke.importPublicKey(getHpkePublicKey(tree[nodeIndex]!)),
+            await cs.hpke.importPublicKey(getHpkePublicKey(originalTree[nodeIndex]!)),
             "UpdatePathNode",
             encodeGroupContext(updatedGroupContext),
             pathSecret.secret,

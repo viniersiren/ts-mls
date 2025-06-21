@@ -10,9 +10,10 @@ import { Credential } from "../../src/credential"
 import { CiphersuiteName, getCiphersuiteImpl, getCiphersuiteFromName, ciphersuites } from "../../src/crypto/ciphersuite"
 import { generateKeyPackage } from "../../src/keyPackage"
 import { ProposalAdd } from "../../src/proposal"
+import { checkHpkeKeysMatch } from "../crypto/keyMatch"
 import { defaultCapabilities, defaultLifetime, testEveryoneCanMessageEveryone } from "./common"
 
-for (const cs of Object.keys(ciphersuites).slice(0, 1)) {
+for (const cs of Object.keys(ciphersuites)) {
   test(`External join ${cs}`, async () => {
     await externalJoin(cs as CiphersuiteName)
   })
@@ -76,5 +77,8 @@ async function externalJoin(cipherSuite: CiphersuiteName) {
   expect(charlieGroup.keySchedule.epochAuthenticator).toStrictEqual(aliceGroup.keySchedule.epochAuthenticator)
   expect(charlieGroup.keySchedule.epochAuthenticator).toStrictEqual(bobGroup.keySchedule.epochAuthenticator)
 
+  await checkHpkeKeysMatch(aliceGroup, impl)
+  await checkHpkeKeysMatch(bobGroup, impl)
+  await checkHpkeKeysMatch(charlieGroup, impl)
   await testEveryoneCanMessageEveryone([aliceGroup, bobGroup, charlieGroup], impl)
 }

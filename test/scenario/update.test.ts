@@ -3,9 +3,10 @@ import { Credential } from "../../src/credential"
 import { CiphersuiteName, getCiphersuiteImpl, getCiphersuiteFromName, ciphersuites } from "../../src/crypto/ciphersuite"
 import { generateKeyPackage } from "../../src/keyPackage"
 import { ProposalAdd } from "../../src/proposal"
+import { checkHpkeKeysMatch } from "../crypto/keyMatch"
 import { defaultCapabilities, defaultLifetime, testEveryoneCanMessageEveryone } from "./common"
 
-for (const cs of Object.keys(ciphersuites).slice(0, 1)) {
+for (const cs of Object.keys(ciphersuites)) {
   test(`Update ${cs}`, async () => {
     await update(cs as CiphersuiteName)
   })
@@ -61,5 +62,22 @@ async function update(cipherSuite: CiphersuiteName) {
 
   bobGroup = bobProcessCommitResult.newState
 
+  const emptyCommitResult3 = await createCommit(bobGroup, {}, false, [], impl)
+
+  if (emptyCommitResult3.commit.wireformat !== "mls_private_message") throw new Error("Expected private message")
+
+  bobGroup = emptyCommitResult3.newState
+
+  const aliceProcessCommitResult3 = await processPrivateMessage(
+    aliceGroup,
+    emptyCommitResult3.commit.privateMessage,
+    {},
+    impl,
+  )
+
+  aliceGroup = aliceProcessCommitResult3.newState
+
+  await checkHpkeKeysMatch(aliceGroup, impl)
+  await checkHpkeKeysMatch(bobGroup, impl)
   await testEveryoneCanMessageEveryone([aliceGroup, bobGroup], impl)
 }

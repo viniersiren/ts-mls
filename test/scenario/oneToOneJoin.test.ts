@@ -10,6 +10,7 @@ import { CiphersuiteName, ciphersuites, getCiphersuiteFromName, getCiphersuiteIm
 import { generateKeyPackage } from "../../src/keyPackage"
 import { decodeMlsMessage, encodeMlsMessage } from "../../src/message"
 import { ProposalAdd } from "../../src/proposal"
+import { checkHpkeKeysMatch } from "../crypto/keyMatch"
 import { defaultCapabilities, defaultLifetime } from "./common"
 
 for (const cs of Object.keys(ciphersuites)) {
@@ -142,4 +143,7 @@ async function oneToOne(cipherSuite: CiphersuiteName) {
   if (aliceProcessMessageResult.kind === "newState") throw new Error("Expected application message")
 
   expect(aliceProcessMessageResult.message).toStrictEqual(messageToAlice)
+
+  await checkHpkeKeysMatch(aliceGroup, impl)
+  await checkHpkeKeysMatch(bobGroup, impl)
 }

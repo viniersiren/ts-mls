@@ -3,6 +3,7 @@ import { Credential } from "../../src/credential"
 import { CiphersuiteName, ciphersuites, getCiphersuiteFromName, getCiphersuiteImpl } from "../../src/crypto/ciphersuite"
 import { generateKeyPackage } from "../../src/keyPackage"
 import { ProposalAdd, ProposalRemove } from "../../src/proposal"
+import { checkHpkeKeysMatch } from "../crypto/keyMatch"
 import { defaultCapabilities, defaultLifetime, testEveryoneCanMessageEveryone } from "./common"
 
 for (const cs of Object.keys(ciphersuites)) {
@@ -105,5 +106,7 @@ async function remove(cipherSuite: CiphersuiteName) {
 
   charlieGroup = charlieProcessCommitResult.newState
 
+  await checkHpkeKeysMatch(aliceGroup, impl)
+  await checkHpkeKeysMatch(charlieGroup, impl)
   await testEveryoneCanMessageEveryone([aliceGroup, charlieGroup], impl)
 }

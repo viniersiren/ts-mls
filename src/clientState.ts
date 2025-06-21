@@ -99,11 +99,11 @@ export type ProposalWithSender = { proposal: Proposal; senderLeafIndex: number |
 export type UnappliedProposals = Record<string, ProposalWithSender>
 
 /**
- * NodeSecret is a record with nodeIndex as keys and the path secret as values
+ * PathSecrets is a record with nodeIndex as keys and the path secret as values
  */
-export type NodeSecrets = Record<number, Uint8Array> //{ nodeIndex: number; pathSecret: Uint8Array }
+export type PathSecrets = Record<number, Uint8Array>
 
-function pathToNodeSecrets(pathSecrets: PathSecret[]): NodeSecrets {
+function pathToPathSecrets(pathSecrets: PathSecret[]): PathSecrets {
   return pathSecrets.reduce(
     (acc, cur) => ({
       ...acc,
@@ -118,19 +118,26 @@ export type PrivateKeyPath = {
   privateKeys: Record<number, Uint8Array>
 }
 
+/**
+ * Merges PrivateKeyPaths, BEWARE, if there is a conflict, this function will prioritize the second `b` parameter
+ */
 function mergePrivateKeyPaths(a: PrivateKeyPath, b: PrivateKeyPath): PrivateKeyPath {
   return { ...a, privateKeys: { ...a.privateKeys, ...b.privateKeys } }
 }
 
+function updateLeafKey(path: PrivateKeyPath, newKey: Uint8Array): PrivateKeyPath {
+  return { ...path, privateKeys: { ...path.privateKeys, [leafToNodeIndex(path.leafIndex)]: newKey } }
+}
+
 export async function toPrivateKeyPath(
-  nodeSecrets: NodeSecrets,
+  pathSecrets: PathSecrets,
   leafIndex: number,
   cs: CiphersuiteImpl,
 ): Promise<PrivateKeyPath> {
   //todo: Object.fromEntries is pretty bad
   const privateKeys: Record<number, Uint8Array> = Object.fromEntries(
     await Promise.all(
-      Object.entries(nodeSecrets).map(async ([nodeIndex, pathSecret]) => {
+      Object.entries(pathSecrets).map(async ([nodeIndex, pathSecret]) => {
         const nodeSecret = await deriveSecret(pathSecret, "node", cs.kdf)
         const { privateKey } = await cs.hpke.deriveKeyPair(nodeSecret)
 
@@ -161,7 +168,7 @@ export async function pathToRoot(
   nodeIndex: number,
   pathSecret: Uint8Array,
   kdf: Kdf,
-): Promise<NodeSecrets> {
+): Promise<PathSecrets> {
   const rootIndex = root(leafWidth(tree.length))
   let currentIndex = nodeIndex
   let pathSecrets = { [nodeIndex]: pathSecret }
@@ -621,9 +628,9 @@ export async function createCommit(
 
   if (res.additionalResult.kind === "externalCommit") throw new Error("Cannot create externalCommit as a member")
 
-  const [tree, updatePath, pathSecrets] = res.needsUpdatePath
+  const [tree, updatePath, pathSecrets, newPrivateKey] = res.needsUpdatePath
     ? await createUpdatePath(res.tree, state.privatePath.leafIndex, state.groupContext, state.signaturePrivateKey, cs)
-    : [res.tree, undefined, [] as PathSecret[]]
+    : [res.tree, undefined, [] as PathSecret[], undefined]
 
   const groupContextWithExtensions =
     res.additionalResult.extensions.length > 0
@@ -631,8 +638,10 @@ export async function createCommit(
       : state.groupContext
 
   const privateKeys = mergePrivateKeyPaths(
-    await toPrivateKeyPath(pathToNodeSecrets(pathSecrets), state.privatePath.leafIndex, cs),
-    state.privatePath,
+    newPrivateKey !== undefined
+      ? updateLeafKey(state.privatePath, await cs.hpke.exportPrivateKey(newPrivateKey))
+      : state.privatePath,
+    await toPrivateKeyPath(pathToPathSecrets(pathSecrets), state.privatePath.leafIndex, cs),
   )
 
   const lastPathSecret = pathSecrets.at(-1)
@@ -926,7 +935,7 @@ export async function joinGroupExternal(
 
   const [treeWithNewLeafNode, newLeafNodeIndex] = addLeafNode(updatedTree, keyPackage.leafNode)
 
-  const [newTree, updatePath, pathSecrets] = await createUpdatePath(
+  const [newTree, updatePath, pathSecrets, newPrivateKey] = await createUpdatePath(
     treeWithNewLeafNode,
     nodeToLeafIndex(newLeafNodeIndex),
     groupInfo.groupContext,
@@ -934,7 +943,10 @@ export async function joinGroupExternal(
     cs,
   )
 
-  const privateKeyPath = await toPrivateKeyPath(pathToNodeSecrets(pathSecrets), nodeToLeafIndex(newLeafNodeIndex), cs)
+  const privateKeyPath = updateLeafKey(
+    await toPrivateKeyPath(pathToPathSecrets(pathSecrets), nodeToLeafIndex(newLeafNodeIndex), cs),
+    await cs.hpke.exportPrivateKey(newPrivateKey),
+  )
 
   const lastPathSecret = pathSecrets.at(-1)
 
@@ -1059,9 +1071,12 @@ export async function joinGroup(
 
   if (tree === undefined) throw new Error("No RatchetTree passed and no ratchet_tree extension")
 
-  const signerNode = tree[gi.signer]
+  const signerNode = tree[leafToNodeIndex(gi.signer)]
 
-  if (signerNode === undefined || signerNode.nodeType === "parent") throw new Error("Expected non blank leaf node")
+  if (signerNode === undefined) {
+    throw new Error("Undefined")
+  }
+  if (signerNode.nodeType === "parent") throw new Error("Expected non blank leaf node")
 
   const groupInfoSignatureVerified = verifyGroupInfoSignature(gi, signerNode.leaf.signaturePublicKey, cs.signature)
 
