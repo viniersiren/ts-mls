@@ -1,4 +1,11 @@
-export { createApplicationMessage, createCommit, createGroup, joinGroup, processPrivateMessage } from "./clientState"
+export {
+  createApplicationMessage,
+  createCommit,
+  createGroup,
+  emptyPskIndex,
+  joinGroup,
+  processPrivateMessage,
+} from "./clientState"
 
 export { type Credential } from "./credential"
 

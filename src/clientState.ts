@@ -1,10 +1,10 @@
 import { addToMap } from "./util/addToMap"
 import { AuthenticatedContent, AuthenticatedContentCommit, makeProposalRef } from "./authenticatedContent"
-import { CiphersuiteImpl } from "./crypto/ciphersuite"
+import { CiphersuiteImpl, CiphersuiteName, getCiphersuiteFromName, getCiphersuiteImpl } from "./crypto/ciphersuite"
 import { Hash } from "./crypto/hash"
 import { decryptWithLabel } from "./crypto/hpke"
 import { deriveSecret, Kdf } from "./crypto/kdf"
-import { Extension } from "./extension"
+import { Extension, extensionsEqual } from "./extension"
 import {
   createConfirmationTag,
   FramedContentAuthDataCommit,
@@ -25,7 +25,7 @@ import {
 } from "./groupInfo"
 import { KeyPackage, makeKeyPackageRef, PrivateKeyPackage } from "./keyPackage"
 import { deriveKeySchedule, initializeEpoch, initializeKeySchedule, KeySchedule } from "./keySchedule"
-import { computePskSecret, PreSharedKeyID, updatePskSecret } from "./presharedkey"
+import { PreSharedKeyID, ResumptionPSKUsageName, updatePskSecret } from "./presharedkey"
 import {
   PrivateMessage,
   protect,
@@ -42,6 +42,7 @@ import {
   ProposalReinit,
   ProposalRemove,
   ProposalUpdate,
+  Reinit,
 } from "./proposal"
 
 import { protectPublicMessage, PublicMessage, unprotectPublicMessage } from "./publicMessage"
@@ -82,6 +83,7 @@ import { WireformatName } from "./wireformat"
 import { ProposalOrRef } from "./proposalOrRefType"
 import { MLSMessage } from "./message"
 import { encodeCredential } from "./credential"
+import { ProtocolVersionName } from "./protocolVersion"
 
 export type ClientState = {
   groupContext: GroupContext
@@ -93,6 +95,7 @@ export type ClientState = {
   unappliedProposals: UnappliedProposals
   confirmationTag: Uint8Array
   historicalResumptionPsks: Map<bigint, Uint8Array>
+  suspendedPendingReinit?: Reinit
 }
 
 export type ProposalWithSender = { proposal: Proposal; senderLeafIndex: number | undefined }
@@ -196,7 +199,7 @@ export type ProcessPrivateMessageResult =
 export async function processPrivateMessage(
   state: ClientState,
   pm: PrivateMessage,
-  psks: Record<string, Uint8Array>,
+  pskSearch: PskIndex,
   cs: CiphersuiteImpl,
 ): Promise<ProcessPrivateMessageResult> {
   const result = await unprotectPrivateMessage(
@@ -219,7 +222,7 @@ export async function processPrivateMessage(
         newState,
         result.content as AuthenticatedContentCommit,
         "mls_private_message",
-        psks,
+        pskSearch,
         cs,
       ), //todo solve with types
     }
@@ -234,7 +237,7 @@ export async function processPrivateMessage(
 export async function processPublicMessage(
   state: ClientState,
   pm: PublicMessage,
-  psks: Record<string, Uint8Array>,
+  pskSearch: PskIndex,
   cs: CiphersuiteImpl,
 ): Promise<ClientState> {
   const content = await unprotectPublicMessage(
@@ -250,7 +253,7 @@ export async function processPublicMessage(
   if (content.content.contentType === "proposal")
     return processProposal(state, content, content.content.proposal, cs.hash)
   else {
-    return processCommit(state, content as AuthenticatedContentCommit, "mls_public_message", psks, cs) //todo solve with types
+    return processCommit(state, content as AuthenticatedContentCommit, "mls_public_message", pskSearch, cs) //todo solve with types
   }
 }
 
@@ -258,7 +261,7 @@ async function processCommit(
   state: ClientState,
   content: AuthenticatedContentCommit,
   wireformat: WireformatName,
-  psks: Record<string, Uint8Array<ArrayBufferLike>>,
+  pskSearch: PskIndex,
   cs: CiphersuiteImpl,
 ): Promise<ClientState> {
   if (content.content.epoch !== state.groupContext.epoch) throw new Error("Could not validate epoch")
@@ -268,7 +271,7 @@ async function processCommit(
   //TODO Verify that the proposals vector is valid according to the rules in Section 12.2.
   //TODO Verify that all PreSharedKey proposals in the proposals vector are available.
 
-  const result = await applyProposals(state, content.content.commit.proposals, senderLeafIndex, psks, cs)
+  const result = await applyProposals(state, content.content.commit.proposals, senderLeafIndex, pskSearch, cs)
 
   if (result.needsUpdatePath && content.content.commit.path === undefined) throw new Error("Update path is required")
 
@@ -334,6 +337,7 @@ async function processCommit(
       state.groupContext.epoch,
       state.keySchedule.resumptionPsk,
     ),
+    suspendedPendingReinit: result.additionalResult.kind === "reinit" ? result.additionalResult.reinit : undefined,
   }
 }
 
@@ -465,12 +469,13 @@ type ApplyProposalsResult = {
 type ApplyProposalsData =
   | { kind: "memberCommit"; addedLeafNodes: [number, KeyPackage][]; extensions: Extension[] }
   | { kind: "externalCommit"; externalInitSecret: Uint8Array }
+  | { kind: "reinit"; reinit: Reinit }
 
 async function applyProposals(
   state: ClientState,
   proposals: ProposalOrRef[],
   senderLeafIndex: number | undefined,
-  psks: Record<string, Uint8Array>,
+  pskSearch: PskIndex,
   cs: CiphersuiteImpl,
 ): Promise<ApplyProposalsResult> {
   const allProposals = proposals.reduce((acc, cur) => {
@@ -486,9 +491,28 @@ async function applyProposals(
     return { ...acc, [cur.proposal.proposalType]: [...proposal, cur] }
   }, emptyProposals)
 
+  const zeroes: Uint8Array = new Uint8Array(cs.kdf.size)
+
   const isExternalInit = grouped.external_init.length > 0
 
   if (!isExternalInit) {
+    if (grouped.reinit.length > 0) {
+      if (allProposals.length !== 1) throw new Error("Reinit proposal needs to be commited by itself")
+
+      const reinit = grouped.reinit.at(0)!.proposal.reinit
+
+      return {
+        tree: state.ratchetTree,
+        pskSecret: zeroes,
+        pskIds: [],
+        needsUpdatePath: false,
+        additionalResult: {
+          kind: "reinit",
+          reinit,
+        },
+      }
+    }
+
     const newExtensions = grouped.group_context_extensions.reduce((acc, { proposal }) => {
       return [...acc, ...proposal.groupContextExtensions.extensions]
     }, [] as Extension[])
@@ -511,12 +535,10 @@ async function applyProposals(
       [treeAfterRemove, []] as [RatchetTree, [number, KeyPackage][]],
     )
 
-    const zeroes: Uint8Array = new Uint8Array(cs.kdf.size)
-
     const [updatedPskSecret, pskIds] = await grouped.psk.reduce(
       async (acc, cur, index) => {
         const [previousSecret, ids] = await acc
-        const psk = findPsk(state, psks, cur.proposal.psk.preSharedKeyId)
+        const psk = pskSearch.findPsk(cur.proposal.psk.preSharedKeyId)
         if (psk === undefined) throw new Error("Could not find pskId referenced in proposal")
 
         const pskSecret = await updatePskSecret(
@@ -535,7 +557,7 @@ async function applyProposals(
     const needsUpdatePath =
       allProposals.length === 0 || Object.values(grouped.update).length > 1 || Object.values(grouped.remove).length > 1
 
-    const res = {
+    return {
       tree: treeAfterAdd,
       pskSecret: updatedPskSecret,
       additionalResult: {
@@ -546,8 +568,6 @@ async function applyProposals(
       pskIds,
       needsUpdatePath,
     }
-
-    return res
   } else {
     if (grouped.external_init.length > 1) throw new Error("Cannot contain more than one external_init proposal")
 
@@ -570,7 +590,7 @@ async function applyProposals(
     const [updatedPskSecret, pskIds] = await grouped.psk.reduce(
       async (acc, cur, index) => {
         const [previousSecret, ids] = await acc
-        const psk = findPsk(state, psks, cur.proposal.psk.preSharedKeyId)
+        const psk = pskSearch.findPsk(cur.proposal.psk.preSharedKeyId)
         if (psk === undefined) throw new Error("Could not find pskId referenced in proposal")
 
         const pskSecret = await updatePskSecret(
@@ -610,7 +630,7 @@ export type CreateCommitResult = { newState: ClientState; welcome: Welcome | und
 
 export async function createCommit(
   state: ClientState,
-  psks: Record<string, Uint8Array>,
+  pskSearch: PskIndex,
   publicMessage: boolean,
   extraProposals: Proposal[] = [],
   cs: CiphersuiteImpl,
@@ -620,20 +640,24 @@ export async function createCommit(
     reference: base64ToBytes(p),
   }))
 
+  const wireformat = publicMessage ? "mls_public_message" : "mls_private_message"
+
   const proposals: ProposalOrRef[] = extraProposals.map((p) => ({ proposalOrRefType: "proposal", proposal: p }))
 
   const allProposals = [...refs, ...proposals]
 
-  const res = await applyProposals(state, allProposals, state.privatePath.leafIndex, psks, cs)
+  const res = await applyProposals(state, allProposals, state.privatePath.leafIndex, pskSearch, cs)
 
   if (res.additionalResult.kind === "externalCommit") throw new Error("Cannot create externalCommit as a member")
+
+  const suspendedPendingReinit = res.additionalResult.kind === "reinit" ? res.additionalResult.reinit : undefined
 
   const [tree, updatePath, pathSecrets, newPrivateKey] = res.needsUpdatePath
     ? await createUpdatePath(res.tree, state.privatePath.leafIndex, state.groupContext, state.signaturePrivateKey, cs)
     : [res.tree, undefined, [] as PathSecret[], undefined]
 
   const groupContextWithExtensions =
-    res.additionalResult.extensions.length > 0
+    res.additionalResult.kind === "memberCommit" && res.additionalResult.extensions.length > 0
       ? { ...state.groupContext, extensions: res.additionalResult.extensions }
       : state.groupContext
 
@@ -650,8 +674,6 @@ export async function createCommit(
     lastPathSecret === undefined
       ? new Uint8Array(cs.kdf.size)
       : await deriveSecret(lastPathSecret.secret, "path", cs.kdf)
-
-  const wireformat = publicMessage ? "mls_public_message" : "mls_private_message"
 
   const authenticatedData = new Uint8Array()
 
@@ -705,23 +727,26 @@ export async function createCommit(
 
   const encryptedGroupInfo = await encryptGroupInfo(groupInfo, epochSecrets.welcomeSecret, cs)
 
-  const encryptedGroupSecrets: EncryptedGroupSecrets[] = await Promise.all(
-    res.additionalResult.addedLeafNodes.map(async ([leafNodeIndex, keyPackage]) => {
-      const nodeIndex = firstCommonAncestor(tree, leafNodeIndex, state.privatePath.leafIndex)
-      const pathSecret = pathSecrets.find((ps) => ps.nodeIndex === nodeIndex)
-      const pk = await cs.hpke.importPublicKey(keyPackage.initKey)
-      const egs = await encryptGroupSecrets(
-        pk,
-        encryptedGroupInfo,
-        { joinerSecret: epochSecrets.joinerSecret, pathSecret: pathSecret?.secret, psks: res.pskIds },
-        cs.hpke,
-      )
+  const encryptedGroupSecrets: EncryptedGroupSecrets[] =
+    res.additionalResult.kind === "memberCommit"
+      ? await Promise.all(
+          res.additionalResult.addedLeafNodes.map(async ([leafNodeIndex, keyPackage]) => {
+            const nodeIndex = firstCommonAncestor(tree, leafNodeIndex, state.privatePath.leafIndex)
+            const pathSecret = pathSecrets.find((ps) => ps.nodeIndex === nodeIndex)
+            const pk = await cs.hpke.importPublicKey(keyPackage.initKey)
+            const egs = await encryptGroupSecrets(
+              pk,
+              encryptedGroupInfo,
+              { joinerSecret: epochSecrets.joinerSecret, pathSecret: pathSecret?.secret, psks: res.pskIds },
+              cs.hpke,
+            )
 
-      const ref = await makeKeyPackageRef(keyPackage, cs.hash)
+            const ref = await makeKeyPackageRef(keyPackage, cs.hash)
 
-      return { newMember: ref, encryptedGroupSecrets: { kemOutput: egs.enc, ciphertext: egs.ct } }
-    }),
-  )
+            return { newMember: ref, encryptedGroupSecrets: { kemOutput: egs.enc, ciphertext: egs.ct } }
+          }),
+        )
+      : []
 
   const welcome: Welcome | undefined =
     encryptedGroupSecrets.length > 0
@@ -754,6 +779,7 @@ export async function createCommit(
     ),
     confirmationTag,
     signaturePrivateKey: state.signaturePrivateKey,
+    suspendedPendingReinit,
   }
 
   return { newState, welcome, commit }
@@ -859,18 +885,30 @@ export async function applyUpdatePathSecret(
 
   throw new Error("No overlap between provided private keys and update path")
 }
-function findPsk(
-  state: ClientState,
-  psks: Record<string, Uint8Array>,
-  preSharedKeyId: PreSharedKeyID,
-): Uint8Array | undefined {
-  if (preSharedKeyId.psktype === "external") {
-    return psks[bytesToBase64(preSharedKeyId.pskId)]
-  }
 
-  if (constantTimeEqual(preSharedKeyId.pskGroupId, state.groupContext.groupId)) {
-    return state.historicalResumptionPsks.get(preSharedKeyId.pskEpoch)
+export interface PskIndex {
+  findPsk(preSharedKeyId: PreSharedKeyID): Uint8Array | undefined
+}
+
+export function makePskIndex(state: ClientState | undefined, externalPsks: Record<string, Uint8Array>): PskIndex {
+  return {
+    findPsk(preSharedKeyId) {
+      if (preSharedKeyId.psktype === "external") {
+        return externalPsks[bytesToBase64(preSharedKeyId.pskId)]
+      }
+
+      if (state !== undefined && constantTimeEqual(preSharedKeyId.pskGroupId, state.groupContext.groupId)) {
+        if (preSharedKeyId.pskEpoch === state.groupContext.epoch) return state.keySchedule.resumptionPsk
+        else return state.historicalResumptionPsks.get(preSharedKeyId.pskEpoch)
+      }
+    },
   }
+}
+
+export const emptyPskIndex: PskIndex = {
+  findPsk(_preSharedKeyId) {
+    return undefined
+  },
 }
 
 export async function nextEpochContext(
@@ -1033,9 +1071,10 @@ export async function joinGroup(
   welcome: Welcome,
   keyPackage: KeyPackage,
   privateKeys: PrivateKeyPackage,
-  externalPsks: [Uint8Array, Uint8Array][],
+  pskSearch: PskIndex,
   cs: CiphersuiteImpl,
   ratchetTree?: RatchetTree,
+  resumingFromState?: ClientState,
 ): Promise<ClientState> {
   const keyPackageRef = await makeKeyPackageRef(keyPackage, cs.hash)
   const privKey = await cs.hpke.importPrivateKey(privateKeys.initPrivateKey)
@@ -1051,21 +1090,51 @@ export async function joinGroup(
     return false
   }, false)
 
-  const resolvedPsks = groupSecrets.psks.reduce(
-    (acc, cur) => {
-      if (cur.psktype === "external") {
-        const psk = externalPsks.find(([id, _psk]) => constantTimeEqual(id, cur.pskId))
-        return psk === undefined ? acc : [...acc, [cur, psk[1]] as [PreSharedKeyID, Uint8Array]]
-      }
-      return acc
-    },
-    [] as [PreSharedKeyID, Uint8Array][],
-  )
+  const zeroes: Uint8Array = new Uint8Array(cs.kdf.size)
 
-  const pskSecret = await computePskSecret(resolvedPsks, cs)
+  const [pskSecret, pskIds] = await groupSecrets.psks.reduce(
+    async (acc, cur, index) => {
+      const [previousSecret, ids] = await acc
+      const psk = pskSearch.findPsk(cur)
+
+      if (psk === undefined) throw new Error("Could not find pskId referenced in proposal")
+
+      const pskSecret = await updatePskSecret(previousSecret, cur, psk, index, groupSecrets.psks.length, cs)
+      return [pskSecret, [...ids, cur]]
+    },
+    Promise.resolve([zeroes, [] as PreSharedKeyID[]] as const),
+  )
 
   const gi = await decryptGroupInfo(welcome, groupSecrets.joinerSecret, pskSecret, cs)
   if (gi === undefined) throw new Error("Could not decrypt group info")
+
+  const resumptionPsk = pskIds.find((id) => id.psktype === "resumption")
+  if (resumptionPsk !== undefined) {
+    if (resumingFromState === undefined) throw new Error("No prior state passed for resumption")
+
+    if (resumptionPsk.pskEpoch !== resumingFromState.groupContext.epoch) throw new Error("Epoch mismatch")
+
+    if (!constantTimeEqual(resumptionPsk.pskGroupId, resumingFromState.groupContext.groupId))
+      throw new Error("old groupId mismatch")
+    if (gi.groupContext.epoch !== 1n) throw new Error("Resumption must be started at epoch 1")
+
+    if (resumptionPsk.usage === "reinit") {
+      if (resumingFromState.suspendedPendingReinit === undefined)
+        throw new Error("Found reinit psk but no old suspended clientState")
+
+      if (!constantTimeEqual(resumingFromState.suspendedPendingReinit.groupId, gi.groupContext.groupId))
+        throw new Error("new groupId mismatch")
+
+      if (resumingFromState.suspendedPendingReinit.version !== gi.groupContext.version)
+        throw new Error("Version mismatch")
+
+      if (resumingFromState.suspendedPendingReinit.cipherSuite !== gi.groupContext.cipherSuite)
+        throw new Error("Ciphersuite mismatch")
+
+      if (!extensionsEqual(resumingFromState.suspendedPendingReinit.extensions, gi.groupContext.extensions))
+        throw new Error("Extensions mismatch")
+    }
+  }
 
   const tree = ratchetTreeFromExtension(gi) ?? ratchetTree
 
@@ -1193,8 +1262,6 @@ export async function propose(state: ClientState, proposal: Proposal, impl: Ciph
     impl,
   )
 
-  // processProposal(state, result.)
-
   return { newState: { ...state, secretTree: result.tree }, privateMessage: result.privateMessage }
 }
 
@@ -1233,4 +1300,134 @@ async function importSecret(privateKey: Uint8Array, kemOutput: Uint8Array, cs: C
     cs.kdf.size,
     new Uint8Array(),
   )
+}
+
+export async function reinitGroup(
+  state: ClientState,
+  groupId: Uint8Array,
+  version: ProtocolVersionName,
+  cipherSuite: CiphersuiteName,
+  extensions: Extension[],
+  cs: CiphersuiteImpl,
+): Promise<CreateCommitResult> {
+  const reinitProposal: Proposal = {
+    proposalType: "reinit",
+    reinit: {
+      groupId,
+      version,
+      cipherSuite,
+      extensions,
+    },
+  }
+
+  return createCommit(state, makePskIndex(state, {}), false, [reinitProposal], cs)
+}
+
+export async function reinitCreateNewGroup(
+  state: ClientState,
+  keyPackage: KeyPackage,
+  privateKeyPackage: PrivateKeyPackage,
+  memberKeyPackages: KeyPackage[],
+  groupId: Uint8Array,
+  cipherSuite: CiphersuiteName,
+  extensions: Extension[],
+): Promise<CreateCommitResult> {
+  const cs = await getCiphersuiteImpl(getCiphersuiteFromName(cipherSuite))
+  const newGroup = await createGroup(groupId, keyPackage, privateKeyPackage, extensions, cs)
+
+  const addProposals: Proposal[] = memberKeyPackages.map((kp) => ({
+    proposalType: "add",
+    add: { keyPackage: kp },
+  }))
+
+  const psk = makeResumptionPsk(state, "reinit", cs)
+
+  const resumptionPsk: Proposal = {
+    proposalType: "psk",
+    psk: {
+      preSharedKeyId: psk.id,
+    },
+  }
+
+  return createCommit(newGroup, makePskIndex(state, {}), false, [...addProposals, resumptionPsk], cs)
+}
+
+export function makeResumptionPsk(
+  state: ClientState,
+  usage: ResumptionPSKUsageName,
+  cs: CiphersuiteImpl,
+): { id: PreSharedKeyID; secret: Uint8Array } {
+  const secret = state.keySchedule.resumptionPsk
+
+  const pskNonce = cs.rng.randomBytes(cs.kdf.size)
+
+  const psk = {
+    pskEpoch: state.groupContext.epoch,
+    pskGroupId: state.groupContext.groupId,
+    psktype: "resumption",
+    pskNonce,
+    usage,
+  } as const
+
+  return { id: psk, secret }
+}
+
+export async function branchGroup(
+  state: ClientState,
+  keyPackage: KeyPackage,
+  privateKeyPackage: PrivateKeyPackage,
+  memberKeyPackages: KeyPackage[],
+  newGroupId: Uint8Array,
+  cs: CiphersuiteImpl,
+): Promise<CreateCommitResult> {
+  const resumptionPsk = makeResumptionPsk(state, "branch", cs)
+
+  const pskSearch = makePskIndex(state, {})
+
+  const newGroup = await createGroup(newGroupId, keyPackage, privateKeyPackage, state.groupContext.extensions, cs)
+
+  const addMemberProposals: ProposalAdd[] = memberKeyPackages.map((kp) => ({
+    proposalType: "add",
+    add: {
+      keyPackage: kp,
+    },
+  }))
+
+  const branchPskProposal: ProposalPSK = {
+    proposalType: "psk",
+    psk: {
+      preSharedKeyId: resumptionPsk.id,
+    },
+  }
+
+  return createCommit(newGroup, pskSearch, false, [...addMemberProposals, branchPskProposal], cs)
+}
+
+export async function joinGroupFromBranch(
+  oldState: ClientState,
+  welcome: Welcome,
+  keyPackage: KeyPackage,
+  privateKeyPackage: PrivateKeyPackage,
+  ratchetTree: RatchetTree | undefined,
+  cs: CiphersuiteImpl,
+): Promise<ClientState> {
+  const pskSearch = makePskIndex(oldState, {})
+
+  return await joinGroup(welcome, keyPackage, privateKeyPackage, pskSearch, cs, ratchetTree, oldState)
+}
+
+export async function joinGroupFromReinit(
+  suspendedState: ClientState,
+  welcome: Welcome,
+  keyPackage: KeyPackage,
+  privateKeyPackage: PrivateKeyPackage,
+  ratchetTree: RatchetTree | undefined,
+): Promise<ClientState> {
+  const pskSearch = makePskIndex(suspendedState, {})
+  if (suspendedState.suspendedPendingReinit === undefined)
+    throw new Error("Cannot reinit because no init proposal found in last commit")
+
+  const cs = await getCiphersuiteImpl(getCiphersuiteFromName(suspendedState.suspendedPendingReinit.cipherSuite))
+
+  return await joinGroup(welcome, keyPackage, privateKeyPackage, pskSearch, cs, ratchetTree, suspendedState)
 }

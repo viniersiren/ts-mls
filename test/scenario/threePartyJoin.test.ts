@@ -1,4 +1,11 @@
-import { createGroup, createCommit, joinGroup, processPrivateMessage } from "../../src/clientState"
+import {
+  createGroup,
+  createCommit,
+  joinGroup,
+  processPrivateMessage,
+  emptyPskIndex,
+  makePskIndex,
+} from "../../src/clientState"
 import { Credential } from "../../src/credential"
 import { CiphersuiteName, getCiphersuiteImpl, getCiphersuiteFromName, ciphersuites } from "../../src/crypto/ciphersuite"
 import { generateKeyPackage } from "../../src/keyPackage"
@@ -35,7 +42,7 @@ async function threePartyJoin(cipherSuite: CiphersuiteName) {
     },
   }
 
-  const addBobCommitResult = await createCommit(aliceGroup, {}, false, [addBobProposal], impl)
+  const addBobCommitResult = await createCommit(aliceGroup, emptyPskIndex, false, [addBobProposal], impl)
 
   aliceGroup = addBobCommitResult.newState
 
@@ -43,7 +50,7 @@ async function threePartyJoin(cipherSuite: CiphersuiteName) {
     addBobCommitResult.welcome!,
     bob.publicPackage,
     bob.privatePackage,
-    [],
+    emptyPskIndex,
     impl,
     aliceGroup.ratchetTree,
   )
@@ -57,7 +64,7 @@ async function threePartyJoin(cipherSuite: CiphersuiteName) {
     },
   }
 
-  const addCharlieCommitResult = await createCommit(aliceGroup, {}, false, [addCharlieProposal], impl)
+  const addCharlieCommitResult = await createCommit(aliceGroup, emptyPskIndex, false, [addCharlieProposal], impl)
 
   aliceGroup = addCharlieCommitResult.newState
 
@@ -66,7 +73,7 @@ async function threePartyJoin(cipherSuite: CiphersuiteName) {
   const processAddCharlieResult = await processPrivateMessage(
     bobGroup,
     addCharlieCommitResult.commit.privateMessage,
-    {},
+    makePskIndex(bobGroup, {}),
     impl,
   )
 
@@ -78,7 +85,7 @@ async function threePartyJoin(cipherSuite: CiphersuiteName) {
     addCharlieCommitResult.welcome!,
     charlie.publicPackage,
     charlie.privatePackage,
-    [],
+    emptyPskIndex,
     impl,
     aliceGroup.ratchetTree,
   )

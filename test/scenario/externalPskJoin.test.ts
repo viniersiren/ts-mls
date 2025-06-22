@@ -1,18 +1,19 @@
-import { createCommit, createGroup, emptyPskIndex, joinGroup } from "../../src/clientState"
+import { createCommit, createGroup, joinGroup, makePskIndex } from "../../src/clientState"
 import { Credential } from "../../src/credential"
 import { CiphersuiteName, ciphersuites, getCiphersuiteFromName, getCiphersuiteImpl } from "../../src/crypto/ciphersuite"
 import { generateKeyPackage } from "../../src/keyPackage"
-import { ProposalAdd } from "../../src/proposal"
+import { Proposal, ProposalAdd } from "../../src/proposal"
+import { bytesToBase64 } from "../../src/util/byteArray"
 import { checkHpkeKeysMatch } from "../crypto/keyMatch"
 import { defaultCapabilities, defaultLifetime, testEveryoneCanMessageEveryone } from "./common"
 
 for (const cs of Object.keys(ciphersuites)) {
-  test(`Multiple joins at once ${cs}`, async () => {
-    await multipleJoinsAtOnce(cs as CiphersuiteName)
+  test(`External PSK Join ${cs}`, async () => {
+    await externalPskJoin(cs as CiphersuiteName)
   })
 }
 
-async function multipleJoinsAtOnce(cipherSuite: CiphersuiteName) {
+async function externalPskJoin(cipherSuite: CiphersuiteName) {
   const impl = await getCiphersuiteImpl(getCiphersuiteFromName(cipherSuite))
 
   const aliceCredential: Credential = { credentialType: "basic", identity: new TextEncoder().encode("alice") }
@@ -25,9 +26,6 @@ async function multipleJoinsAtOnce(cipherSuite: CiphersuiteName) {
   const bobCredential: Credential = { credentialType: "basic", identity: new TextEncoder().encode("bob") }
   const bob = await generateKeyPackage(bobCredential, defaultCapabilities, defaultLifetime, [], impl)
 
-  const charlieCredential: Credential = { credentialType: "basic", identity: new TextEncoder().encode("charlie") }
-  const charlie = await generateKeyPackage(charlieCredential, defaultCapabilities, defaultLifetime, [], impl)
-
   const addBobProposal: ProposalAdd = {
     proposalType: "add",
     add: {
@@ -35,47 +33,46 @@ async function multipleJoinsAtOnce(cipherSuite: CiphersuiteName) {
     },
   }
 
-  const addCharlieProposal: ProposalAdd = {
-    proposalType: "add",
-    add: {
-      keyPackage: charlie.publicPackage,
+  const pskSecret = impl.rng.randomBytes(impl.kdf.size)
+  const pskNonce = impl.rng.randomBytes(impl.kdf.size)
+
+  const pskId = new TextEncoder().encode("psk-1")
+
+  const pskProposal: Proposal = {
+    proposalType: "psk",
+    psk: {
+      preSharedKeyId: {
+        psktype: "external",
+        pskId,
+        pskNonce,
+      },
     },
   }
 
-  const addBobAndCharlieCommitResult = await createCommit(
+  const base64PskId = bytesToBase64(pskId)
+
+  const sharedPsks = { [base64PskId]: pskSecret }
+
+  const commitResult = await createCommit(
     aliceGroup,
-    emptyPskIndex,
+    makePskIndex(aliceGroup, sharedPsks),
     false,
-    [addBobProposal, addCharlieProposal],
+    [addBobProposal, pskProposal],
     impl,
   )
 
-  aliceGroup = addBobAndCharlieCommitResult.newState
+  aliceGroup = commitResult.newState
 
   let bobGroup = await joinGroup(
-    addBobAndCharlieCommitResult.welcome!,
+    commitResult.welcome!,
     bob.publicPackage,
     bob.privatePackage,
-    emptyPskIndex,
+    makePskIndex(undefined, sharedPsks),
     impl,
     aliceGroup.ratchetTree,
   )
 
-  expect(bobGroup.keySchedule.epochAuthenticator).toStrictEqual(aliceGroup.keySchedule.epochAuthenticator)
-
-  let charlieGroup = await joinGroup(
-    addBobAndCharlieCommitResult.welcome!,
-    charlie.publicPackage,
-    charlie.privatePackage,
-    emptyPskIndex,
-    impl,
-    aliceGroup.ratchetTree,
-  )
-
-  expect(charlieGroup.keySchedule.epochAuthenticator).toStrictEqual(aliceGroup.keySchedule.epochAuthenticator)
-
+  await testEveryoneCanMessageEveryone([aliceGroup, bobGroup], impl)
   await checkHpkeKeysMatch(aliceGroup, impl)
   await checkHpkeKeysMatch(bobGroup, impl)
-  await checkHpkeKeysMatch(charlieGroup, impl)
-  await testEveryoneCanMessageEveryone([aliceGroup, bobGroup, charlieGroup], impl)
 }

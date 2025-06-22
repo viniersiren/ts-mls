@@ -9,7 +9,7 @@ import { decodeExtension, encodeExtension, Extension } from "./extension"
 
 import { decodeProtocolVersion, encodeProtocolVersion, ProtocolVersionName } from "./protocolVersion"
 
-export type GroupContext = Readonly<{
+export type GroupContext = {
   version: ProtocolVersionName
   cipherSuite: CiphersuiteName
   groupId: Uint8Array
@@ -17,7 +17,7 @@ export type GroupContext = Readonly<{
   treeHash: Uint8Array
   confirmedTranscriptHash: Uint8Array
   extensions: Extension[]
-}>
+}
 
 export const encodeGroupContext: Encoder<GroupContext> = contramapEncoders(
   [

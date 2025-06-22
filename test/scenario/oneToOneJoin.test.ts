@@ -2,7 +2,9 @@ import {
   createApplicationMessage,
   createCommit,
   createGroup,
+  emptyPskIndex,
   joinGroup,
+  makePskIndex,
   processPrivateMessage,
 } from "../../src/clientState"
 import { Credential } from "../../src/credential"
@@ -53,7 +55,7 @@ async function oneToOne(cipherSuite: CiphersuiteName) {
   }
 
   // alice commits
-  const commitResult = await createCommit(aliceGroup, {}, false, [addBobProposal], impl)
+  const commitResult = await createCommit(aliceGroup, emptyPskIndex, false, [addBobProposal], impl)
 
   aliceGroup = commitResult.newState
 
@@ -74,7 +76,7 @@ async function oneToOne(cipherSuite: CiphersuiteName) {
     decodedWelcome.welcome,
     bob.publicPackage,
     bob.privatePackage,
-    [],
+    emptyPskIndex,
     impl,
     aliceGroup.ratchetTree,
   )
@@ -105,7 +107,7 @@ async function oneToOne(cipherSuite: CiphersuiteName) {
   const bobProcessMessageResult = await processPrivateMessage(
     bobGroup,
     decodedPrivateMessageAlice.privateMessage,
-    {},
+    makePskIndex(bobGroup, {}),
     impl,
   )
 
@@ -134,7 +136,7 @@ async function oneToOne(cipherSuite: CiphersuiteName) {
   const aliceProcessMessageResult = await processPrivateMessage(
     aliceGroup,
     decodedPrivateMessageBob.privateMessage,
-    {},
+    makePskIndex(aliceGroup, {}),
     impl,
   )
 

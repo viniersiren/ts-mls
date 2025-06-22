@@ -1,4 +1,11 @@
-import { createGroup, createCommit, joinGroup, processPrivateMessage } from "../../src/clientState"
+import {
+  createGroup,
+  createCommit,
+  joinGroup,
+  processPrivateMessage,
+  emptyPskIndex,
+  makePskIndex,
+} from "../../src/clientState"
 import { Credential } from "../../src/credential"
 import { CiphersuiteName, getCiphersuiteImpl, getCiphersuiteFromName, ciphersuites } from "../../src/crypto/ciphersuite"
 import { generateKeyPackage } from "../../src/keyPackage"
@@ -32,7 +39,7 @@ async function update(cipherSuite: CiphersuiteName) {
     },
   }
 
-  const addBobCommitResult = await createCommit(aliceGroup, {}, false, [addBobProposal], impl)
+  const addBobCommitResult = await createCommit(aliceGroup, emptyPskIndex, false, [addBobProposal], impl)
 
   aliceGroup = addBobCommitResult.newState
 
@@ -40,14 +47,14 @@ async function update(cipherSuite: CiphersuiteName) {
     addBobCommitResult.welcome!,
     bob.publicPackage,
     bob.privatePackage,
-    [],
+    emptyPskIndex,
     impl,
     aliceGroup.ratchetTree,
   )
 
   expect(bobGroup.keySchedule.epochAuthenticator).toStrictEqual(aliceGroup.keySchedule.epochAuthenticator)
 
-  const emptyCommitResult = await createCommit(aliceGroup, {}, false, [], impl)
+  const emptyCommitResult = await createCommit(aliceGroup, emptyPskIndex, false, [], impl)
 
   if (emptyCommitResult.commit.wireformat !== "mls_private_message") throw new Error("Expected private message")
 
@@ -56,13 +63,13 @@ async function update(cipherSuite: CiphersuiteName) {
   const bobProcessCommitResult = await processPrivateMessage(
     bobGroup,
     emptyCommitResult.commit.privateMessage,
-    {},
+    makePskIndex(bobGroup, {}),
     impl,
   )
 
   bobGroup = bobProcessCommitResult.newState
 
-  const emptyCommitResult3 = await createCommit(bobGroup, {}, false, [], impl)
+  const emptyCommitResult3 = await createCommit(bobGroup, emptyPskIndex, false, [], impl)
 
   if (emptyCommitResult3.commit.wireformat !== "mls_private_message") throw new Error("Expected private message")
 
@@ -71,7 +78,7 @@ async function update(cipherSuite: CiphersuiteName) {
   const aliceProcessCommitResult3 = await processPrivateMessage(
     aliceGroup,
     emptyCommitResult3.commit.privateMessage,
-    {},
+    makePskIndex(aliceGroup, {}),
     impl,
   )
 

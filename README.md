@@ -1,4 +1,4 @@
-# ts-mls
+# ts-mls: A TypeScript MLS (Messaging Layer Security - RFC 9420) implementation
 
 [![CI](https://github.com/LukaJCB/ts-mls/actions/workflows/ci.yml/badge.svg)](https://github.com/LukaJCB/ts-mls/actions/workflows/ci.yml) [![npm version](https://badge.fury.io/js/ts-mls.svg)](https://badge.fury.io/js/ts-mls)
 
@@ -78,6 +78,7 @@ import {
   Credential,
   defaultCapabilities,
   defaultLifetime,
+  emptyPskIndex,
   generateKeyPackage,
   encodeMlsMessage,
   decodeMlsMessage,
@@ -120,7 +121,7 @@ const addBobProposal: ProposalAdd = {
 }
 
 // alice commits
-const commitResult = await createCommit(aliceGroup, {}, false, [addBobProposal], impl)
+const commitResult = await createCommit(aliceGroup, emptyPskIndex, false, [addBobProposal], impl)
 
 aliceGroup = commitResult.newState
 
@@ -141,7 +142,7 @@ let bobGroup = await joinGroup(
   decodedWelcome.welcome,
   bob.publicPackage,
   bob.privatePackage,
-  [],
+  emptyPskIndex,
   impl,
   aliceGroup.ratchetTree,
 )
@@ -169,7 +170,7 @@ if (decodedPrivateMessageAlice.wireformat !== "mls_private_message") throw new E
 const bobProcessMessageResult = await processPrivateMessage(
   bobGroup,
   decodedPrivateMessageAlice.privateMessage,
-  {},
+  emptyPskIndex,
   impl,
 )
 

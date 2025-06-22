@@ -1,4 +1,11 @@
-import { createCommit, createGroup, emptyPskIndex, joinGroup } from "../../src/clientState"
+import {
+  branchGroup,
+  createCommit,
+  createGroup,
+  emptyPskIndex,
+  joinGroup,
+  joinGroupFromBranch,
+} from "../../src/clientState"
 import { Credential } from "../../src/credential"
 import { CiphersuiteName, ciphersuites, getCiphersuiteFromName, getCiphersuiteImpl } from "../../src/crypto/ciphersuite"
 import { generateKeyPackage } from "../../src/keyPackage"
@@ -7,12 +14,12 @@ import { checkHpkeKeysMatch } from "../crypto/keyMatch"
 import { defaultCapabilities, defaultLifetime, testEveryoneCanMessageEveryone } from "./common"
 
 for (const cs of Object.keys(ciphersuites)) {
-  test(`Multiple joins at once ${cs}`, async () => {
-    await multipleJoinsAtOnce(cs as CiphersuiteName)
+  test(`Resumption ${cs}`, async () => {
+    await resumption(cs as CiphersuiteName)
   })
 }
 
-async function multipleJoinsAtOnce(cipherSuite: CiphersuiteName) {
+async function resumption(cipherSuite: CiphersuiteName) {
   const impl = await getCiphersuiteImpl(getCiphersuiteFromName(cipherSuite))
 
   const aliceCredential: Credential = { credentialType: "basic", identity: new TextEncoder().encode("alice") }
@@ -25,9 +32,6 @@ async function multipleJoinsAtOnce(cipherSuite: CiphersuiteName) {
   const bobCredential: Credential = { credentialType: "basic", identity: new TextEncoder().encode("bob") }
   const bob = await generateKeyPackage(bobCredential, defaultCapabilities, defaultLifetime, [], impl)
 
-  const charlieCredential: Credential = { credentialType: "basic", identity: new TextEncoder().encode("charlie") }
-  const charlie = await generateKeyPackage(charlieCredential, defaultCapabilities, defaultLifetime, [], impl)
-
   const addBobProposal: ProposalAdd = {
     proposalType: "add",
     add: {
@@ -35,25 +39,12 @@ async function multipleJoinsAtOnce(cipherSuite: CiphersuiteName) {
     },
   }
 
-  const addCharlieProposal: ProposalAdd = {
-    proposalType: "add",
-    add: {
-      keyPackage: charlie.publicPackage,
-    },
-  }
+  const commitResult = await createCommit(aliceGroup, emptyPskIndex, false, [addBobProposal], impl)
 
-  const addBobAndCharlieCommitResult = await createCommit(
-    aliceGroup,
-    emptyPskIndex,
-    false,
-    [addBobProposal, addCharlieProposal],
-    impl,
-  )
-
-  aliceGroup = addBobAndCharlieCommitResult.newState
+  aliceGroup = commitResult.newState
 
   let bobGroup = await joinGroup(
-    addBobAndCharlieCommitResult.welcome!,
+    commitResult.welcome!,
     bob.publicPackage,
     bob.privatePackage,
     emptyPskIndex,
@@ -61,21 +52,33 @@ async function multipleJoinsAtOnce(cipherSuite: CiphersuiteName) {
     aliceGroup.ratchetTree,
   )
 
-  expect(bobGroup.keySchedule.epochAuthenticator).toStrictEqual(aliceGroup.keySchedule.epochAuthenticator)
+  const bobNewKeyPackage = await generateKeyPackage(bobCredential, defaultCapabilities, defaultLifetime, [], impl)
 
-  let charlieGroup = await joinGroup(
-    addBobAndCharlieCommitResult.welcome!,
-    charlie.publicPackage,
-    charlie.privatePackage,
-    emptyPskIndex,
+  const aliceNewKeyPackage = await generateKeyPackage(aliceCredential, defaultCapabilities, defaultLifetime, [], impl)
+
+  const newGroupId = new TextEncoder().encode("new-group1")
+
+  const branchCommitResult = await branchGroup(
+    aliceGroup,
+    aliceNewKeyPackage.publicPackage,
+    aliceNewKeyPackage.privatePackage,
+    [bobNewKeyPackage.publicPackage],
+    newGroupId,
     impl,
-    aliceGroup.ratchetTree,
   )
 
-  expect(charlieGroup.keySchedule.epochAuthenticator).toStrictEqual(aliceGroup.keySchedule.epochAuthenticator)
+  aliceGroup = branchCommitResult.newState
 
+  bobGroup = await joinGroupFromBranch(
+    bobGroup,
+    branchCommitResult.welcome!,
+    bobNewKeyPackage.publicPackage,
+    bobNewKeyPackage.privatePackage,
+    aliceGroup.ratchetTree,
+    impl,
+  )
+
+  await testEveryoneCanMessageEveryone([aliceGroup, bobGroup], impl)
   await checkHpkeKeysMatch(aliceGroup, impl)
   await checkHpkeKeysMatch(bobGroup, impl)
-  await checkHpkeKeysMatch(charlieGroup, impl)
-  await testEveryoneCanMessageEveryone([aliceGroup, bobGroup, charlieGroup], impl)
 }

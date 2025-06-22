@@ -1,4 +1,11 @@
-import { createCommit, createGroup, joinGroup, processPrivateMessage } from "../../src/clientState"
+import {
+  createCommit,
+  createGroup,
+  emptyPskIndex,
+  joinGroup,
+  makePskIndex,
+  processPrivateMessage,
+} from "../../src/clientState"
 import { Credential } from "../../src/credential"
 import { CiphersuiteName, ciphersuites, getCiphersuiteFromName, getCiphersuiteImpl } from "../../src/crypto/ciphersuite"
 import { generateKeyPackage } from "../../src/keyPackage"
@@ -44,7 +51,7 @@ async function remove(cipherSuite: CiphersuiteName) {
 
   const addBobAndCharlieCommitResult = await createCommit(
     aliceGroup,
-    {},
+    emptyPskIndex,
     false,
     [addBobProposal, addCharlieProposal],
     impl,
@@ -56,7 +63,7 @@ async function remove(cipherSuite: CiphersuiteName) {
     addBobAndCharlieCommitResult.welcome!,
     bob.publicPackage,
     bob.privatePackage,
-    [],
+    emptyPskIndex,
     impl,
     aliceGroup.ratchetTree,
   )
@@ -67,7 +74,7 @@ async function remove(cipherSuite: CiphersuiteName) {
     addBobAndCharlieCommitResult.welcome!,
     charlie.publicPackage,
     charlie.privatePackage,
-    [],
+    emptyPskIndex,
     impl,
     aliceGroup.ratchetTree,
   )
@@ -81,7 +88,7 @@ async function remove(cipherSuite: CiphersuiteName) {
     },
   }
 
-  const removeBobCommitResult = await createCommit(aliceGroup, {}, false, [removeBobProposal], impl)
+  const removeBobCommitResult = await createCommit(aliceGroup, emptyPskIndex, false, [removeBobProposal], impl)
 
   aliceGroup = removeBobCommitResult.newState
 
@@ -90,7 +97,7 @@ async function remove(cipherSuite: CiphersuiteName) {
   const bobProcessCommitResult = await processPrivateMessage(
     bobGroup,
     removeBobCommitResult.commit.privateMessage,
-    {},
+    makePskIndex(bobGroup, {}),
     impl,
   )
 
@@ -100,7 +107,7 @@ async function remove(cipherSuite: CiphersuiteName) {
   const charlieProcessCommitResult = await processPrivateMessage(
     charlieGroup,
     removeBobCommitResult.commit.privateMessage,
-    {},
+    makePskIndex(charlieGroup, {}),
     impl,
   )
 

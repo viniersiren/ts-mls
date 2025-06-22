@@ -5,6 +5,8 @@ import {
   joinGroupExternal,
   processPublicMessage,
   createGroupInfoWithExternalPub,
+  emptyPskIndex,
+  makePskIndex,
 } from "../../src/clientState"
 import { Credential } from "../../src/credential"
 import { CiphersuiteName, getCiphersuiteImpl, getCiphersuiteFromName, ciphersuites } from "../../src/crypto/ciphersuite"
@@ -42,7 +44,7 @@ async function externalJoin(cipherSuite: CiphersuiteName) {
     },
   }
 
-  const addBobCommitResult = await createCommit(aliceGroup, {}, false, [addBobProposal], impl)
+  const addBobCommitResult = await createCommit(aliceGroup, emptyPskIndex, false, [addBobProposal], impl)
 
   aliceGroup = addBobCommitResult.newState
 
@@ -50,7 +52,7 @@ async function externalJoin(cipherSuite: CiphersuiteName) {
     addBobCommitResult.welcome!,
     bob.publicPackage,
     bob.privatePackage,
-    [],
+    emptyPskIndex,
     impl,
     aliceGroup.ratchetTree,
   )
@@ -70,9 +72,19 @@ async function externalJoin(cipherSuite: CiphersuiteName) {
 
   let charlieGroup = charlieJoinGroupCommitResult.newState
 
-  aliceGroup = await processPublicMessage(aliceGroup, charlieJoinGroupCommitResult.publicMessage, {}, impl)
+  aliceGroup = await processPublicMessage(
+    aliceGroup,
+    charlieJoinGroupCommitResult.publicMessage,
+    makePskIndex(aliceGroup, {}),
+    impl,
+  )
 
-  bobGroup = await processPublicMessage(bobGroup, charlieJoinGroupCommitResult.publicMessage, {}, impl)
+  bobGroup = await processPublicMessage(
+    bobGroup,
+    charlieJoinGroupCommitResult.publicMessage,
+    makePskIndex(bobGroup, {}),
+    impl,
+  )
 
   expect(charlieGroup.keySchedule.epochAuthenticator).toStrictEqual(aliceGroup.keySchedule.epochAuthenticator)
   expect(charlieGroup.keySchedule.epochAuthenticator).toStrictEqual(bobGroup.keySchedule.epochAuthenticator)

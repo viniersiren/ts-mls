@@ -1,5 +1,5 @@
 import { Capabilities } from "../../src/capabilities"
-import { processPrivateMessage, ClientState, createApplicationMessage } from "../../src/clientState"
+import { processPrivateMessage, ClientState, createApplicationMessage, makePskIndex } from "../../src/clientState"
 import { CiphersuiteName, CiphersuiteImpl, ciphersuites } from "../../src/crypto/ciphersuite"
 import { Lifetime } from "../../src/lifetime"
 
@@ -21,7 +21,7 @@ export async function testEveryoneCanMessageEveryone(clients: ClientState[], imp
     for (const [receiverIndex, receiverGroup] of updatedGroups.entries()) {
       if (receiverIndex === senderIndex) continue
 
-      const result = await processPrivateMessage(receiverGroup, privateMessage, {}, impl)
+      const result = await processPrivateMessage(receiverGroup, privateMessage, makePskIndex(receiverGroup, {}), impl)
 
       if (result.kind === "newState") {
         throw new Error(`Expected application message for member ${receiverIndex} from ${senderIndex}`)

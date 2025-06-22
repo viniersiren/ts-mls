@@ -1,4 +1,12 @@
-import { createGroup, joinGroup, createCommit, processPrivateMessage, ClientState } from "../../src/clientState"
+import {
+  createGroup,
+  joinGroup,
+  createCommit,
+  processPrivateMessage,
+  ClientState,
+  emptyPskIndex,
+  makePskIndex,
+} from "../../src/clientState"
 import {
   getCiphersuiteImpl,
   getCiphersuiteFromName,
@@ -65,6 +73,11 @@ async function largeGroupFullLifecycle(cipherSuite: CiphersuiteName, initialSize
     await update(memberStates, index, impl)
   }
 
+  await testEveryoneCanMessageEveryone(
+    memberStates.map((ms) => ms.state),
+    impl,
+  )
+
   // While group size > 1, randomly remove someone
   while (memberStates.length > 1) {
     const removerIndex = randomInt(memberStates.length)
@@ -83,21 +96,31 @@ async function largeGroupFullLifecycle(cipherSuite: CiphersuiteName, initialSize
       },
     }
 
-    const commitResult = await createCommit(remover.state, {}, false, [removeProposal], impl)
+    const commitResult = await createCommit(remover.state, emptyPskIndex, false, [removeProposal], impl)
 
     if (commitResult.commit.wireformat !== "mls_private_message") throw new Error("Expected private message")
     remover.state = commitResult.newState
 
-    // Apply the commit to all members (except removed)
+    // Apply the commit to all members (except removed and remover)
     for (let i = 0; i < memberStates.length; i++) {
       if (i === removedIndex || i === removerIndex) continue
       const m = memberStates[i]!
-      const result = await processPrivateMessage(m.state, commitResult.commit.privateMessage, {}, impl)
+      const result = await processPrivateMessage(
+        m.state,
+        commitResult.commit.privateMessage,
+        makePskIndex(m.state, {}),
+        impl,
+      )
       m.state = result.newState
     }
 
     // Remove the member from the group
     memberStates.splice(removedIndex, 1)
+
+    await testEveryoneCanMessageEveryone(
+      memberStates.map((ms) => ms.state),
+      impl,
+    )
   }
 }
 
@@ -116,7 +139,7 @@ async function addMember(memberStates: MemberState[], index: number, impl: Ciphe
     add: { keyPackage: newKP.publicPackage },
   }
 
-  const commitResult = await createCommit(adder.state, {}, false, [addProposal], impl)
+  const commitResult = await createCommit(adder.state, emptyPskIndex, false, [addProposal], impl)
 
   if (commitResult.commit.wireformat !== "mls_private_message") throw new Error("Expected private message")
 
@@ -126,16 +149,21 @@ async function addMember(memberStates: MemberState[], index: number, impl: Ciphe
     commitResult.welcome!,
     newKP.publicPackage,
     newKP.privatePackage,
-    [],
+    emptyPskIndex,
     impl,
     adder.state.ratchetTree,
   )
 
-  // Update all existing members (including adder)
+  // Update all existing members (excluding adder)
   for (let i = 0; i < memberStates.length; i++) {
     if (i === adderIndex) continue
     const m = memberStates[i]!
-    const result = await processPrivateMessage(m.state, commitResult.commit.privateMessage, {}, impl)
+    const result = await processPrivateMessage(
+      m.state,
+      commitResult.commit.privateMessage,
+      makePskIndex(m.state, {}),
+      impl,
+    )
 
     m.state = result.newState
   }
@@ -147,7 +175,7 @@ async function addMember(memberStates: MemberState[], index: number, impl: Ciphe
 async function update(memberStates: MemberState[], updateIndex: number, impl: CiphersuiteImpl) {
   const updater = memberStates[updateIndex]!
 
-  const emptyCommitResult = await createCommit(updater.state, {}, false, [], impl)
+  const emptyCommitResult = await createCommit(updater.state, emptyPskIndex, false, [], impl)
 
   updater.state = emptyCommitResult.newState
 
@@ -157,7 +185,12 @@ async function update(memberStates: MemberState[], updateIndex: number, impl: Ci
   for (let i = 0; i < memberStates.length; i++) {
     if (i === updateIndex) continue
     const m = memberStates[i]!
-    const result = await processPrivateMessage(m.state, emptyCommitResult.commit.privateMessage, {}, impl)
+    const result = await processPrivateMessage(
+      m.state,
+      emptyCommitResult.commit.privateMessage,
+      makePskIndex(m.state, {}),
+      impl,
+    )
 
     m.state = result.newState
   }
