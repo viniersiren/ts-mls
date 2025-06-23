@@ -181,23 +181,14 @@ if (bobProcessMessageResult.kind === "newState") throw new Error("Expected appli
 console.log(bobProcessMessageResult.message)
 ```
 
-## Current Status
+## Documentation
 
-The following test vectors are fully passing:
+Please visit the [/docs directory](docs/) for further documentation on different scenarios.
 
-- [x] crypto-basics
-- [x] deserialization
-- [x] key-schedule
-- [x] message-protection
-- [x] messages
-- [x] passive-client-handling-commit
-- [x] passive-client-random
-- [x] passive-client-welcome
-- [x] psk_secret
-- [x] secret-tree
-- [x] transcript-hashes
-- [x] tree-math
-- [x] tree-operations
-- [x] tree-validation
-- [x] treekem
-- [x] welcome
+## Contributing
+
+We welcome contributions! Please read our [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines on how to set up your environment, run checks, and submit changes.
+
+# License
+
+[MIT](LICENSE)

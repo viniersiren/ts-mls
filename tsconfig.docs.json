@@ -9,6 +9,5 @@
     "paths": {
       "ts-mls": ["./src/index.ts"]
     }
-  },
-  "include": ["README.md", "docs/**/*.md"]
+  }
 }
