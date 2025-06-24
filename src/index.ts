@@ -1,20 +1,14 @@
-export {
-  createApplicationMessage,
-  createCommit,
-  createGroup,
-  createGroupInfoWithExternalPub,
-  emptyPskIndex,
-  makePskIndex,
-  joinGroup,
-  joinGroupExternal,
-  processPrivateMessage,
-  processPublicMessage,
-  joinGroupFromReinit,
-  reinitCreateNewGroup,
-  reinitGroup,
-  joinGroupFromBranch,
-  branchGroup,
-} from "./clientState"
+export { createGroup, makePskIndex, joinGroup } from "./clientState"
+
+export { createApplicationMessage, createProposal } from "./createMessage"
+
+export { joinGroupExternal, createCommit, createGroupInfoWithExternalPub } from "./createCommit"
+
+export { processPrivateMessage, processPublicMessage } from "./processMessages"
+
+export { type PskIndex, emptyPskIndex } from "./pskIndex"
+
+export { joinGroupFromReinit, reinitCreateNewGroup, reinitGroup, joinGroupFromBranch, branchGroup } from "./resumption"
 
 export { type Credential } from "./credential"
 

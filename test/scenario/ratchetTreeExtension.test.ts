@@ -1,22 +1,20 @@
-import { createGroup, joinGroup, makePskIndex } from "../../src/clientState"
-import { joinGroupExternal } from "../../src/createCommit"
-import { createCommit, createGroupInfoWithExternalPub } from "../../src/createCommit"
-import { processPublicMessage } from "../../src/processMessages"
+import { createGroup, joinGroup } from "../../src/clientState"
+import { createCommit } from "../../src/createCommit"
 import { emptyPskIndex } from "../../src/pskIndex"
 import { Credential } from "../../src/credential"
-import { CiphersuiteName, getCiphersuiteImpl, getCiphersuiteFromName, ciphersuites } from "../../src/crypto/ciphersuite"
+import { CiphersuiteName, ciphersuites, getCiphersuiteFromName, getCiphersuiteImpl } from "../../src/crypto/ciphersuite"
 import { generateKeyPackage } from "../../src/keyPackage"
 import { ProposalAdd } from "../../src/proposal"
 import { checkHpkeKeysMatch } from "../crypto/keyMatch"
 import { defaultCapabilities, defaultLifetime, testEveryoneCanMessageEveryone } from "./common"
 
 for (const cs of Object.keys(ciphersuites)) {
-  test(`External join ${cs}`, async () => {
-    await externalJoin(cs as CiphersuiteName)
+  test(`RatchetTree extension ${cs}`, async () => {
+    await ratchetTreeExtension(cs as CiphersuiteName)
   })
 }
 
-async function externalJoin(cipherSuite: CiphersuiteName) {
+async function ratchetTreeExtension(cipherSuite: CiphersuiteName) {
   const impl = await getCiphersuiteImpl(getCiphersuiteFromName(cipherSuite))
 
   const aliceCredential: Credential = { credentialType: "basic", identity: new TextEncoder().encode("alice") }
@@ -39,50 +37,43 @@ async function externalJoin(cipherSuite: CiphersuiteName) {
     },
   }
 
-  const addBobCommitResult = await createCommit(aliceGroup, emptyPskIndex, false, [addBobProposal], impl)
+  const addCharlieProposal: ProposalAdd = {
+    proposalType: "add",
+    add: {
+      keyPackage: charlie.publicPackage,
+    },
+  }
 
-  aliceGroup = addBobCommitResult.newState
+  const addBobAndCharlieCommitResult = await createCommit(
+    aliceGroup,
+    emptyPskIndex,
+    false,
+    [addBobProposal, addCharlieProposal],
+    impl,
+    true,
+  )
+
+  aliceGroup = addBobAndCharlieCommitResult.newState
 
   let bobGroup = await joinGroup(
-    addBobCommitResult.welcome!,
+    addBobAndCharlieCommitResult.welcome!,
     bob.publicPackage,
     bob.privatePackage,
     emptyPskIndex,
     impl,
-    aliceGroup.ratchetTree,
   )
 
   expect(bobGroup.keySchedule.epochAuthenticator).toStrictEqual(aliceGroup.keySchedule.epochAuthenticator)
 
-  const groupInfo = await createGroupInfoWithExternalPub(aliceGroup, impl)
-
-  const charlieJoinGroupCommitResult = await joinGroupExternal(
-    groupInfo,
+  let charlieGroup = await joinGroup(
+    addBobAndCharlieCommitResult.welcome!,
     charlie.publicPackage,
     charlie.privatePackage,
-    aliceGroup.ratchetTree,
-    false,
-    impl,
-  )
-
-  let charlieGroup = charlieJoinGroupCommitResult.newState
-
-  aliceGroup = await processPublicMessage(
-    aliceGroup,
-    charlieJoinGroupCommitResult.publicMessage,
-    makePskIndex(aliceGroup, {}),
-    impl,
-  )
-
-  bobGroup = await processPublicMessage(
-    bobGroup,
-    charlieJoinGroupCommitResult.publicMessage,
-    makePskIndex(bobGroup, {}),
+    emptyPskIndex,
     impl,
   )
 
   expect(charlieGroup.keySchedule.epochAuthenticator).toStrictEqual(aliceGroup.keySchedule.epochAuthenticator)
-  expect(charlieGroup.keySchedule.epochAuthenticator).toStrictEqual(bobGroup.keySchedule.epochAuthenticator)
 
   await checkHpkeKeysMatch(aliceGroup, impl)
   await checkHpkeKeysMatch(bobGroup, impl)

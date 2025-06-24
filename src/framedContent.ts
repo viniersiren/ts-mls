@@ -87,14 +87,6 @@ export function toTbs(content: FramedContent, wireformat: WireformatName, contex
   return { protocolVersion: context.version, wireformat, content, senderType: content.sender.senderType, context }
 }
 
-// export function toTbsGroupContext(protocolVersion: ProtocolVersionName, content: FramedContentMember | FramedContentNewMemberCommit, wireformat: WireformatName, context: GroupContext): FramedContentTBS {
-//   return { protocolVersion, wireformat, content, senderType: content.sender.senderType, context }
-// }
-
-// export function toTbs(protocolVersion: ProtocolVersionName, content: FramedContentExternal | FramedContentNewMemberProposal, wireformat: WireformatName): FramedContentTBS {
-//   return { protocolVersion, wireformat, content, senderType: content.sender.senderType }
-// }
-
 export type FramedContent = FramedContentData & FramedContentInfo
 export type FramedContentData = Readonly<{
   groupId: Uint8Array
@@ -326,4 +318,31 @@ export function verifyConfirmationTag(
   h: Hash,
 ): Promise<boolean> {
   return h.verifyMac(confirmationKey, tag, confirmedTranscriptHash)
+}
+export async function createContentCommitSignature(
+  groupContext: GroupContext,
+  wireformat: WireformatName,
+  c: Commit,
+  sender: Sender,
+  authenticatedData: Uint8Array,
+  signKey: Uint8Array,
+  s: Signature,
+): Promise<{ framedContent: FramedContentCommit; signature: Uint8Array }> {
+  const tbs: FramedContentTBSCommit = {
+    protocolVersion: groupContext.version,
+    wireformat,
+    content: {
+      contentType: "commit",
+      commit: c,
+      groupId: groupContext.groupId,
+      epoch: groupContext.epoch,
+      sender,
+      authenticatedData,
+    },
+    senderType: "member",
+    context: groupContext,
+  }
+
+  const signature = await signFramedContentTBS(signKey, tbs, s)
+  return { framedContent: tbs.content, signature }
 }

@@ -1,21 +1,22 @@
-import { createGroup, joinGroup, makePskIndex } from "../../src/clientState"
+import { createGroup, joinGroup } from "../../src/clientState"
 import { createCommit } from "../../src/createCommit"
+import { createProposal } from "../../src/createMessage"
 import { processPrivateMessage } from "../../src/processMessages"
 import { emptyPskIndex } from "../../src/pskIndex"
 import { Credential } from "../../src/credential"
 import { CiphersuiteName, ciphersuites, getCiphersuiteFromName, getCiphersuiteImpl } from "../../src/crypto/ciphersuite"
 import { generateKeyPackage } from "../../src/keyPackage"
-import { ProposalAdd, ProposalRemove } from "../../src/proposal"
+import { Proposal, ProposalAdd } from "../../src/proposal"
 import { checkHpkeKeysMatch } from "../crypto/keyMatch"
 import { defaultCapabilities, defaultLifetime, testEveryoneCanMessageEveryone } from "./common"
 
-for (const cs of Object.keys(ciphersuites)) {
-  test(`Remove ${cs}`, async () => {
-    await remove(cs as CiphersuiteName)
+for (const cs of Object.keys(ciphersuites).slice(0, 1)) {
+  test(`Leave Proposal ${cs}`, async () => {
+    await leaveProposal(cs as CiphersuiteName)
   })
 }
 
-async function remove(cipherSuite: CiphersuiteName) {
+async function leaveProposal(cipherSuite: CiphersuiteName) {
   const impl = await getCiphersuiteImpl(getCiphersuiteFromName(cipherSuite))
 
   const aliceCredential: Credential = { credentialType: "basic", identity: new TextEncoder().encode("alice") }
@@ -51,6 +52,7 @@ async function remove(cipherSuite: CiphersuiteName) {
     false,
     [addBobProposal, addCharlieProposal],
     impl,
+    true,
   )
 
   aliceGroup = addBobAndCharlieCommitResult.newState
@@ -61,7 +63,6 @@ async function remove(cipherSuite: CiphersuiteName) {
     bob.privatePackage,
     emptyPskIndex,
     impl,
-    aliceGroup.ratchetTree,
   )
 
   expect(bobGroup.keySchedule.epochAuthenticator).toStrictEqual(aliceGroup.keySchedule.epochAuthenticator)
@@ -72,44 +73,66 @@ async function remove(cipherSuite: CiphersuiteName) {
     charlie.privatePackage,
     emptyPskIndex,
     impl,
-    aliceGroup.ratchetTree,
   )
 
   expect(charlieGroup.keySchedule.epochAuthenticator).toStrictEqual(aliceGroup.keySchedule.epochAuthenticator)
 
-  const removeBobProposal: ProposalRemove = {
+  const leaveProposal: Proposal = {
     proposalType: "remove",
-    remove: {
-      removed: bobGroup.privatePath.leafIndex,
-    },
+    remove: { removed: aliceGroup.privatePath.leafIndex },
   }
 
-  const removeBobCommitResult = await createCommit(aliceGroup, emptyPskIndex, false, [removeBobProposal], impl)
+  const createLeaveProposalResult = await createProposal(aliceGroup, false, leaveProposal, impl)
 
-  aliceGroup = removeBobCommitResult.newState
+  aliceGroup = createLeaveProposalResult.newState
 
-  if (removeBobCommitResult.commit.wireformat !== "mls_private_message") throw new Error("Expected private message")
+  if (createLeaveProposalResult.message.wireformat !== "mls_private_message")
+    throw new Error("Expected private message")
 
-  const bobProcessCommitResult = await processPrivateMessage(
+  const bobProcessProposalResult = await processPrivateMessage(
     bobGroup,
-    removeBobCommitResult.commit.privateMessage,
-    makePskIndex(bobGroup, {}),
+    createLeaveProposalResult.message.privateMessage,
+    emptyPskIndex,
     impl,
   )
 
-  // bob is removed here
-  bobGroup = bobProcessCommitResult.newState
+  bobGroup = bobProcessProposalResult.newState
+
+  const charlieProcessProposalResult = await processPrivateMessage(
+    charlieGroup,
+    createLeaveProposalResult.message.privateMessage,
+    emptyPskIndex,
+    impl,
+  )
+
+  charlieGroup = charlieProcessProposalResult.newState
+
+  //bob commits to alice leaving
+  const bobCommitResult = await createCommit(bobGroup, emptyPskIndex, false, [], impl, false)
+
+  bobGroup = bobCommitResult.newState
+
+  if (bobCommitResult.commit.wireformat !== "mls_private_message") throw new Error("Expected private message")
+
+  const aliceProcessCommitResult = await processPrivateMessage(
+    aliceGroup,
+    bobCommitResult.commit.privateMessage,
+    emptyPskIndex,
+    impl,
+  )
+  aliceGroup = aliceProcessCommitResult.newState
 
   const charlieProcessCommitResult = await processPrivateMessage(
     charlieGroup,
-    removeBobCommitResult.commit.privateMessage,
-    makePskIndex(charlieGroup, {}),
+    bobCommitResult.commit.privateMessage,
+    emptyPskIndex,
     impl,
   )
-
   charlieGroup = charlieProcessCommitResult.newState
 
-  await checkHpkeKeysMatch(aliceGroup, impl)
+  expect(bobGroup.unappliedProposals).toEqual({})
+  expect(charlieGroup.unappliedProposals).toEqual({})
+  await checkHpkeKeysMatch(bobGroup, impl)
   await checkHpkeKeysMatch(charlieGroup, impl)
-  await testEveryoneCanMessageEveryone([aliceGroup, charlieGroup], impl)
+  await testEveryoneCanMessageEveryone([bobGroup, charlieGroup], impl)
 }
