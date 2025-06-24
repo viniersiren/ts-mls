@@ -1,6 +1,20 @@
-# Basic functionality
+# Ratchet Tree Extension
 
-This scenario demonstrates how Alice creates a group and adds Bob, then they exchange messages securely.
+This scenario demonstrates how to use the Ratchet Tree Extension in MLS, which allows the group state (the ratchet tree) to be sent in the Welcome message. This is useful for new members joining a group, as it allows them to reconstruct the group state without needing to receive the full tree out-of-band.
+
+## Steps Covered
+
+1. **Group Creation**: Alice creates a new MLS group.
+2. **Adding a Member with Ratchet Tree Extension**: Alice adds Bob to the group, including the ratchet tree in the Welcome message.
+3. **Joining**: Bob joins the group using the Welcome message and does not need to provide a ratchet tree.
+
+## Key Concepts
+
+- **Ratchet Tree**: The data structure that represents the group state and cryptographic relationships between members.
+- **Ratchet Tree Extension**: An extension that allows the full ratchet tree to be sent in the Welcome message, simplifying the join process for new members.
+- **Welcome Message**: Contains the secrets and (optionally) the ratchet tree needed for a new member to join the group.
+
+---
 
 ```typescript
 import {
@@ -15,7 +29,6 @@ import {
   joinGroup,
   makePskIndex,
   processPrivateMessage,
-  createApplicationMessage,
   createCommit,
   Proposal,
 } from "ts-mls"
@@ -43,18 +56,11 @@ aliceGroup = commitResult.newState
 
 // Bob joins using the welcome message and does not need to provide a ratchetTree
 let bobGroup = await joinGroup(commitResult.welcome!, bob.publicPackage, bob.privatePackage, emptyPskIndex, impl)
-
-// Alice sends a message to Bob
-const messageToBob = new TextEncoder().encode("Hello bob!")
-const aliceCreateMessageResult = await createApplicationMessage(aliceGroup, messageToBob, impl)
-aliceGroup = aliceCreateMessageResult.newState
-
-// Bob receives the message
-const bobProcessMessageResult = await processPrivateMessage(
-  bobGroup,
-  aliceCreateMessageResult.privateMessage,
-  makePskIndex(bobGroup, {}),
-  impl,
-)
-bobGroup = bobProcessMessageResult.newState
 ```
+
+---
+
+### What to Expect
+
+- The ratchet tree is included in the Welcome message, so Bob can join the group without needing the tree out-of-band.
+- Both Alice and Bob will have a synchronized view of the group state after Bob joins.

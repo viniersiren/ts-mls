@@ -2,7 +2,12 @@ export { createGroup, makePskIndex, joinGroup } from "./clientState"
 
 export { createApplicationMessage, createProposal } from "./createMessage"
 
-export { joinGroupExternal, createCommit, createGroupInfoWithExternalPub } from "./createCommit"
+export {
+  joinGroupExternal,
+  createCommit,
+  createGroupInfoWithExternalPub,
+  createGroupInfoWithExternalPubAndRatchetTree,
+} from "./createCommit"
 
 export { processPrivateMessage, processPublicMessage } from "./processMessages"
 

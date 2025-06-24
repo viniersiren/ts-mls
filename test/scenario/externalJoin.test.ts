@@ -1,6 +1,6 @@
 import { createGroup, joinGroup, makePskIndex } from "../../src/clientState"
-import { joinGroupExternal } from "../../src/createCommit"
-import { createCommit, createGroupInfoWithExternalPub } from "../../src/createCommit"
+import { createGroupInfoWithExternalPubAndRatchetTree, joinGroupExternal } from "../../src/createCommit"
+import { createCommit } from "../../src/createCommit"
 import { processPublicMessage } from "../../src/processMessages"
 import { emptyPskIndex } from "../../src/pskIndex"
 import { Credential } from "../../src/credential"
@@ -54,13 +54,12 @@ async function externalJoin(cipherSuite: CiphersuiteName) {
 
   expect(bobGroup.keySchedule.epochAuthenticator).toStrictEqual(aliceGroup.keySchedule.epochAuthenticator)
 
-  const groupInfo = await createGroupInfoWithExternalPub(aliceGroup, impl)
+  const groupInfo = await createGroupInfoWithExternalPubAndRatchetTree(aliceGroup, impl)
 
   const charlieJoinGroupCommitResult = await joinGroupExternal(
     groupInfo,
     charlie.publicPackage,
     charlie.privatePackage,
-    aliceGroup.ratchetTree,
     false,
     impl,
   )

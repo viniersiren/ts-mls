@@ -1,6 +1,23 @@
 # External PSK
 
-This scenario demonstrates how to use an external pre-shared key (PSK) in a group commit.
+This scenario demonstrates how to use an external pre-shared key (PSK) in a group commit. External PSKs allow out-of-band secrets to be injected into the group key schedule, providing additional security.
+
+## Steps Covered
+
+1. **Group Creation**: Alice creates a new MLS group (epoch 0).
+2. **Adding Bob**: Alice adds Bob to the group with an Add proposal and Commit (epoch 1).
+3. **Bob Joins**: Bob joins the group using the Welcome message (epoch 1).
+4. **External PSK Preparation**: Alice and Bob agree on an external PSK out-of-band.
+5. **Committing with PSK**: Alice commits to the group using a PSK proposal (epoch 2).
+6. **Bob Processes the Commit**: Bob processes the commit using the external PSK.
+
+## Key Concepts
+
+- **External PSK**: A pre-shared key that is not derived from group operations, but is provided out-of-band and referenced by a unique ID and nonce.
+- **PSK Proposal**: A proposal to inject a PSK into the group key schedule, increasing entropy and enabling advanced scenarios.
+- **PSK Index**: A mapping from PSK IDs to secrets, provided by each client when processing commits involving PSKs.
+
+---
 
 ```typescript
 import {
@@ -24,12 +41,14 @@ const impl = await getCiphersuiteImpl(getCiphersuiteFromName("MLS_256_XWING_AES2
 const aliceCredential: Credential = { credentialType: "basic", identity: new TextEncoder().encode("alice") }
 const alice = await generateKeyPackage(aliceCredential, defaultCapabilities, defaultLifetime, [], impl)
 const groupId = new TextEncoder().encode("group1")
+
+// Alice creates the group (epoch 0)
 let aliceGroup = await createGroup(groupId, alice.publicPackage, alice.privatePackage, [], impl)
 
 const bobCredential: Credential = { credentialType: "basic", identity: new TextEncoder().encode("bob") }
 const bob = await generateKeyPackage(bobCredential, defaultCapabilities, defaultLifetime, [], impl)
 
-// Alice adds Bob
+// Alice adds Bob (epoch 1)
 const addBobProposal: Proposal = {
   proposalType: "add",
   add: { keyPackage: bob.publicPackage },
@@ -37,6 +56,7 @@ const addBobProposal: Proposal = {
 const addBobCommitResult = await createCommit(aliceGroup, emptyPskIndex, false, [addBobProposal], impl)
 aliceGroup = addBobCommitResult.newState
 
+// Bob joins the group (epoch 1)
 let bobGroup = await joinGroup(
   addBobCommitResult.welcome!,
   bob.publicPackage,
@@ -46,9 +66,9 @@ let bobGroup = await joinGroup(
   aliceGroup.ratchetTree,
 )
 
+// Prepare an external PSK and share it out-of-band
 const pskSecret = impl.rng.randomBytes(impl.kdf.size)
 const pskNonce = impl.rng.randomBytes(impl.kdf.size)
-
 const pskId = new TextEncoder().encode("psk-1")
 
 const pskProposal: Proposal = {
@@ -63,12 +83,10 @@ const pskProposal: Proposal = {
 }
 
 const base64PskId = bytesToBase64(pskId)
-
 const sharedPsks = { [base64PskId]: pskSecret }
 
-// alice commits with the psk proposal
+// Alice commits with the PSK proposal (epoch 2)
 const pskCommitResult = await createCommit(aliceGroup, makePskIndex(aliceGroup, sharedPsks), false, [pskProposal], impl)
-
 aliceGroup = pskCommitResult.newState
 
 if (pskCommitResult.commit.wireformat !== "mls_private_message") throw new Error("Expected private message")
@@ -80,11 +98,35 @@ const processPskResult = await processPrivateMessage(
   makePskIndex(bobGroup, sharedPsks),
   impl,
 )
-
 bobGroup = processPskResult.newState
 ```
 
-It's also possible to use an external PSK when inviting a new member to the group, that new member will have to use the PSK when joining.
+---
+
+### What to Expect
+
+- After running this scenario, Alice and Bob will both be members of the group and share the same group state at epoch 2.
+- The group key schedule will have incorporated the external PSK, increasing entropy.
+
+---
+
+## Using an External PSK When Inviting a New Member
+
+It's also possible to use an external PSK when inviting a new member to the group. In this case, the new member must use the PSK when joining.
+
+### Steps Covered
+
+1. **Group Creation**: Alice creates a new MLS group (epoch 0).
+2. **External PSK Preparation**: Alice and Bob agree on an external PSK out-of-band.
+3. **Adding Bob and PSK**: Alice adds Bob and includes a PSK proposal in the same commit (epoch 1).
+4. **Bob Joins with PSK**: Bob joins the group using the Welcome message and the external PSK (epoch 1).
+
+### Key Concepts
+
+- **Simultaneous Add and PSK**: A commit can add a new member and inject a PSK at the same time.
+- **PSK Required for Join**: The new member must provide the correct PSK to join the group successfully.
+
+---
 
 ```typescript
 import {
@@ -108,12 +150,14 @@ const impl = await getCiphersuiteImpl(getCiphersuiteFromName("MLS_256_XWING_AES2
 const aliceCredential: Credential = { credentialType: "basic", identity: new TextEncoder().encode("alice") }
 const alice = await generateKeyPackage(aliceCredential, defaultCapabilities, defaultLifetime, [], impl)
 const groupId = new TextEncoder().encode("group1")
+
+// Alice creates the group (epoch 0)
 let aliceGroup = await createGroup(groupId, alice.publicPackage, alice.privatePackage, [], impl)
 
 const bobCredential: Credential = { credentialType: "basic", identity: new TextEncoder().encode("bob") }
 const bob = await generateKeyPackage(bobCredential, defaultCapabilities, defaultLifetime, [], impl)
 
-// Prepare external PSK
+// Prepare external PSK and share it out-of-band
 const pskSecret = impl.rng.randomBytes(impl.kdf.size)
 const pskNonce = impl.rng.randomBytes(impl.kdf.size)
 const pskId = new TextEncoder().encode("psk-1")
@@ -130,7 +174,7 @@ const pskProposal: Proposal = {
 const base64PskId = bytesToBase64(pskId)
 const sharedPsks = { [base64PskId]: pskSecret }
 
-// Add Bob and use PSK in the same commit
+// Add Bob and use PSK in the same commit (epoch 1)
 const addBobProposal: Proposal = {
   proposalType: "add",
   add: { keyPackage: bob.publicPackage },
@@ -143,6 +187,8 @@ const commitResult = await createCommit(
   impl,
 )
 aliceGroup = commitResult.newState
+
+// Bob joins using the Welcome message and the external PSK (epoch 1)
 let bobGroup = await joinGroup(
   commitResult.welcome!,
   bob.publicPackage,
@@ -152,3 +198,10 @@ let bobGroup = await joinGroup(
   aliceGroup.ratchetTree,
 )
 ```
+
+---
+
+### What to Expect
+
+- After running this scenario, Alice and Bob will both be members of the group and share the same group state at epoch 1.
+- The group key schedule will have incorporated the external PSK, and Bob was required to provide it to join successfully.

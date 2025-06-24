@@ -283,6 +283,27 @@ export async function createGroupInfoWithExternalPub(state: ClientState, cs: Cip
   return { ...gi, extensions: [...gi.extensions, { extensionType: "external_pub", extensionData: externalPub }] }
 }
 
+export async function createGroupInfoWithExternalPubAndRatchetTree(
+  state: ClientState,
+  cs: CiphersuiteImpl,
+): Promise<GroupInfo> {
+  const gi = await createGroupInfo(state.groupContext, state.confirmationTag, state, cs)
+
+  const encodedTree = encodeRatchetTree(state.ratchetTree)
+
+  const externalKeyPair = await cs.hpke.deriveKeyPair(state.keySchedule.externalSecret)
+  const externalPub = await cs.hpke.exportPublicKey(externalKeyPair.publicKey)
+
+  return {
+    ...gi,
+    extensions: [
+      ...gi.extensions,
+      { extensionType: "external_pub", extensionData: externalPub },
+      { extensionType: "ratchet_tree", extensionData: encodedTree },
+    ],
+  }
+}
+
 async function protectCommit(
   publicMessage: boolean,
   state: ClientState,
@@ -361,9 +382,9 @@ export async function joinGroupExternal(
   groupInfo: GroupInfo,
   keyPackage: KeyPackage,
   privateKeys: PrivateKeyPackage,
-  tree: RatchetTree | undefined,
   resync: boolean,
   cs: CiphersuiteImpl,
+  tree?: RatchetTree,
 ) {
   const externalPub = groupInfo.extensions.find((ex) => ex.extensionType === "external_pub")
 

@@ -1,6 +1,19 @@
-# Adding multiple members at once
+# Adding Multiple Members at Once
 
-This scenario demonstrates how Alice creates a group and adds both Bob and Charlie in a single commit, allowing them to join at the same time.
+This scenario demonstrates how Alice creates a group and adds both Bob and Charlie in a single commit, allowing them to join at the same time. This approach is efficient for onboarding multiple new members and demonstrates how the group state and epoch are updated in a single operation.
+
+## Steps Covered
+
+1. **Group Creation**: Alice creates a new MLS group (epoch 0).
+2. **Adding Bob and Charlie**: Alice adds both Bob and Charlie to the group with two Add proposals in a single Commit (epoch 1).
+3. **Bob and Charlie Join**: Both Bob and Charlie join the group using the same Welcome message (epoch 1).
+
+## Key Concepts
+
+- **Multiple Proposals**: Multiple Add proposals can be included in a single commit, allowing several members to join at once.
+- **Welcome Message**: A single Welcome message can be used by all new members added in the same commit.
+
+---
 
 ```typescript
 import {
@@ -23,6 +36,8 @@ const impl = await getCiphersuiteImpl(getCiphersuiteFromName("MLS_256_XWING_AES2
 const aliceCredential: Credential = { credentialType: "basic", identity: new TextEncoder().encode("alice") }
 const alice = await generateKeyPackage(aliceCredential, defaultCapabilities, defaultLifetime, [], impl)
 const groupId = new TextEncoder().encode("group1")
+
+// Alice creates the group, this is epoch 0
 let aliceGroup = await createGroup(groupId, alice.publicPackage, alice.privatePackage, [], impl)
 
 const bobCredential: Credential = { credentialType: "basic", identity: new TextEncoder().encode("bob") }
@@ -31,7 +46,7 @@ const bob = await generateKeyPackage(bobCredential, defaultCapabilities, default
 const charlieCredential: Credential = { credentialType: "basic", identity: new TextEncoder().encode("charlie") }
 const charlie = await generateKeyPackage(charlieCredential, defaultCapabilities, defaultLifetime, [], impl)
 
-// Alice adds Bob and Charlie in the same commit
+// Alice adds Bob and Charlie in the same commit, transitioning to epoch 1
 const addBobProposal: Proposal = {
   proposalType: "add",
   add: { keyPackage: bob.publicPackage },
@@ -42,9 +57,9 @@ const addCharlieProposal: Proposal = {
 }
 const addCommitResult = await createCommit(aliceGroup, emptyPskIndex, false, [addBobProposal, addCharlieProposal], impl)
 aliceGroup = addCommitResult.newState
-
 if (addCommitResult.commit.wireformat !== "mls_private_message") throw new Error("Expected private message")
 
+// Bob and Charlie join the group, both are now in epoch 1
 let bobGroup = await joinGroup(
   addCommitResult.welcome!,
   bob.publicPackage,
@@ -62,3 +77,10 @@ let charlieGroup = await joinGroup(
   aliceGroup.ratchetTree,
 )
 ```
+
+---
+
+### What to Expect
+
+- After running this scenario, Alice, Bob, and Charlie will all be members of the group and share the same group state at epoch 1.
+- Both Bob and Charlie use the same Welcome message to join, demonstrating efficient onboarding of multiple members.
