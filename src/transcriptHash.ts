@@ -11,7 +11,7 @@ export type ConfirmedTranscriptHashInput = {
   signature: Uint8Array
 }
 
-const encodeConfirmedTranscriptHashInput: Encoder<ConfirmedTranscriptHashInput> = contramapEncoders(
+export const encodeConfirmedTranscriptHashInput: Encoder<ConfirmedTranscriptHashInput> = contramapEncoders(
   [encodeWireformat, encodeFramedContent, encodeVarLenData],
   (input) => [input.wireformat, input.content, input.signature] as const,
 )
