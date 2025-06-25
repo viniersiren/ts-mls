@@ -1,6 +1,7 @@
 import { ContentTypeName } from "./contentType"
 import { CiphersuiteImpl } from "./crypto/ciphersuite"
 import { Kdf, expandWithLabel, deriveTreeSecret } from "./crypto/kdf"
+import { KeyRetentionConfig } from "./keyRetentionConfig"
 import { ReuseGuard, SenderData } from "./sender"
 import { nodeWidth, root, right, isLeaf, left, leafToNodeIndex } from "./treemath"
 import { updateArray } from "./util/array"
@@ -69,13 +70,14 @@ export async function deriveKey(secret: Uint8Array, generation: number, cs: Ciph
 export async function ratchetUntil(
   current: GenerationSecret,
   desiredGen: number,
-  retainGenerationsMax: number,
+  config: KeyRetentionConfig,
   kdf: Kdf,
 ): Promise<GenerationSecret> {
   if (current.generation > desiredGen) throw new Error("Desired gen in the past")
   const generationDifference = desiredGen - current.generation
 
-  if (generationDifference > 500) throw new Error("Desired generation too far in the future")
+  if (generationDifference > config.maximumForwardRatchetSteps)
+    throw new Error("Desired generation too far in the future")
 
   return await repeatAsync(
     async (s) => {
@@ -83,7 +85,7 @@ export async function ratchetUntil(
       return {
         secret: nextSecret,
         generation: s.generation + 1,
-        unusedGenerations: newFunction(s, retainGenerationsMax),
+        unusedGenerations: newFunction(s, config.retainKeysForGenerations),
       }
     },
     current,
@@ -136,7 +138,7 @@ export async function ratchetToGeneration(
   tree: SecretTree,
   senderData: SenderData,
   contentType: ContentTypeName,
-  retainGenerationsMax: number,
+  config: KeyRetentionConfig,
   cs: CiphersuiteImpl,
 ): Promise<ConsumeRatchetResult> {
   const index = leafToNodeIndex(senderData.leafIndex)
@@ -170,7 +172,7 @@ export async function ratchetToGeneration(
   const currentSecret = await ratchetUntil(
     ratchetForContentType(node, contentType),
     senderData.generation,
-    retainGenerationsMax,
+    config,
     cs.kdf,
   )
 

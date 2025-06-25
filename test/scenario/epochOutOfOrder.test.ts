@@ -222,7 +222,7 @@ async function epochOutOfOrderRandom(cipherSuite: CiphersuiteName, totalMessages
 }
 
 async function epochOutOfOrderLimitFails(cipherSuite: CiphersuiteName, totalMessages: number) {
-  const retainConfig = { retainKeysForGenerations: 1, retainKeysForEpochs: totalMessages - 1 }
+  const retainConfig = { ...defaultKeyRetentionConfig, retainKeysForEpochs: totalMessages - 1 }
   const {
     aliceGroup: initialAliceGroup,
     bobGroup: initialBobGroup,

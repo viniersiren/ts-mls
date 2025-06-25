@@ -4,6 +4,7 @@ import json from "../../test_vectors/secret-tree.json"
 import { expandSenderDataKey, expandSenderDataNonce } from "../../src/sender"
 import { createSecretTree, deriveKey, deriveNonce, ratchetUntil } from "../../src/secretTree"
 import { leafToNodeIndex } from "../../src/treemath"
+import { defaultKeyRetentionConfig } from "../../src/keyRetentionConfig"
 
 for (const [index, x] of json.entries()) {
   test(`secret-tree test vectors ${index}`, async () => {
@@ -50,7 +51,7 @@ async function testSecretTree(
     const nodeIndex = leafToNodeIndex(index)
     const handshakeSecret = tree[nodeIndex]!.handshake
     for (const gen of leaf) {
-      const ratcheted = await ratchetUntil(handshakeSecret, gen.generation, 1000, impl.kdf)
+      const ratcheted = await ratchetUntil(handshakeSecret, gen.generation, defaultKeyRetentionConfig, impl.kdf)
       expect(ratcheted.generation).toBe(gen.generation)
 
       //handshake_key = handshake_ratchet_key_[i]_[generation]
@@ -64,7 +65,7 @@ async function testSecretTree(
 
     const applicationSecret = tree[nodeIndex]!.application
     for (const gen of leaf) {
-      const ratcheted = await ratchetUntil(applicationSecret, gen.generation, 1000, impl.kdf)
+      const ratcheted = await ratchetUntil(applicationSecret, gen.generation, defaultKeyRetentionConfig, impl.kdf)
       expect(ratcheted.generation).toBe(gen.generation)
 
       // application_key = application_ratchet_key_[i]_[generation]

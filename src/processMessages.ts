@@ -55,7 +55,7 @@ export async function processPrivateMessage(
         receiverData.secretTree,
         receiverData.ratchetTree,
         receiverData.groupContext,
-        state.keyRetentionConfig.retainKeysForGenerations,
+        state.keyRetentionConfig,
         cs,
       )
 
@@ -82,7 +82,7 @@ export async function processPrivateMessage(
     state.secretTree,
     state.ratchetTree,
     state.groupContext,
-    state.keyRetentionConfig.retainKeysForGenerations,
+    state.keyRetentionConfig,
     cs,
   )
 

@@ -22,6 +22,7 @@ import { consumeRatchet, ratchetToGeneration, SecretTree } from "./secretTree"
 import { getSignaturePublicKeyFromLeafIndex, RatchetTree } from "./ratchetTree"
 import { SenderData, SenderDataAAD } from "./sender"
 import { leafToNodeIndex } from "./treemath"
+import { KeyRetentionConfig } from "./keyRetentionConfig"
 
 export type ProtectApplicationDataResult = { privateMessage: PrivateMessage; newSecretTree: SecretTree }
 
@@ -194,7 +195,7 @@ export async function unprotectPrivateMessage(
   secretTree: SecretTree,
   ratchetTree: RatchetTree,
   groupContext: GroupContext,
-  retainKeysForGenerations: number,
+  config: KeyRetentionConfig,
   cs: CiphersuiteImpl,
   overrideSignatureKey?: Uint8Array,
 ): Promise<UnprotectResult> {
@@ -202,13 +203,7 @@ export async function unprotectPrivateMessage(
 
   if (senderData === undefined) throw new Error("Could not decrypt senderdata")
 
-  const { key, nonce, newTree } = await ratchetToGeneration(
-    secretTree,
-    senderData,
-    msg.contentType,
-    retainKeysForGenerations,
-    cs,
-  )
+  const { key, nonce, newTree } = await ratchetToGeneration(secretTree, senderData, msg.contentType, config, cs)
 
   const aad: PrivateContentAAD = {
     groupId: msg.groupId,

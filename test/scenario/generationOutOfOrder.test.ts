@@ -158,7 +158,7 @@ async function generationOutOfOrderRandom(cipherSuite: CiphersuiteName, totalMes
 }
 
 async function generationOutOfOrderLimitFails(cipherSuite: CiphersuiteName, totalMessages: number) {
-  const retainConfig = { retainKeysForGenerations: totalMessages - 1, retainKeysForEpochs: 1 }
+  const retainConfig = { ...defaultKeyRetentionConfig, retainKeysForGenerations: totalMessages - 1 }
   const {
     aliceGroup: initialAliceGroup,
     bobGroup: initialBobGroup,
