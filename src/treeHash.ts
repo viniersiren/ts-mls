@@ -12,17 +12,17 @@ import { RatchetTree } from "./ratchetTree"
 import { rootFromNodeWidth, isLeaf, nodeToLeafIndex, left, right } from "./treemath"
 
 export type TreeHashInput = LeafNodeHashInput | ParentNodeHashInput
-type LeafNodeHashInput = Readonly<{
+type LeafNodeHashInput = {
   nodeType: "leaf"
   leafIndex: number
   leafNode: LeafNode | undefined
-}>
-type ParentNodeHashInput = Readonly<{
+}
+type ParentNodeHashInput = {
   nodeType: "parent"
   parentNode: ParentNode | undefined
   leftHash: Uint8Array
   rightHash: Uint8Array
-}>
+}
 
 export const encodeLeafNodeHashInput: Encoder<LeafNodeHashInput> = contramapEncoders(
   [encodeNodeType, encodeUint32, encodeOptional(encodeLeafNode)],

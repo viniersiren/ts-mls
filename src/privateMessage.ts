@@ -31,14 +31,14 @@ import {
   SenderDataAAD,
 } from "./sender"
 
-export type PrivateMessage = Readonly<{
+export type PrivateMessage = {
   groupId: Uint8Array
   epoch: bigint
   contentType: ContentTypeName
   authenticatedData: Uint8Array
   encryptedSenderData: Uint8Array
   ciphertext: Uint8Array
-}>
+}
 
 export const encodePrivateMessage: Encoder<PrivateMessage> = contramapEncoders(
   [encodeVarLenData, encodeUint64, encodeContentType, encodeVarLenData, encodeVarLenData, encodeVarLenData],
@@ -58,12 +58,12 @@ export const decodePrivateMessage: Decoder<PrivateMessage> = mapDecoders(
   }),
 )
 
-export type PrivateContentAAD = Readonly<{
+export type PrivateContentAAD = {
   groupId: Uint8Array
   epoch: bigint
   contentType: ContentTypeName
   authenticatedData: Uint8Array
-}>
+}
 
 export const encodePrivateContentAAD: Encoder<PrivateContentAAD> = contramapEncoders(
   [encodeVarLenData, encodeUint64, encodeContentType, encodeVarLenData],
@@ -80,10 +80,12 @@ export const decodePrivateContentAAD: Decoder<PrivateContentAAD> = mapDecoders(
   }),
 )
 
-export type PrivateMessageContent =
+export type PrivateMessageContent = (
   | PrivateMessageContentApplication
   | PrivateMessageContentProposal
   | PrivateMessageContentCommit
+) &
+  PrivateMessageContentPadding
 export type PrivateMessageContentApplication = FramedContentApplicationData & {
   auth: FramedContentAuthDataApplicationOrProposal
 }
@@ -92,29 +94,33 @@ export type PrivateMessageContentProposal = FramedContentProposalData & {
 }
 export type PrivateMessageContentCommit = FramedContentCommitData & { auth: FramedContentAuthDataCommit }
 
-//todo padding?
+export type PrivateMessageContentPadding = { paddingNumberOfBytes: number }
+
 export function decodePrivateMessageContent(contentType: ContentTypeName): Decoder<PrivateMessageContent> {
   switch (contentType) {
     case "application":
-      return mapDecoders([decodeVarLenData, decodeVarLenData], (applicationData, signature) => ({
-        contentType,
-        applicationData,
-        auth: { contentType, signature },
-      }))
+      return decoderWithPadding(
+        mapDecoders([decodeVarLenData, decodeVarLenData], (applicationData, signature) => ({
+          contentType,
+          applicationData,
+          auth: { contentType, signature },
+        })),
+      )
     case "proposal":
-      return mapDecoders([decodeProposal, decodeVarLenData], (proposal, signature) => ({
-        contentType,
-        proposal,
-        auth: { contentType, signature },
-      }))
+      return decoderWithPadding(
+        mapDecoders([decodeProposal, decodeVarLenData], (proposal, signature) => ({
+          contentType,
+          proposal,
+          auth: { contentType, signature },
+        })),
+      )
     case "commit":
-      return mapDecoders(
-        [decodeCommit, decodeVarLenData, decodeFramedContentAuthDataCommit],
-        (commit, signature, auth) => ({
+      return decoderWithPadding(
+        mapDecoders([decodeCommit, decodeVarLenData, decodeFramedContentAuthDataCommit], (commit, signature, auth) => ({
           contentType,
           commit,
           auth: { ...auth, signature, contentType },
-        }),
+        })),
       )
   }
 }
@@ -122,21 +128,27 @@ export function decodePrivateMessageContent(contentType: ContentTypeName): Decod
 export const encodePrivateMessageContent: Encoder<PrivateMessageContent> = (msg) => {
   switch (msg.contentType) {
     case "application":
-      return contramapEncoders(
-        [encodeVarLenData, encodeFramedContentAuthData],
-        (m: PrivateMessageContentApplication) => [m.applicationData, m.auth] as const,
+      return encoderWithPadding(
+        contramapEncoders(
+          [encodeVarLenData, encodeFramedContentAuthData],
+          (m: PrivateMessageContentApplication) => [m.applicationData, m.auth] as const,
+        ),
       )(msg)
 
     case "proposal":
-      return contramapEncoders(
-        [encodeProposal, encodeFramedContentAuthData],
-        (m: PrivateMessageContentProposal) => [m.proposal, m.auth] as const,
+      return encoderWithPadding(
+        contramapEncoders(
+          [encodeProposal, encodeFramedContentAuthData],
+          (m: PrivateMessageContentProposal) => [m.proposal, m.auth] as const,
+        ),
       )(msg)
 
     case "commit":
-      return contramapEncoders(
-        [encodeCommit, encodeFramedContentAuthData],
-        (m: PrivateMessageContentCommit) => [m.commit, m.auth] as const,
+      return encoderWithPadding(
+        contramapEncoders(
+          [encodeCommit, encodeFramedContentAuthData],
+          (m: PrivateMessageContentCommit) => [m.commit, m.auth] as const,
+        ),
       )(msg)
   }
 }
@@ -246,5 +258,31 @@ export function privateMessageContentToAuthenticatedContent(
       authenticatedData,
     },
     auth: c.auth,
+  }
+}
+
+function encoderWithPadding<T>(encoder: Encoder<T>): Encoder<T & PrivateMessageContentPadding> {
+  return (t) => {
+    const encoded = encoder(t)
+    const result = new Uint8Array(encoded.length + t.paddingNumberOfBytes)
+    result.set(encoded, 0)
+
+    return result
+  }
+}
+
+function decoderWithPadding<T>(decoder: Decoder<T>): Decoder<T & PrivateMessageContentPadding> {
+  return (bytes, offset) => {
+    const result = decoder(bytes, offset)
+    if (result === undefined) return undefined
+    const [decoded, innerOffset] = result
+
+    const paddingBytes = bytes.subarray(offset + innerOffset, bytes.length)
+
+    const allZeroes = paddingBytes.every((byte) => byte === 0)
+
+    if (!allZeroes) return undefined
+
+    return [{ ...decoded, paddingNumberOfBytes: paddingBytes.length }, innerOffset]
   }
 }

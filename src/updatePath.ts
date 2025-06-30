@@ -22,10 +22,10 @@ import { constantTimeEqual } from "./util/constantTimeCompare"
 import { decodeHpkeCiphertext, encodeHpkeCiphertext, HPKECiphertext } from "./hpkeCiphertext"
 import { InternalError, ValidationError } from "./mlsError"
 
-export type UpdatePathNode = Readonly<{
+export type UpdatePathNode = {
   hpkePublicKey: Uint8Array
   encryptedPathSecret: HPKECiphertext[]
-}>
+}
 
 export const encodeUpdatePathNode: Encoder<UpdatePathNode> = contramapEncoders(
   [encodeVarLenData, encodeVarLenType(encodeHpkeCiphertext)],
@@ -37,10 +37,10 @@ export const decodeUpdatePathNode: Decoder<UpdatePathNode> = mapDecoders(
   (hpkePublicKey, encryptedPathSecret) => ({ hpkePublicKey, encryptedPathSecret }),
 )
 
-export type UpdatePath = Readonly<{
+export type UpdatePath = {
   leafNode: LeafNodeCommit
   nodes: UpdatePathNode[]
-}>
+}
 
 export const encodeUpdatePath: Encoder<UpdatePath> = contramapEncoders(
   [encodeLeafNode, encodeVarLenType(encodeUpdatePathNode)],

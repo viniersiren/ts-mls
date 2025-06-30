@@ -4,6 +4,7 @@ import { createApplicationMessage } from "../../src/createMessage"
 import { processPrivateMessage } from "../../src/processMessages"
 import { CiphersuiteName, CiphersuiteImpl, ciphersuites } from "../../src/crypto/ciphersuite"
 import { Lifetime } from "../../src/lifetime"
+import { UsageError } from "../../src/mlsError"
 
 export async function testEveryoneCanMessageEveryone(
   clients: ClientState[],
@@ -42,7 +43,7 @@ export async function testEveryoneCanMessageEveryone(
 }
 
 export async function cannotMessageAnymore(state: ClientState, impl: CiphersuiteImpl): Promise<void> {
-  await expect(createApplicationMessage(state, new TextEncoder().encode("hello"), impl)).rejects.toThrow()
+  await expect(createApplicationMessage(state, new TextEncoder().encode("hello"), impl)).rejects.toThrow(UsageError)
 }
 
 export const defaultCapabilities: Capabilities = {

@@ -2,10 +2,10 @@ import { Decoder, mapDecoders } from "./codec/tlsDecoder"
 import { Encoder, contramapEncoders } from "./codec/tlsEncoder"
 import { encodeVarLenData, decodeVarLenData } from "./codec/variableLength"
 
-export type HPKECiphertext = Readonly<{
+export type HPKECiphertext = {
   kemOutput: Uint8Array
   ciphertext: Uint8Array
-}>
+}
 
 export const encodeHpkeCiphertext: Encoder<HPKECiphertext> = contramapEncoders(
   [encodeVarLenData, encodeVarLenData],

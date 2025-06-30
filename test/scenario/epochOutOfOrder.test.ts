@@ -13,6 +13,7 @@ import { defaultKeyRetentionConfig } from "../../src/keyRetentionConfig"
 import { ClientState } from "../../src/clientState"
 import { CiphersuiteImpl } from "../../src/crypto/ciphersuite"
 import { KeyRetentionConfig } from "../../src/keyRetentionConfig"
+import { ValidationError } from "../../src/mlsError"
 
 describe("Out of order message processing by epoch", () => {
   for (const cs of Object.keys(ciphersuites)) {
@@ -258,5 +259,5 @@ async function epochOutOfOrderLimitFails(cipherSuite: CiphersuiteName, totalMess
   }
 
   //process last message
-  await expect(processPrivateMessage(bobGroup, messages.at(0)!, emptyPskIndex, impl)).rejects.toThrow()
+  await expect(processPrivateMessage(bobGroup, messages.at(0)!, emptyPskIndex, impl)).rejects.toThrow(ValidationError)
 }

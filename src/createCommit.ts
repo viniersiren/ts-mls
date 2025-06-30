@@ -358,7 +358,7 @@ async function protectCommit(
       authenticatedData,
       state.groupContext,
       state.secretTree,
-      { ...content, auth: authData },
+      { ...content, auth: authData, paddingNumberOfBytes: 8 },
       state.privatePath.leafIndex,
       cs,
     )

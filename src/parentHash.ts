@@ -9,11 +9,11 @@ import { isLeaf, leafToNodeIndex, leafWidth, left, right, root } from "./treemat
 
 import { constantTimeEqual } from "./util/constantTimeCompare"
 
-export type ParentHashInput = Readonly<{
+export type ParentHashInput = {
   encryptionKey: Uint8Array
   parentHash: Uint8Array
   originalSiblingTreeHash: Uint8Array
-}>
+}
 
 export const encodeParentHashInput: Encoder<ParentHashInput> = contramapEncoders(
   [encodeVarLenData, encodeVarLenData, encodeVarLenData],

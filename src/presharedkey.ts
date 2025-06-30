@@ -87,7 +87,7 @@ export const decodePskInfo: Decoder<PSKInfo> = flatMapDecoder(decodePskType, (ps
   }
 })
 
-type PSKNonce = Readonly<{ pskNonce: Uint8Array }>
+type PSKNonce = { pskNonce: Uint8Array }
 
 export type PreSharedKeyID = PSKInfo & PSKNonce
 
@@ -101,11 +101,11 @@ export const decodePskId: Decoder<PreSharedKeyID> = mapDecoders(
   (info, pskNonce) => ({ ...info, pskNonce }),
 )
 
-type PSKLabel = Readonly<{
+type PSKLabel = {
   id: PreSharedKeyID
   index: number
   count: number
-}>
+}
 
 export const encodePskLabel: Encoder<PSKLabel> = contramapEncoders(
   [encodePskId, encodeUint16, encodeUint16],

@@ -106,11 +106,11 @@ export const decodeLeafNodeExtensions: Decoder<LeafNodeExtensions> = mapDecoder(
   (extensions) => ({ extensions }),
 )
 
-type GroupIdLeafIndex = Readonly<{
+type GroupIdLeafIndex = {
   leafNodeSource: Exclude<LeafNodeSourceName, "key_package">
   groupId: Uint8Array
   leafIndex: number
-}>
+}
 
 export const encodeGroupIdLeafIndex: Encoder<GroupIdLeafIndex> = contramapEncoders(
   [encodeVarLenData, encodeUint32],
@@ -172,7 +172,7 @@ export const decodeLeafNodeTBS: Decoder<LeafNodeTBS> = flatMapDecoder(decodeLeaf
   ),
 )
 
-export type LeafNode = LeafNodeData & LeafNodeInfo & LeafNodeExtensions & Readonly<{ signature: Uint8Array }>
+export type LeafNode = LeafNodeData & LeafNodeInfo & LeafNodeExtensions & { signature: Uint8Array }
 
 export const encodeLeafNode: Encoder<LeafNode> = contramapEncoders(
   [encodeLeafNodeData, encodeLeafNodeInfo, encodeLeafNodeExtensions, encodeVarLenData],

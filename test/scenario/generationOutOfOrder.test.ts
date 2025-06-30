@@ -16,6 +16,7 @@ import { ProposalAdd } from "../../src/proposal"
 import { defaultCapabilities, defaultLifetime, shuffledIndices, testEveryoneCanMessageEveryone } from "./common"
 import { PrivateMessage } from "../../src/privateMessage"
 import { defaultKeyRetentionConfig, KeyRetentionConfig } from "../../src/keyRetentionConfig"
+import { ValidationError } from "../../src/mlsError"
 
 describe("Out of order message processing by generation", () => {
   for (const cs of Object.keys(ciphersuites)) {
@@ -182,5 +183,5 @@ async function generationOutOfOrderLimitFails(cipherSuite: CiphersuiteName, tota
   bobGroup = processResult.newState
 
   // should fail reading the first message
-  await expect(processPrivateMessage(bobGroup, messages.at(0)!, emptyPskIndex, impl)).rejects.toThrow()
+  await expect(processPrivateMessage(bobGroup, messages.at(0)!, emptyPskIndex, impl)).rejects.toThrow(ValidationError)
 }

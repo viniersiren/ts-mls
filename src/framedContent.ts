@@ -88,12 +88,12 @@ export function toTbs(content: FramedContent, wireformat: WireformatName, contex
 }
 
 export type FramedContent = FramedContentData & FramedContentInfo
-export type FramedContentData = Readonly<{
+export type FramedContentData = {
   groupId: Uint8Array
   epoch: bigint
   sender: Sender
   authenticatedData: Uint8Array
-}>
+}
 
 export type FramedContentMember = FramedContent & { sender: SenderMember }
 export type FramedContentNewMemberCommit = FramedContent & { sender: SenderNewMemberCommit }
@@ -154,12 +154,11 @@ export const decodeSenderInfo: Decoder<SenderInfo> = flatMapDecoder(
   },
 )
 
-export type FramedContentTBS = Readonly<{
+export type FramedContentTBS = {
   protocolVersion: ProtocolVersionName
   wireformat: WireformatName
   content: FramedContent
-}> &
-  SenderInfo
+} & SenderInfo
 
 export type FramedContentTBSCommit = FramedContentTBS & { content: FramedContentCommit }
 export type FramedContentTBSApplicationOrProposal = FramedContentTBS & { content: FramedContentApplicationOrProposal }

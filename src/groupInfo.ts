@@ -10,12 +10,12 @@ import { decodeGroupContext, encodeGroupContext, extractEpochSecret, GroupContex
 import { CodecError } from "./mlsError"
 import { decodeRatchetTree, RatchetTree } from "./ratchetTree"
 
-export type GroupInfoTBS = Readonly<{
+export type GroupInfoTBS = {
   groupContext: GroupContext
   extensions: Extension[]
   confirmationTag: Uint8Array
   signer: number
-}>
+}
 
 export const encodeGroupInfoTBS: Encoder<GroupInfoTBS> = contramapEncoders(
   [encodeGroupContext, encodeVarLenType(encodeExtension), encodeVarLenData, encodeUint32],
@@ -32,10 +32,9 @@ export const decodeGroupInfoTBS: Decoder<GroupInfoTBS> = mapDecoders(
   }),
 )
 
-export type GroupInfo = GroupInfoTBS &
-  Readonly<{
-    signature: Uint8Array
-  }>
+export type GroupInfo = GroupInfoTBS & {
+  signature: Uint8Array
+}
 
 export const encodeGroupInfo: Encoder<GroupInfo> = contramapEncoders(
   [encodeGroupInfoTBS, encodeVarLenData],

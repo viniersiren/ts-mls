@@ -10,10 +10,10 @@ import { HPKECiphertext, encodeHpkeCiphertext, decodeHpkeCiphertext } from "./hp
 import { ValidationError } from "./mlsError"
 import { constantTimeEqual } from "./util/constantTimeCompare"
 
-export type EncryptedGroupSecrets = Readonly<{
+export type EncryptedGroupSecrets = {
   newMember: Uint8Array
   encryptedGroupSecrets: HPKECiphertext
-}>
+}
 
 export const encodeEncryptedGroupSecrets: Encoder<EncryptedGroupSecrets> = contramapEncoders(
   [encodeVarLenData, encodeHpkeCiphertext],
@@ -25,11 +25,11 @@ export const decodeEncryptedGroupSecrets: Decoder<EncryptedGroupSecrets> = mapDe
   (newMember, encryptedGroupSecrets) => ({ newMember, encryptedGroupSecrets }),
 )
 
-export type Welcome = Readonly<{
+export type Welcome = {
   cipherSuite: CiphersuiteName
   secrets: EncryptedGroupSecrets[]
   encryptedGroupInfo: Uint8Array
-}>
+}
 
 export const encodeWelcome: Encoder<Welcome> = contramapEncoders(
   [encodeCiphersuite, encodeVarLenType(encodeEncryptedGroupSecrets), encodeVarLenData],

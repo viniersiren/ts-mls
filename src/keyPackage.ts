@@ -17,13 +17,13 @@ import { Capabilities } from "./capabilities"
 import { Lifetime } from "./lifetime"
 import { Credential } from "./credential"
 
-type KeyPackageTBS = Readonly<{
+type KeyPackageTBS = {
   version: ProtocolVersionName
   cipherSuite: CiphersuiteName
   initKey: Uint8Array
   leafNode: LeafNodeKeyPackage
   extensions: Extension[]
-}>
+}
 
 export const encodeKeyPackageTBS: Encoder<KeyPackageTBS> = contramapEncoders(
   [encodeProtocolVersion, encodeCiphersuite, encodeVarLenData, encodeLeafNode, encodeVarLenType(encodeExtension)],
@@ -54,7 +54,7 @@ export const decodeKeyPackageTBS: Decoder<KeyPackageTBS> = mapDecoders(
   }),
 )
 
-export type KeyPackage = KeyPackageTBS & Readonly<{ signature: Uint8Array }>
+export type KeyPackage = KeyPackageTBS & { signature: Uint8Array }
 
 export const encodeKeyPackage: Encoder<KeyPackage> = contramapEncoders(
   [encodeKeyPackageTBS, encodeVarLenData],

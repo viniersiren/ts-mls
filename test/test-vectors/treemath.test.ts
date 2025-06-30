@@ -1,5 +1,6 @@
 import json from "../../test_vectors/tree-math.json"
 import { left, nodeWidth, parent, right, root, sibling } from "../../src/treemath"
+import { InternalError } from "../../src/mlsError"
 
 for (const [index, x] of json.entries()) {
   test(`tree math test vectors ${index}`, () => {
@@ -27,7 +28,7 @@ function treemathTest(t: {
     if (expected != null) {
       expect(leftFn()).toBe(expected)
     } else {
-      expect(leftFn).toThrow()
+      expect(leftFn).toThrow(InternalError)
     }
   }
 
@@ -37,7 +38,7 @@ function treemathTest(t: {
     if (expected != null) {
       expect(rightFn()).toBe(expected)
     } else {
-      expect(rightFn).toThrow()
+      expect(rightFn).toThrow(InternalError)
     }
   }
 
@@ -47,7 +48,7 @@ function treemathTest(t: {
     if (expected != null) {
       expect(parentFn()).toBe(expected)
     } else {
-      expect(parentFn).toThrow()
+      expect(parentFn).toThrow(InternalError)
     }
   }
 
@@ -57,7 +58,7 @@ function treemathTest(t: {
     if (expected != null) {
       expect(siblingFn()).toBe(expected)
     } else {
-      expect(siblingFn).toThrow()
+      expect(siblingFn).toThrow(InternalError)
     }
   }
 }

@@ -60,6 +60,7 @@ export async function protectApplicationData(
   const content = {
     ...tbs.content,
     auth,
+    paddingNumberOfBytes: 8,
   }
 
   const result = await protect(senderDataSecret, authenticatedData, groupContext, secretTree, content, leafIndex, cs)
@@ -102,7 +103,7 @@ export async function protectProposal(
   }
 
   const auth = await signFramedContentApplicationOrProposal(signKey, tbs, cs)
-  const content = { ...tbs.content, auth }
+  const content = { ...tbs.content, auth, paddingNumberOfBytes: 8 }
 
   const privateMessage = await protect(
     senderDataSecret,

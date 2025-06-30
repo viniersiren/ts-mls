@@ -20,6 +20,7 @@ import { protectProposalPublic, protectPublicMessage, unprotectPublicMessage } f
 import { defaultKeyRetentionConfig } from "../../src/keyRetentionConfig"
 import { defaultCapabilities } from "../scenario/common"
 import { RatchetTree } from "../../src/ratchetTree"
+import { UsageError } from "../../src/mlsError"
 
 for (const [index, x] of json.entries()) {
   test(`message-protection test vectors ${index}`, async () => {
@@ -241,7 +242,7 @@ async function publicApplicationFails(data: MessageProtectionData, gc: GroupCont
     wireformat: "mls_public_message",
   }
 
-  await expect(protectPublicMessage(hexToBytes(data.membership_key), gc, content, impl)).rejects.toThrow()
+  await expect(protectPublicMessage(hexToBytes(data.membership_key), gc, content, impl)).rejects.toThrow(UsageError)
 }
 
 async function commit(data: MessageProtectionData, gc: GroupContext, impl: CiphersuiteImpl) {
@@ -382,6 +383,7 @@ async function protectThenUnprotectCommit(data: MessageProtectionData, gc: Group
       signature,
       confirmationTag,
     },
+    paddingNumberOfBytes: 8,
   }
 
   const pro = await protect(hexToBytes(data.sender_data_secret), new Uint8Array(), gc, secretTree, content, 1, impl)

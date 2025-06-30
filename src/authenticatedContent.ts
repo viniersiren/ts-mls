@@ -20,11 +20,11 @@ import {
 import { GroupContext } from "./groupContext"
 import { decodeWireformat, encodeWireformat, WireformatName } from "./wireformat"
 
-export type AuthenticatedContent = Readonly<{
+export type AuthenticatedContent = {
   wireformat: WireformatName
   content: FramedContent
   auth: FramedContentAuthData
-}>
+}
 
 export type AuthenticatedContentApplication = AuthenticatedContent & {
   content: FramedContentApplicationData & FramedContentData

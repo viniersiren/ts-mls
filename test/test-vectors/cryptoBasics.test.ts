@@ -9,22 +9,22 @@ import { decryptWithLabel, encryptWithLabel } from "../../src/crypto/hpke"
 for (const [index, x] of json.entries()) {
   test(`crypto-basics test vectors ${index}`, async () => {
     const impl = await getCiphersuiteImpl(getCiphersuiteFromId(x.cipher_suite as CiphersuiteId))
-    await test_ref_hash(impl, x.ref_hash)
-    await test_derive_secret(impl, x.derive_secret)
-    await test_derive_tree_secret(impl, x.derive_tree_secret)
-    await test_expand_with_label(impl, x.expand_with_label)
-    await test_encrypt_with_label(impl, x.encrypt_with_label)
-    await test_sign_with_label(impl, x.sign_with_label)
+    await testRefHash(impl, x.ref_hash)
+    await testDeriveSecret(impl, x.derive_secret)
+    await testDeriveTreeSecret(impl, x.derive_tree_secret)
+    await testExpandWithLabel(impl, x.expand_with_label)
+    await testEncryptWithLabel(impl, x.encrypt_with_label)
+    await testSignWithLabel(impl, x.sign_with_label)
   })
 }
 
-async function test_derive_secret(impl: CiphersuiteImpl, o: { label: string; secret: string; out: string }) {
+async function testDeriveSecret(impl: CiphersuiteImpl, o: { label: string; secret: string; out: string }) {
   //out == DeriveSecret(secret, label)
   const res = await deriveSecret(hexToBytes(o.secret), o.label, impl.kdf)
   expect(bytesToHex(res)).toBe(o.out)
 }
 
-async function test_derive_tree_secret(
+async function testDeriveTreeSecret(
   impl: CiphersuiteImpl,
   o: { label: string; secret: string; generation: number; out: string },
 ) {
@@ -33,7 +33,7 @@ async function test_derive_tree_secret(
   expect(bytesToHex(res)).toBe(o.out)
 }
 
-async function test_expand_with_label(
+async function testExpandWithLabel(
   impl: CiphersuiteImpl,
   o: { label: string; secret: string; length: number; context: string; out: string },
 ) {
@@ -42,13 +42,13 @@ async function test_expand_with_label(
   expect(bytesToHex(res)).toBe(o.out)
 }
 
-async function test_ref_hash(impl: CiphersuiteImpl, o: { label: string; value: string; out: string }) {
+async function testRefHash(impl: CiphersuiteImpl, o: { label: string; value: string; out: string }) {
   //out == RefHash(label, value)
   const res = await refhash(o.label, hexToBytes(o.value), impl.hash)
   expect(bytesToHex(res)).toBe(o.out)
 }
 
-async function test_sign_with_label(
+async function testSignWithLabel(
   impl: CiphersuiteImpl,
   o: { label: string; content: string; priv: string; pub: string; signature: string },
 ) {
@@ -68,7 +68,7 @@ async function test_sign_with_label(
   expect(v2).toBe(true)
 }
 
-async function test_encrypt_with_label(
+async function testEncryptWithLabel(
   impl: CiphersuiteImpl,
   o: {
     ciphertext: string

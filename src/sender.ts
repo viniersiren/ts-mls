@@ -80,11 +80,11 @@ export function getSenderLeafNodeIndex(sender: Sender): number | undefined {
   return sender.senderType === "member" ? sender.leafIndex : undefined
 }
 
-export type SenderData = Readonly<{
+export type SenderData = {
   leafIndex: number
   generation: number
   reuseGuard: ReuseGuard
-}>
+}
 
 export type ReuseGuard = Uint8Array & { length: 4 }
 
@@ -108,11 +108,11 @@ export const decodeSenderData: Decoder<SenderData> = mapDecoders(
   }),
 )
 
-export type SenderDataAAD = Readonly<{
+export type SenderDataAAD = {
   groupId: Uint8Array
   epoch: bigint
   contentType: ContentTypeName
-}>
+}
 
 export const encodeSenderDataAAD: Encoder<SenderDataAAD> = contramapEncoders(
   [encodeVarLenData, encodeUint64, encodeContentType],

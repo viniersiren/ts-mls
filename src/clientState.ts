@@ -82,6 +82,15 @@ export type KeyPackageEqualityConfig = {
   compareKeyPackageToLeafNode(a: KeyPackage, b: LeafNode): boolean
 }
 
+export const defaultKeyPackageEqualityConfig: KeyPackageEqualityConfig = {
+  compareKeyPackages(a, b) {
+    return constantTimeEqual(a.leafNode.signaturePublicKey, b.leafNode.signaturePublicKey)
+  },
+  compareKeyPackageToLeafNode(a, b) {
+    return constantTimeEqual(a.leafNode.signaturePublicKey, b.signaturePublicKey)
+  },
+}
+
 export type LifetimeConfig = {
   maximumTotalLifetime: bigint
   validateLifetimeOnReceive: boolean
@@ -90,15 +99,6 @@ export type LifetimeConfig = {
 export const defaultLifetimeConfig: LifetimeConfig = {
   maximumTotalLifetime: 2628000n, // 1 month
   validateLifetimeOnReceive: false,
-}
-
-export const defaultKeyPackageEqualityConfig: KeyPackageEqualityConfig = {
-  compareKeyPackages(a, b) {
-    return constantTimeEqual(a.leafNode.signaturePublicKey, b.leafNode.signaturePublicKey)
-  },
-  compareKeyPackageToLeafNode(a, b) {
-    return constantTimeEqual(a.leafNode.signaturePublicKey, b.signaturePublicKey)
-  },
 }
 
 export type GroupActiveState =
