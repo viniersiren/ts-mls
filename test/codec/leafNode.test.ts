@@ -24,8 +24,8 @@ const nontrivialLeafNode: LeafNode = {
   capabilities: {
     versions: ["mls10"],
     ciphersuites: ["MLS_256_XWING_AES256GCM_SHA512_Ed25519"],
-    extensions: ["application_id"],
-    proposals: ["add"],
+    extensions: [7],
+    proposals: [71],
     credentials: ["basic"],
   },
   leafNodeSource: "commit",

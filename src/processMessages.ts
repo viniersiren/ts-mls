@@ -25,17 +25,25 @@ import { PskIndex } from "./pskIndex"
 import { PublicMessage } from "./publicMessage"
 import { findBlankLeafNodeIndex, RatchetTree, addLeafNode } from "./ratchetTree"
 import { createSecretTree } from "./secretTree"
-import { Sender } from "./sender"
+import { getSenderLeafNodeIndex, Sender } from "./sender"
 import { treeHashRoot } from "./treeHash"
 import { leafToNodeIndex, leafWidth, nodeToLeafIndex, root } from "./treemath"
+import { ProposalWithSender } from "./unappliedProposals"
 import { UpdatePath, applyUpdatePath } from "./updatePath"
 import { addToMap } from "./util/addToMap"
 import { WireformatName } from "./wireformat"
+
+type IncomingMessageAction = "accept" | "reject"
+
+export type IncomingMessageCallback = (
+  incoming: { kind: "commit"; proposals: ProposalWithSender[] } | { kind: "proposal"; proposal: ProposalWithSender },
+) => IncomingMessageAction
 
 export type ProcessPrivateMessageResult =
   | {
       kind: "newState"
       newState: ClientState
+      actionTaken: IncomingMessageAction
     }
   | { kind: "applicationMessage"; message: Uint8Array; newState: ClientState }
 
@@ -47,6 +55,7 @@ export async function processPrivateMessage(
   pm: PrivateMessage,
   pskSearch: PskIndex,
   cs: CiphersuiteImpl,
+  callback: IncomingMessageCallback = () => "accept",
 ): Promise<ProcessPrivateMessageResult> {
   if (pm.epoch < state.groupContext.epoch) {
     const receiverData = state.historicalReceiverData.get(pm.epoch)
@@ -89,27 +98,50 @@ export async function processPrivateMessage(
     cs,
   )
 
-  const newState = { ...state, secretTree: result.tree }
+  const updatedState = { ...state, secretTree: result.tree }
 
   if (result.content.content.contentType === "application") {
-    return { kind: "applicationMessage", message: result.content.content.applicationData, newState }
+    return { kind: "applicationMessage", message: result.content.content.applicationData, newState: updatedState }
   } else if (result.content.content.contentType === "commit") {
+    const { newState, actionTaken } = await processCommit(
+      updatedState,
+      result.content as AuthenticatedContentCommit,
+      "mls_private_message",
+      pskSearch,
+      callback,
+      cs,
+    ) //todo solve with types
     return {
       kind: "newState",
-      newState: await processCommit(
-        newState,
-        result.content as AuthenticatedContentCommit,
-        "mls_private_message",
-        pskSearch,
-        cs,
-      ), //todo solve with types
+      newState,
+      actionTaken,
     }
   } else {
-    return {
-      kind: "newState",
-      newState: await processProposal(newState, result.content, result.content.content.proposal, cs.hash),
-    }
+    const action = callback({
+      kind: "proposal",
+      proposal: {
+        proposal: result.content.content.proposal,
+        senderLeafIndex: getSenderLeafNodeIndex(result.content.content.sender),
+      },
+    })
+    if (action === "reject")
+      return {
+        kind: "newState",
+        newState: updatedState,
+        actionTaken: action,
+      }
+    else
+      return {
+        kind: "newState",
+        newState: await processProposal(updatedState, result.content, result.content.content.proposal, cs.hash),
+        actionTaken: action,
+      }
   }
+}
+
+export type NewStateWithActionTaken = {
+  newState: ClientState
+  actionTaken: IncomingMessageAction
 }
 
 export async function processPublicMessage(
@@ -117,7 +149,8 @@ export async function processPublicMessage(
   pm: PublicMessage,
   pskSearch: PskIndex,
   cs: CiphersuiteImpl,
-): Promise<ClientState> {
+  callback: IncomingMessageCallback = () => "accept",
+): Promise<NewStateWithActionTaken> {
   if (pm.content.epoch < state.groupContext.epoch) throw new ValidationError("Cannot process message, epoch too old")
 
   const content = await unprotectPublicMessage(
@@ -128,10 +161,23 @@ export async function processPublicMessage(
     cs,
   )
 
-  if (content.content.contentType === "proposal")
-    return processProposal(state, content, content.content.proposal, cs.hash)
-  else {
-    return processCommit(state, content as AuthenticatedContentCommit, "mls_public_message", pskSearch, cs) //todo solve with types
+  if (content.content.contentType === "proposal") {
+    const action = callback({
+      kind: "proposal",
+      proposal: { proposal: content.content.proposal, senderLeafIndex: getSenderLeafNodeIndex(content.content.sender) },
+    })
+    if (action === "reject")
+      return {
+        newState: state,
+        actionTaken: action,
+      }
+    else
+      return {
+        newState: await processProposal(state, content, content.content.proposal, cs.hash),
+        actionTaken: action,
+      }
+  } else {
+    return processCommit(state, content as AuthenticatedContentCommit, "mls_public_message", pskSearch, callback, cs) //todo solve with types
   }
 }
 
@@ -140,13 +186,20 @@ async function processCommit(
   content: AuthenticatedContentCommit,
   wireformat: WireformatName,
   pskSearch: PskIndex,
+  callback: IncomingMessageCallback,
   cs: CiphersuiteImpl,
-): Promise<ClientState> {
+): Promise<NewStateWithActionTaken> {
   if (content.content.epoch !== state.groupContext.epoch) throw new ValidationError("Could not validate epoch")
 
   const senderLeafIndex = content.content.sender.senderType === "member" ? content.content.sender.leafIndex : undefined
 
   const result = await applyProposals(state, content.content.commit.proposals, senderLeafIndex, pskSearch, false, cs)
+
+  const action = callback({ kind: "commit", proposals: result.allProposals })
+
+  if (action === "reject") {
+    return { newState: state, actionTaken: action }
+  }
 
   if (content.content.commit.path !== undefined) {
     const committerLeafIndex =
@@ -229,16 +282,19 @@ async function processCommit(
       : { kind: "active" }
 
   return {
-    ...state,
-    secretTree,
-    ratchetTree: tree,
-    privatePath: pkp,
-    groupContext: updatedGroupContext,
-    keySchedule: epochSecrets.keySchedule,
-    confirmationTag: content.auth.confirmationTag,
-    historicalReceiverData: addHistoricalReceiverData(state),
-    unappliedProposals: {},
-    groupActiveState,
+    newState: {
+      ...state,
+      secretTree,
+      ratchetTree: tree,
+      privatePath: pkp,
+      groupContext: updatedGroupContext,
+      keySchedule: epochSecrets.keySchedule,
+      confirmationTag: content.auth.confirmationTag,
+      historicalReceiverData: addHistoricalReceiverData(state),
+      unappliedProposals: {},
+      groupActiveState,
+    },
+    actionTaken: action,
   }
 }
 

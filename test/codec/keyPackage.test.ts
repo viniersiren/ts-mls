@@ -36,8 +36,8 @@ const nontrivialKeyPackage: KeyPackage = {
     capabilities: {
       versions: ["mls10"],
       ciphersuites: ["MLS_256_XWING_AES256GCM_SHA512_Ed25519"],
-      extensions: ["application_id"],
-      proposals: ["add"],
+      extensions: [8],
+      proposals: [9],
       credentials: ["basic"],
     },
     leafNodeSource: "key_package",

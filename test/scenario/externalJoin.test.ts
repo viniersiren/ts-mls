@@ -66,19 +66,23 @@ async function externalJoin(cipherSuite: CiphersuiteName) {
 
   let charlieGroup = charlieJoinGroupCommitResult.newState
 
-  aliceGroup = await processPublicMessage(
+  const aliceProcessCharlieJoinResult = await processPublicMessage(
     aliceGroup,
     charlieJoinGroupCommitResult.publicMessage,
     makePskIndex(aliceGroup, {}),
     impl,
   )
 
-  bobGroup = await processPublicMessage(
+  aliceGroup = aliceProcessCharlieJoinResult.newState
+
+  const bobProcessCharlieJoinResult = await processPublicMessage(
     bobGroup,
     charlieJoinGroupCommitResult.publicMessage,
     makePskIndex(bobGroup, {}),
     impl,
   )
+
+  bobGroup = bobProcessCharlieJoinResult.newState
 
   expect(charlieGroup.keySchedule.epochAuthenticator).toStrictEqual(aliceGroup.keySchedule.epochAuthenticator)
   expect(charlieGroup.keySchedule.epochAuthenticator).toStrictEqual(bobGroup.keySchedule.epochAuthenticator)

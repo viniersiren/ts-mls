@@ -26,11 +26,11 @@ describe("LeafNodeData roundtrip", () => {
       signaturePublicKey: new Uint8Array([15, 16, 17, 18, 19]),
       credential: { credentialType: "x509", certificates: [new Uint8Array([20, 21]), new Uint8Array([22, 23, 24])] },
       capabilities: {
-        versions: ["mls10" as const],
-        ciphersuites: ["MLS_256_XWING_AES256GCM_SHA512_Ed25519" as const],
-        extensions: ["application_id" as const, "ratchet_tree" as const],
-        proposals: ["add" as const, "remove" as const],
-        credentials: ["basic" as const, "x509" as const],
+        versions: ["mls10"],
+        ciphersuites: ["MLS_256_XWING_AES256GCM_SHA512_Ed25519"],
+        extensions: [],
+        proposals: [73, 101],
+        credentials: ["basic", "x509"],
       },
     }
     roundtrip(data)

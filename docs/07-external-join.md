@@ -84,18 +84,23 @@ const charlieJoinGroupCommitResult = await joinGroupExternal(
 let charlieGroup = charlieJoinGroupCommitResult.newState
 
 // All members process the external join commit to update their state (epoch 2)
-aliceGroup = await processPublicMessage(
+const aliceProcessCharlieJoinResult = await processPublicMessage(
   aliceGroup,
   charlieJoinGroupCommitResult.publicMessage,
   makePskIndex(aliceGroup, {}),
   impl,
 )
-bobGroup = await processPublicMessage(
+
+aliceGroup = aliceProcessCharlieJoinResult.newState
+
+const bobProcessCharlieJoinResult = await processPublicMessage(
   bobGroup,
   charlieJoinGroupCommitResult.publicMessage,
   makePskIndex(bobGroup, {}),
   impl,
 )
+
+bobGroup = bobProcessCharlieJoinResult.newState
 ```
 
 ---

@@ -1,7 +1,7 @@
 import { AuthenticatedContent, makeProposalRef } from "./authenticatedContent"
 import { CiphersuiteImpl } from "./crypto/ciphersuite"
 import { Hash } from "./crypto/hash"
-import { Extension, extensionsEqual } from "./extension"
+import { Extension, extensionsEqual, extensionTypeToNumber, isDefaultExtension } from "./extension"
 import { createConfirmationTag, FramedContentCommit } from "./framedContent"
 import { GroupContext } from "./groupContext"
 import { ratchetTreeFromExtension, verifyGroupInfoConfirmationTag, verifyGroupInfoSignature } from "./groupInfo"
@@ -198,9 +198,11 @@ function validateProposals(
     return new ValidationError("Commit cannot contain an Add proposal for someone already in the group")
 
   const everyLeafSupportsGroupExtensions = p.add.every(({ proposal }) =>
-    groupContext.extensions.every((ex) =>
-      proposal.add.keyPackage.leafNode.capabilities.extensions.includes(ex.extensionType),
-    ),
+    groupContext.extensions
+      .filter((ex) => !isDefaultExtension(ex.extensionType))
+      .every((ex) =>
+        proposal.add.keyPackage.leafNode.capabilities.extensions.includes(extensionTypeToNumber(ex.extensionType)),
+      ),
   )
 
   if (!everyLeafSupportsGroupExtensions)
@@ -398,7 +400,7 @@ async function validateLeafNodeCommon(
     return new ValidationError("LeafNode has credential that is not supported by member of the group")
 
   const extensionsSupported = leafNode.extensions.every((ex) =>
-    leafNode.capabilities.extensions.includes(ex.extensionType),
+    leafNode.capabilities.extensions.includes(extensionTypeToNumber(ex.extensionType)),
   )
 
   if (!extensionsSupported) return new ValidationError("LeafNode contains extension not listen in capabilities")
@@ -511,6 +513,7 @@ export type ApplyProposalsResult = {
   needsUpdatePath: boolean
   additionalResult: ApplyProposalsData
   selfRemoved: boolean
+  allProposals: ProposalWithSender[]
 }
 
 export type ApplyProposalsData =
@@ -536,6 +539,8 @@ export async function applyProposals(
   }, [] as ProposalWithSender[])
 
   const grouped = allProposals.reduce((acc, cur) => {
+    //this skips any custom proposals
+    if (typeof cur.proposal.proposalType === "number") return acc
     const proposal = acc[cur.proposal.proposalType] ?? []
     return { ...acc, [cur.proposal.proposalType]: [...proposal, cur] }
   }, emptyProposals)
@@ -560,6 +565,7 @@ export async function applyProposals(
           reinit,
         },
         selfRemoved: false,
+        allProposals,
       }
     }
 
@@ -608,6 +614,7 @@ export async function applyProposals(
       pskIds,
       needsUpdatePath,
       selfRemoved,
+      allProposals,
     }
   } else {
     throwIfDefined(validateExternalInit(grouped))
@@ -646,6 +653,7 @@ export async function applyProposals(
         newMemberLeafIndex: nodeToLeafIndex(findBlankLeafNodeIndexOrExtend(treeAfterRemove)),
       },
       selfRemoved: false,
+      allProposals,
     }
   }
 }
@@ -737,9 +745,9 @@ export async function joinGroup(
     }
   }
 
-  const allExtensionsSupported = gi.groupContext.extensions.every((ex) =>
-    keyPackage.leafNode.capabilities.extensions.includes(ex.extensionType),
-  )
+  const allExtensionsSupported = gi.groupContext.extensions
+    .filter((ex) => !isDefaultExtension(ex.extensionType))
+    .every((ex) => keyPackage.leafNode.capabilities.extensions.includes(extensionTypeToNumber(ex.extensionType)))
 
   if (!allExtensionsSupported) throw new UsageError("client does not support every extension in the GroupContext")
 

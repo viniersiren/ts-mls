@@ -21,13 +21,13 @@ async function requiredCapatabilitiesTest(cipherSuite: CiphersuiteName) {
   const impl = await getCiphersuiteImpl(getCiphersuiteFromName(cipherSuite))
 
   const requiredCapabilities: RequiredCapabilities = {
-    extensionTypes: ["ratchet_tree", "application_id"],
+    extensionTypes: [7, 8],
     credentialTypes: ["x509", "basic"],
     proposalTypes: [],
   }
 
   const capabilities: Capabilities = {
-    extensions: ["ratchet_tree", "application_id", "required_capabilities"],
+    extensions: [7, 8, 9],
     credentials: ["x509", "basic"],
     proposals: [],
     versions: ["mls10"],

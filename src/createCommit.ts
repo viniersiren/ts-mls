@@ -48,6 +48,7 @@ import { constantTimeEqual } from "./util/constantTimeCompare"
 import { Welcome, encryptGroupInfo, EncryptedGroupSecrets, encryptGroupSecrets } from "./welcome"
 import { CryptoVerificationError, InternalError, UsageError, ValidationError } from "./mlsError"
 import { ClientConfig, defaultClientConfig } from "./clientConfig"
+import { extensionTypeToNumber, isDefaultExtension } from "./extension"
 
 export type CreateCommitResult = { newState: ClientState; welcome: Welcome | undefined; commit: MLSMessage }
 
@@ -407,9 +408,9 @@ export async function joinGroupExternal(
 
   if (externalPub === undefined) throw new UsageError("Could not find external_pub extension")
 
-  const allExtensionsSupported = groupInfo.groupContext.extensions.every((ex) =>
-    keyPackage.leafNode.capabilities.extensions.includes(ex.extensionType),
-  )
+  const allExtensionsSupported = groupInfo.groupContext.extensions
+    .filter((ex) => !isDefaultExtension(ex.extensionType))
+    .every((ex) => keyPackage.leafNode.capabilities.extensions.includes(extensionTypeToNumber(ex.extensionType)))
 
   if (!allExtensionsSupported) throw new UsageError("client does not support every extension in the GroupContext")
 

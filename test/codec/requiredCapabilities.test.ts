@@ -19,8 +19,8 @@ describe("RequiredCapabilities roundtrip", () => {
 
   it("roundtrips non-empty arrays", () => {
     const rc: RequiredCapabilities = {
-      extensionTypes: ["application_id", "ratchet_tree"],
-      proposalTypes: ["add", "remove", "psk"],
+      extensionTypes: [7, 8],
+      proposalTypes: [9, 10, 11],
       credentialTypes: ["basic", "x509"],
     }
     roundtrip(rc)
@@ -28,8 +28,8 @@ describe("RequiredCapabilities roundtrip", () => {
 
   it("roundtrips single-element arrays", () => {
     const rc: RequiredCapabilities = {
-      extensionTypes: ["external_pub"],
-      proposalTypes: ["external_init"],
+      extensionTypes: [8],
+      proposalTypes: [9],
       credentialTypes: ["basic"],
     }
     roundtrip(rc)

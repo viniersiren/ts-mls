@@ -1,22 +1,21 @@
 import { CredentialTypeName, encodeCredentialType, decodeCredentialType } from "./credentialType"
-import { ExtensionTypeName, encodeExtensionType, decodeExtensionType } from "./extensionType"
-import { ProposalTypeName, encodeProposalType, decodeProposalType } from "./proposalType"
 import { encodeVarLenType, decodeVarLenType } from "./codec/variableLength"
 import { Encoder, contramapEncoders } from "./codec/tlsEncoder"
 import { Decoder, mapDecoders } from "./codec/tlsDecoder"
+import { decodeUint16, encodeUint16 } from "./codec/number"
 
 export type RequiredCapabilities = {
-  extensionTypes: ExtensionTypeName[]
-  proposalTypes: ProposalTypeName[]
+  extensionTypes: number[]
+  proposalTypes: number[]
   credentialTypes: CredentialTypeName[]
 }
 
 export const encodeRequiredCapabilities: Encoder<RequiredCapabilities> = contramapEncoders(
-  [encodeVarLenType(encodeExtensionType), encodeVarLenType(encodeProposalType), encodeVarLenType(encodeCredentialType)],
+  [encodeVarLenType(encodeUint16), encodeVarLenType(encodeUint16), encodeVarLenType(encodeCredentialType)],
   (rc) => [rc.extensionTypes, rc.proposalTypes, rc.credentialTypes] as const,
 )
 
 export const decodeRequiredCapabilities: Decoder<RequiredCapabilities> = mapDecoders(
-  [decodeVarLenType(decodeExtensionType), decodeVarLenType(decodeProposalType), decodeVarLenType(decodeCredentialType)],
+  [decodeVarLenType(decodeUint16), decodeVarLenType(decodeUint16), decodeVarLenType(decodeCredentialType)],
   (extensionTypes, proposalTypes, credentialTypes) => ({ extensionTypes, proposalTypes, credentialTypes }),
 )

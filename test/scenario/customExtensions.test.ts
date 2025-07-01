@@ -7,10 +7,8 @@ import { generateKeyPackage } from "../../src/keyPackage"
 import { ProposalAdd } from "../../src/proposal"
 import { defaultCapabilities, defaultLifetime } from "./common"
 import { Capabilities } from "../../src/capabilities"
-import { Extension } from "../../src/extension"
+import { Extension, ExtensionType } from "../../src/extension"
 import { ValidationError } from "../../src/mlsError"
-import { createCustomExtension } from "../../src/customExtension"
-import { ExtensionTypeName } from "../../src/extensionType"
 
 for (const cs of Object.keys(ciphersuites)) {
   test(`Custom Extensions ${cs}`, async () => {
@@ -21,7 +19,7 @@ for (const cs of Object.keys(ciphersuites)) {
 async function customExtensionTest(cipherSuite: CiphersuiteName) {
   const impl = await getCiphersuiteImpl(getCiphersuiteFromName(cipherSuite))
 
-  const customExtensionType: ExtensionTypeName = createCustomExtension(7)
+  const customExtensionType: ExtensionType = 7
 
   const capabilities: Capabilities = {
     extensions: [customExtensionType],

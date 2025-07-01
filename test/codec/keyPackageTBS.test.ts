@@ -45,8 +45,8 @@ describe("KeyPackageTBS roundtrip", () => {
         capabilities: {
           versions: ["mls10" as const],
           ciphersuites: ["MLS_256_XWING_AES256GCM_SHA512_Ed25519" as const],
-          extensions: ["application_id" as const, "ratchet_tree" as const],
-          proposals: ["add" as const, "remove" as const, "psk" as const],
+          extensions: [7, 8, 9],
+          proposals: [9, 10, 11],
           credentials: ["basic" as const, "x509" as const],
         },
         leafNodeSource: "key_package" as const,

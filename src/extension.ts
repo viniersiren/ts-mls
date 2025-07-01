@@ -1,11 +1,32 @@
-import { Decoder, mapDecoders } from "./codec/tlsDecoder"
+import { decodeUint16, encodeUint16 } from "./codec/number"
+import { Decoder, mapDecoders, orDecoder } from "./codec/tlsDecoder"
 import { contramapEncoders, Encoder } from "./codec/tlsEncoder"
 import { decodeVarLenData, encodeVarLenData } from "./codec/variableLength"
-import { decodeExtensionType, encodeExtensionType, ExtensionTypeName } from "./extensionType"
+import {
+  decodeDefaultExtensionType,
+  encodeDefaultExtensionType,
+  DefaultExtensionTypeName,
+  defaultExtensionTypes,
+} from "./defaultExtensionType"
 import { constantTimeEqual } from "./util/constantTimeCompare"
 
+export type ExtensionType = DefaultExtensionTypeName | number
+
+export const encodeExtensionType: Encoder<ExtensionType> = (t) =>
+  typeof t === "number" ? encodeUint16(t) : encodeDefaultExtensionType(t)
+
+export const decodeExtensionType: Decoder<ExtensionType> = orDecoder(decodeDefaultExtensionType, decodeUint16)
+
+export function extensionTypeToNumber(t: ExtensionType): number {
+  return typeof t === "number" ? t : defaultExtensionTypes[t]
+}
+
+export function isDefaultExtension(t: ExtensionType): boolean {
+  return typeof t !== "number"
+}
+
 export type Extension = {
-  extensionType: ExtensionTypeName
+  extensionType: ExtensionType
   extensionData: Uint8Array
 }
 

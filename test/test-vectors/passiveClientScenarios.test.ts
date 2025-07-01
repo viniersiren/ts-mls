@@ -70,11 +70,12 @@ async function testPassiveClientScenario(data: MlsGroupState, impl: CiphersuiteI
 
       if (mlsProposal[0].wireformat === "mls_private_message") {
         const res = await processPrivateMessage(state, mlsProposal[0].privateMessage, makePskIndex(state, psks), impl)
-        //if (res.kind !== "applicationMessage") {
+
         state = res.newState
-        //}
       } else {
-        state = await processPublicMessage(state, mlsProposal[0].publicMessage, makePskIndex(state, psks), impl)
+        const res = await processPublicMessage(state, mlsProposal[0].publicMessage, makePskIndex(state, psks), impl)
+
+        state = res.newState
       }
     }
 
@@ -87,11 +88,11 @@ async function testPassiveClientScenario(data: MlsGroupState, impl: CiphersuiteI
 
     if (mlsCommit[0].wireformat === "mls_private_message") {
       const res = await processPrivateMessage(state, mlsCommit[0].privateMessage, makePskIndex(state, psks), impl)
-      //if (res.kind !== "applicationMessage") {
+
       state = res.newState
-      //}
     } else {
-      state = await processPublicMessage(state, mlsCommit[0].publicMessage, makePskIndex(state, psks), impl)
+      const res = await processPublicMessage(state, mlsCommit[0].publicMessage, makePskIndex(state, psks), impl)
+      state = res.newState
     }
 
     expect(state.keySchedule.epochAuthenticator).toStrictEqual(hexToBytes(epoch.epoch_authenticator))

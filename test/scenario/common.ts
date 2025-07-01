@@ -49,7 +49,7 @@ export async function cannotMessageAnymore(state: ClientState, impl: Ciphersuite
 export const defaultCapabilities: Capabilities = {
   versions: ["mls10"],
   ciphersuites: Object.keys(ciphersuites) as CiphersuiteName[],
-  extensions: ["ratchet_tree", "required_capabilities", "external_pub", "application_id"],
+  extensions: [],
   proposals: [],
   credentials: ["basic", "x509"],
 }
