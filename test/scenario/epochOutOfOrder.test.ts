@@ -14,6 +14,7 @@ import { ClientState } from "../../src/clientState"
 import { CiphersuiteImpl } from "../../src/crypto/ciphersuite"
 import { KeyRetentionConfig } from "../../src/keyRetentionConfig"
 import { ValidationError } from "../../src/mlsError"
+import { defaultClientConfig } from "../../src/clientConfig"
 
 describe("Out of order message processing by epoch", () => {
   for (const cs of Object.keys(ciphersuites)) {
@@ -78,7 +79,7 @@ async function setupTestParticipants(
     impl,
     undefined,
     undefined,
-    retainConfig,
+    { ...defaultClientConfig, keyRetentionConfig: retainConfig ?? defaultKeyRetentionConfig },
   )
 
   return { aliceGroup, bobGroup, impl }

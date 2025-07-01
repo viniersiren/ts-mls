@@ -3,7 +3,7 @@ import { Decoder, mapDecoderOption } from "./codec/tlsDecoder"
 import { contramapEncoder, Encoder } from "./codec/tlsEncoder"
 import { openEnumNumberEncoder, openEnumNumberToKey } from "./util/enumHelpers"
 
-const proposalTypes = {
+export const proposalTypes = {
   add: 1,
   update: 2,
   remove: 3,

@@ -43,6 +43,7 @@ export async function createProposal(
       state.groupContext,
       state.secretTree,
       state.privatePath.leafIndex,
+      state.clientConfig.paddingConfig,
       cs,
     )
 
@@ -75,6 +76,7 @@ export async function createApplicationMessage(state: ClientState, message: Uint
     state.groupContext,
     state.secretTree,
     state.privatePath.leafIndex,
+    state.clientConfig.paddingConfig,
     cs,
   )
 

@@ -17,6 +17,7 @@ import { defaultCapabilities, defaultLifetime, shuffledIndices, testEveryoneCanM
 import { PrivateMessage } from "../../src/privateMessage"
 import { defaultKeyRetentionConfig, KeyRetentionConfig } from "../../src/keyRetentionConfig"
 import { ValidationError } from "../../src/mlsError"
+import { defaultClientConfig } from "../../src/clientConfig"
 
 describe("Out of order message processing by generation", () => {
   for (const cs of Object.keys(ciphersuites)) {
@@ -77,7 +78,7 @@ async function setupTestParticipants(
     impl,
     undefined,
     undefined,
-    retainConfig,
+    { ...defaultClientConfig, keyRetentionConfig: retainConfig ?? defaultClientConfig.keyRetentionConfig },
   )
 
   return { aliceGroup, bobGroup, impl }

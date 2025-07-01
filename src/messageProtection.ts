@@ -24,6 +24,7 @@ import { SenderData, SenderDataAAD } from "./sender"
 import { leafToNodeIndex } from "./treemath"
 import { KeyRetentionConfig } from "./keyRetentionConfig"
 import { CryptoVerificationError, CodecError, ValidationError, MlsError, InternalError } from "./mlsError"
+import { PaddingConfig } from "./paddingConfig"
 
 export type ProtectApplicationDataResult = { privateMessage: PrivateMessage; newSecretTree: SecretTree }
 
@@ -35,6 +36,7 @@ export async function protectApplicationData(
   groupContext: GroupContext,
   secretTree: SecretTree,
   leafIndex: number,
+  paddingConfig: PaddingConfig,
   cs: CiphersuiteImpl,
 ): Promise<ProtectApplicationDataResult> {
   const tbs: FramedContentTBSApplicationOrProposal = {
@@ -60,10 +62,18 @@ export async function protectApplicationData(
   const content = {
     ...tbs.content,
     auth,
-    paddingNumberOfBytes: 8,
   }
 
-  const result = await protect(senderDataSecret, authenticatedData, groupContext, secretTree, content, leafIndex, cs)
+  const result = await protect(
+    senderDataSecret,
+    authenticatedData,
+    groupContext,
+    secretTree,
+    content,
+    leafIndex,
+    paddingConfig,
+    cs,
+  )
 
   return { newSecretTree: result.tree, privateMessage: result.privateMessage }
 }
@@ -82,6 +92,7 @@ export async function protectProposal(
   groupContext: GroupContext,
   secretTree: SecretTree,
   leafIndex: number,
+  paddingConfig: PaddingConfig,
   cs: CiphersuiteImpl,
 ): Promise<ProtectProposalResult> {
   const tbs = {
@@ -103,7 +114,7 @@ export async function protectProposal(
   }
 
   const auth = await signFramedContentApplicationOrProposal(signKey, tbs, cs)
-  const content = { ...tbs.content, auth, paddingNumberOfBytes: 8 }
+  const content = { ...tbs.content, auth }
 
   const privateMessage = await protect(
     senderDataSecret,
@@ -112,6 +123,7 @@ export async function protectProposal(
     secretTree,
     content,
     leafIndex,
+    paddingConfig,
     cs,
   )
 
@@ -136,6 +148,7 @@ export async function protect(
   secretTree: SecretTree,
   content: PrivateMessageContent,
   leafIndex: number,
+  config: PaddingConfig,
   cs: CiphersuiteImpl,
 ): Promise<{ privateMessage: PrivateMessage; tree: SecretTree }> {
   const node = secretTree[leafToNodeIndex(leafIndex)]
@@ -159,7 +172,7 @@ export async function protect(
     key,
     nonce,
     encodePrivateContentAAD(aad),
-    encodePrivateMessageContent(content),
+    encodePrivateMessageContent(config)(content),
   )
 
   const senderData: SenderData = {

@@ -19,6 +19,7 @@ import {
 } from "./framedContent"
 import { GroupContext } from "./groupContext"
 import { CryptoError } from "./mlsError"
+import { byteLengthToPad, PaddingConfig } from "./paddingConfig"
 import { decodeProposal, encodeProposal } from "./proposal"
 import { deriveKey, deriveNonce, GenerationSecret } from "./secretTree"
 import {
@@ -80,12 +81,11 @@ export const decodePrivateContentAAD: Decoder<PrivateContentAAD> = mapDecoders(
   }),
 )
 
-export type PrivateMessageContent = (
+export type PrivateMessageContent =
   | PrivateMessageContentApplication
   | PrivateMessageContentProposal
   | PrivateMessageContentCommit
-) &
-  PrivateMessageContentPadding
+
 export type PrivateMessageContentApplication = FramedContentApplicationData & {
   auth: FramedContentAuthDataApplicationOrProposal
 }
@@ -93,8 +93,6 @@ export type PrivateMessageContentProposal = FramedContentProposalData & {
   auth: FramedContentAuthDataApplicationOrProposal
 }
 export type PrivateMessageContentCommit = FramedContentCommitData & { auth: FramedContentAuthDataCommit }
-
-export type PrivateMessageContentPadding = { paddingNumberOfBytes: number }
 
 export function decodePrivateMessageContent(contentType: ContentTypeName): Decoder<PrivateMessageContent> {
   switch (contentType) {
@@ -125,31 +123,36 @@ export function decodePrivateMessageContent(contentType: ContentTypeName): Decod
   }
 }
 
-export const encodePrivateMessageContent: Encoder<PrivateMessageContent> = (msg) => {
-  switch (msg.contentType) {
-    case "application":
-      return encoderWithPadding(
-        contramapEncoders(
-          [encodeVarLenData, encodeFramedContentAuthData],
-          (m: PrivateMessageContentApplication) => [m.applicationData, m.auth] as const,
-        ),
-      )(msg)
+export function encodePrivateMessageContent(config: PaddingConfig): Encoder<PrivateMessageContent> {
+  return (msg) => {
+    switch (msg.contentType) {
+      case "application":
+        return encoderWithPadding(
+          contramapEncoders(
+            [encodeVarLenData, encodeFramedContentAuthData],
+            (m: PrivateMessageContentApplication) => [m.applicationData, m.auth] as const,
+          ),
+          config,
+        )(msg)
 
-    case "proposal":
-      return encoderWithPadding(
-        contramapEncoders(
-          [encodeProposal, encodeFramedContentAuthData],
-          (m: PrivateMessageContentProposal) => [m.proposal, m.auth] as const,
-        ),
-      )(msg)
+      case "proposal":
+        return encoderWithPadding(
+          contramapEncoders(
+            [encodeProposal, encodeFramedContentAuthData],
+            (m: PrivateMessageContentProposal) => [m.proposal, m.auth] as const,
+          ),
+          config,
+        )(msg)
 
-    case "commit":
-      return encoderWithPadding(
-        contramapEncoders(
-          [encodeCommit, encodeFramedContentAuthData],
-          (m: PrivateMessageContentCommit) => [m.commit, m.auth] as const,
-        ),
-      )(msg)
+      case "commit":
+        return encoderWithPadding(
+          contramapEncoders(
+            [encodeCommit, encodeFramedContentAuthData],
+            (m: PrivateMessageContentCommit) => [m.commit, m.auth] as const,
+          ),
+          config,
+        )(msg)
+    }
   }
 }
 
@@ -261,17 +264,17 @@ export function privateMessageContentToAuthenticatedContent(
   }
 }
 
-function encoderWithPadding<T>(encoder: Encoder<T>): Encoder<T & PrivateMessageContentPadding> {
+function encoderWithPadding<T>(encoder: Encoder<T>, config: PaddingConfig): Encoder<T> {
   return (t) => {
     const encoded = encoder(t)
-    const result = new Uint8Array(encoded.length + t.paddingNumberOfBytes)
+    const result = new Uint8Array(encoded.length + byteLengthToPad(encoded.length, config))
     result.set(encoded, 0)
 
     return result
   }
 }
 
-function decoderWithPadding<T>(decoder: Decoder<T>): Decoder<T & PrivateMessageContentPadding> {
+function decoderWithPadding<T>(decoder: Decoder<T>): Decoder<T> {
   return (bytes, offset) => {
     const result = decoder(bytes, offset)
     if (result === undefined) return undefined
@@ -283,6 +286,6 @@ function decoderWithPadding<T>(decoder: Decoder<T>): Decoder<T & PrivateMessageC
 
     if (!allZeroes) return undefined
 
-    return [{ ...decoded, paddingNumberOfBytes: paddingBytes.length }, innerOffset]
+    return [decoded, bytes.length]
   }
 }

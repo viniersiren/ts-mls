@@ -1,10 +1,4 @@
-import {
-  addHistoricalReceiverData,
-  defaultLifetimeConfig,
-  LifetimeConfig,
-  throwIfDefined,
-  validateRatchetTree,
-} from "./clientState"
+import { addHistoricalReceiverData, throwIfDefined, validateRatchetTree } from "./clientState"
 import { AuthenticatedContentCommit } from "./authenticatedContent"
 import {
   ClientState,
@@ -15,7 +9,6 @@ import {
   checkCanSendHandshakeMessages,
   GroupActiveState,
 } from "./clientState"
-import { KeyRetentionConfig, defaultKeyRetentionConfig } from "./keyRetentionConfig"
 import { encodeCredential } from "./credential"
 import { CiphersuiteImpl } from "./crypto/ciphersuite"
 import { decryptWithLabel } from "./crypto/hpke"
@@ -54,7 +47,7 @@ import { base64ToBytes } from "./util/byteArray"
 import { constantTimeEqual } from "./util/constantTimeCompare"
 import { Welcome, encryptGroupInfo, EncryptedGroupSecrets, encryptGroupSecrets } from "./welcome"
 import { CryptoVerificationError, InternalError, UsageError, ValidationError } from "./mlsError"
-import { AuthenticationService, defaultAuthenticationService } from "./authenticationService"
+import { ClientConfig, defaultClientConfig } from "./clientConfig"
 
 export type CreateCommitResult = { newState: ClientState; welcome: Welcome | undefined; commit: MLSMessage }
 
@@ -65,7 +58,6 @@ export async function createCommit(
   extraProposals: Proposal[],
   cs: CiphersuiteImpl,
   ratchetTreeExtension: boolean = false,
-  authService: AuthenticationService = defaultAuthenticationService,
 ): Promise<CreateCommitResult> {
   checkCanSendHandshakeMessages(state)
 
@@ -73,7 +65,7 @@ export async function createCommit(
 
   const allProposals = bundleAllProposals(state, extraProposals)
 
-  const res = await applyProposals(state, allProposals, state.privatePath.leafIndex, pskSearch, true, authService, cs)
+  const res = await applyProposals(state, allProposals, state.privatePath.leafIndex, pskSearch, true, cs)
 
   if (res.additionalResult.kind === "externalCommit") throw new UsageError("Cannot create externalCommit as a member")
 
@@ -179,7 +171,7 @@ export async function createCommit(
     confirmationTag,
     signaturePrivateKey: state.signaturePrivateKey,
     groupActiveState,
-    keyRetentionConfig: state.keyRetentionConfig,
+    clientConfig: state.clientConfig,
   }
 
   return { newState, welcome, commit }
@@ -358,8 +350,9 @@ async function protectCommit(
       authenticatedData,
       state.groupContext,
       state.secretTree,
-      { ...content, auth: authData, paddingNumberOfBytes: 8 },
+      { ...content, auth: authData },
       state.privatePath.leafIndex,
+      state.clientConfig.paddingConfig,
       cs,
     )
 
@@ -408,9 +401,7 @@ export async function joinGroupExternal(
   resync: boolean,
   cs: CiphersuiteImpl,
   tree?: RatchetTree,
-  keyRetentionConfig: KeyRetentionConfig = defaultKeyRetentionConfig,
-  lifetimeConfig: LifetimeConfig = defaultLifetimeConfig,
-  authService: AuthenticationService = defaultAuthenticationService,
+  clientConfig: ClientConfig = defaultClientConfig,
 ) {
   const externalPub = groupInfo.extensions.find((ex) => ex.extensionType === "external_pub")
 
@@ -432,8 +423,8 @@ export async function joinGroupExternal(
     await validateRatchetTree(
       ratchetTree,
       groupInfo.groupContext,
-      lifetimeConfig,
-      authService,
+      clientConfig.lifetimeConfig,
+      clientConfig.authService,
       groupInfo.groupContext.treeHash,
       cs,
     ),
@@ -443,7 +434,7 @@ export async function joinGroupExternal(
 
   const signerCredential = getCredentialFromLeafIndex(ratchetTree, groupInfo.signer)
 
-  const credentialVerified = await authService.validateCredential(signerCredential, signaturePublicKey)
+  const credentialVerified = await clientConfig.authService.validateCredential(signerCredential, signaturePublicKey)
 
   if (!credentialVerified) throw new ValidationError("Could not validate credential")
 
@@ -543,7 +534,7 @@ export async function joinGroupExternal(
     keySchedule: epochSecrets.keySchedule,
     unappliedProposals: {},
     groupActiveState: { kind: "active" },
-    keyRetentionConfig,
+    clientConfig,
   }
 
   const authenticatedContent: AuthenticatedContentCommit = {

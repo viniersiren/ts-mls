@@ -1,79 +1,53 @@
-import { encodePrivateMessageContent, decodePrivateMessageContent } from "../../src/privateMessage"
+import { PaddingConfig } from "../../src/paddingConfig"
+import {
+  encodePrivateMessageContent,
+  decodePrivateMessageContent,
+  PrivateMessageContent,
+} from "../../src/privateMessage"
 import { createRoundtripTest } from "./roundtrip"
 
 describe("PrivateMessageContent roundtrip with padding", () => {
-  const roundtrip = createRoundtripTest(encodePrivateMessageContent, decodePrivateMessageContent("application"))
+  const roundtrip = (config: PaddingConfig) =>
+    createRoundtripTest(encodePrivateMessageContent(config), decodePrivateMessageContent("application"))
+
+  const content: PrivateMessageContent = {
+    contentType: "application",
+    applicationData: new Uint8Array(),
+    auth: {
+      signature: new Uint8Array(),
+      contentType: "application",
+    },
+  }
 
   test("roundtrips application with no padding", () => {
-    roundtrip({
-      contentType: "application",
-      applicationData: new Uint8Array(),
-      auth: {
-        signature: new Uint8Array(),
-        contentType: "application",
-      },
-      paddingNumberOfBytes: 0,
-    })
+    roundtrip({ kind: "alwaysPad", paddingLength: 0 })(content)
   })
 
   test("roundtrips application with 64 bytes of padding", () => {
-    roundtrip({
-      contentType: "application",
-      applicationData: new Uint8Array(),
-      auth: {
-        signature: new Uint8Array(),
-        contentType: "application",
-      },
-      paddingNumberOfBytes: 64,
-    })
+    roundtrip({ kind: "alwaysPad", paddingLength: 64 })(content)
   })
 
   test("roundtrips application with 256 bytes of padding", () => {
-    roundtrip({
-      contentType: "application",
-      applicationData: new Uint8Array(),
-      auth: {
-        signature: new Uint8Array(),
-        contentType: "application",
-      },
-      paddingNumberOfBytes: 256,
-    })
+    roundtrip({ kind: "alwaysPad", paddingLength: 256 })(content)
   })
 
   test("roundtrips application with 5000 bytes of padding", () => {
-    roundtrip({
-      contentType: "application",
-      applicationData: new Uint8Array(),
-      auth: {
-        signature: new Uint8Array(),
-        contentType: "application",
-      },
-      paddingNumberOfBytes: 5000,
-    })
+    roundtrip({ kind: "alwaysPad", paddingLength: 5000 })(content)
   })
 
   test("roundtrips application with 80000 bytes of padding", () => {
-    roundtrip({
-      contentType: "application",
-      applicationData: new Uint8Array(),
-      auth: {
-        signature: new Uint8Array(),
-        contentType: "application",
-      },
-      paddingNumberOfBytes: 80000,
-    })
+    roundtrip({ kind: "alwaysPad", paddingLength: 80000 })(content)
+  })
+
+  test("roundtrips application with padding until 4000 bytes", () => {
+    const config: PaddingConfig = { kind: "padUntilLength", padUntilLength: 4000 }
+    roundtrip(config)(content)
+
+    expect(encodePrivateMessageContent(config)(content).length).toBe(4000)
   })
 
   test("fails to decode message with non-zero padding", () => {
-    const encoded = encodePrivateMessageContent({
-      contentType: "application",
-      applicationData: new Uint8Array(),
-      auth: {
-        signature: new Uint8Array(),
-        contentType: "application",
-      },
-      paddingNumberOfBytes: 2048,
-    })
+    const encoded = encodePrivateMessageContent({ kind: "alwaysPad", paddingLength: 2048 })(content)
 
     expect(decodePrivateMessageContent("application")(encoded, 0)).toBeDefined()
 

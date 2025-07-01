@@ -21,6 +21,7 @@ import { defaultKeyRetentionConfig } from "../../src/keyRetentionConfig"
 import { defaultCapabilities } from "../scenario/common"
 import { RatchetTree } from "../../src/ratchetTree"
 import { UsageError } from "../../src/mlsError"
+import { defaultPaddingConfig } from "../../src/paddingConfig"
 
 for (const [index, x] of json.entries()) {
   test(`message-protection test vectors ${index}`, async () => {
@@ -307,6 +308,7 @@ async function protectThenUnprotectProposal(data: MessageProtectionData, gc: Gro
     gc,
     secretTree,
     1,
+    defaultPaddingConfig,
     impl,
   )
 
@@ -338,6 +340,7 @@ async function protectThenUnprotectApplication(data: MessageProtectionData, gc: 
     gc,
     secretTree,
     1,
+    defaultPaddingConfig,
     impl,
   )
 
@@ -383,10 +386,18 @@ async function protectThenUnprotectCommit(data: MessageProtectionData, gc: Group
       signature,
       confirmationTag,
     },
-    paddingNumberOfBytes: 8,
   }
 
-  const pro = await protect(hexToBytes(data.sender_data_secret), new Uint8Array(), gc, secretTree, content, 1, impl)
+  const pro = await protect(
+    hexToBytes(data.sender_data_secret),
+    new Uint8Array(),
+    gc,
+    secretTree,
+    content,
+    1,
+    defaultPaddingConfig,
+    impl,
+  )
 
   const unprotected = await unprotectPrivateMessage(
     hexToBytes(data.sender_data_secret),

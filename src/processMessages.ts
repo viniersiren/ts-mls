@@ -1,5 +1,4 @@
 import { AuthenticatedContentCommit } from "./authenticatedContent"
-import { AuthenticationService, defaultAuthenticationService } from "./authenticationService"
 import {
   ClientState,
   GroupActiveState,
@@ -48,7 +47,6 @@ export async function processPrivateMessage(
   pm: PrivateMessage,
   pskSearch: PskIndex,
   cs: CiphersuiteImpl,
-  authService: AuthenticationService = defaultAuthenticationService,
 ): Promise<ProcessPrivateMessageResult> {
   if (pm.epoch < state.groupContext.epoch) {
     const receiverData = state.historicalReceiverData.get(pm.epoch)
@@ -60,7 +58,7 @@ export async function processPrivateMessage(
         receiverData.secretTree,
         receiverData.ratchetTree,
         receiverData.groupContext,
-        state.keyRetentionConfig,
+        state.clientConfig.keyRetentionConfig,
         cs,
       )
 
@@ -87,7 +85,7 @@ export async function processPrivateMessage(
     state.secretTree,
     state.ratchetTree,
     state.groupContext,
-    state.keyRetentionConfig,
+    state.clientConfig.keyRetentionConfig,
     cs,
   )
 
@@ -103,7 +101,6 @@ export async function processPrivateMessage(
         result.content as AuthenticatedContentCommit,
         "mls_private_message",
         pskSearch,
-        authService,
         cs,
       ), //todo solve with types
     }
@@ -120,7 +117,6 @@ export async function processPublicMessage(
   pm: PublicMessage,
   pskSearch: PskIndex,
   cs: CiphersuiteImpl,
-  authService: AuthenticationService = defaultAuthenticationService,
 ): Promise<ClientState> {
   if (pm.content.epoch < state.groupContext.epoch) throw new ValidationError("Cannot process message, epoch too old")
 
@@ -135,7 +131,7 @@ export async function processPublicMessage(
   if (content.content.contentType === "proposal")
     return processProposal(state, content, content.content.proposal, cs.hash)
   else {
-    return processCommit(state, content as AuthenticatedContentCommit, "mls_public_message", pskSearch, authService, cs) //todo solve with types
+    return processCommit(state, content as AuthenticatedContentCommit, "mls_public_message", pskSearch, cs) //todo solve with types
   }
 }
 
@@ -144,22 +140,13 @@ async function processCommit(
   content: AuthenticatedContentCommit,
   wireformat: WireformatName,
   pskSearch: PskIndex,
-  authService: AuthenticationService,
   cs: CiphersuiteImpl,
 ): Promise<ClientState> {
   if (content.content.epoch !== state.groupContext.epoch) throw new ValidationError("Could not validate epoch")
 
   const senderLeafIndex = content.content.sender.senderType === "member" ? content.content.sender.leafIndex : undefined
 
-  const result = await applyProposals(
-    state,
-    content.content.commit.proposals,
-    senderLeafIndex,
-    pskSearch,
-    false,
-    authService,
-    cs,
-  )
+  const result = await applyProposals(state, content.content.commit.proposals, senderLeafIndex, pskSearch, false, cs)
 
   if (content.content.commit.path !== undefined) {
     const committerLeafIndex =
@@ -175,7 +162,7 @@ async function processCommit(
         committerLeafIndex,
         state.groupContext,
         result.tree,
-        authService,
+        state.clientConfig.authService,
         cs.signature,
       ),
     )

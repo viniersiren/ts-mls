@@ -46,7 +46,6 @@ import { UnappliedProposals, addUnappliedProposal, ProposalWithSender } from "./
 import { accumulatePskSecret, PskIndex } from "./pskIndex"
 import { getSenderLeafNodeIndex } from "./sender"
 import { addToMap } from "./util/addToMap"
-import { KeyRetentionConfig, defaultKeyRetentionConfig } from "./keyRetentionConfig"
 import { CryptoVerificationError, CodecError, InternalError, UsageError, ValidationError, MlsError } from "./mlsError"
 import { Signature } from "./crypto/signature"
 import {
@@ -61,7 +60,10 @@ import { protocolVersions } from "./protocolVersion"
 import { decodeRequiredCapabilities, RequiredCapabilities } from "./requiredCapabilities"
 import { Capabilities } from "./capabilities"
 import { verifyParentHashes } from "./parentHash"
-import { AuthenticationService, defaultAuthenticationService } from "./authenticationService"
+import { AuthenticationService } from "./authenticationService"
+import { LifetimeConfig } from "./lifetimeConfig"
+import { KeyPackageEqualityConfig } from "./keyPackageEqualityConfig"
+import { ClientConfig, defaultClientConfig } from "./clientConfig"
 
 export type ClientState = {
   groupContext: GroupContext
@@ -74,31 +76,7 @@ export type ClientState = {
   confirmationTag: Uint8Array
   historicalReceiverData: Map<bigint, EpochReceiverData>
   groupActiveState: GroupActiveState
-  keyRetentionConfig: KeyRetentionConfig
-}
-
-export type KeyPackageEqualityConfig = {
-  compareKeyPackages(a: KeyPackage, b: KeyPackage): boolean
-  compareKeyPackageToLeafNode(a: KeyPackage, b: LeafNode): boolean
-}
-
-export const defaultKeyPackageEqualityConfig: KeyPackageEqualityConfig = {
-  compareKeyPackages(a, b) {
-    return constantTimeEqual(a.leafNode.signaturePublicKey, b.leafNode.signaturePublicKey)
-  },
-  compareKeyPackageToLeafNode(a, b) {
-    return constantTimeEqual(a.leafNode.signaturePublicKey, b.signaturePublicKey)
-  },
-}
-
-export type LifetimeConfig = {
-  maximumTotalLifetime: bigint
-  validateLifetimeOnReceive: boolean
-}
-
-export const defaultLifetimeConfig: LifetimeConfig = {
-  maximumTotalLifetime: 2628000n, // 1 month
-  validateLifetimeOnReceive: false,
+  clientConfig: ClientConfig
 }
 
 export type GroupActiveState =
@@ -546,7 +524,6 @@ export async function applyProposals(
   committerLeafIndex: number | undefined,
   pskSearch: PskIndex,
   sentByClient: boolean,
-  authService: AuthenticationService,
   cs: CiphersuiteImpl,
 ): Promise<ApplyProposalsResult> {
   const allProposals = proposals.reduce((acc, cur) => {
@@ -591,7 +568,7 @@ export async function applyProposals(
         grouped,
         committerLeafIndex,
         state.groupContext,
-        defaultKeyPackageEqualityConfig,
+        state.clientConfig.keyPackageEqualityConfig,
         state.ratchetTree,
       ),
     )
@@ -603,7 +580,8 @@ export async function applyProposals(
       grouped,
       state.groupContext,
       sentByClient,
-      authService,
+      state.clientConfig.authService,
+      state.clientConfig.lifetimeConfig,
       cs.signature,
     )
 
@@ -715,9 +693,7 @@ export async function joinGroup(
   cs: CiphersuiteImpl,
   ratchetTree?: RatchetTree,
   resumingFromState?: ClientState,
-  keyRetentionConfig: KeyRetentionConfig = defaultKeyRetentionConfig,
-  lifetimeConfig: LifetimeConfig = defaultLifetimeConfig,
-  authService: AuthenticationService = defaultAuthenticationService,
+  clientConfig: ClientConfig = defaultClientConfig,
 ): Promise<ClientState> {
   const keyPackageRef = await makeKeyPackageRef(keyPackage, cs.hash)
   const privKey = await cs.hpke.importPrivateKey(privateKeys.initPrivateKey)
@@ -778,7 +754,7 @@ export async function joinGroup(
   }
   if (signerNode.nodeType === "parent") throw new ValidationError("Expected non blank leaf node")
 
-  const credentialVerified = await authService.validateCredential(
+  const credentialVerified = await clientConfig.authService.validateCredential(
     signerNode.leaf.credential,
     signerNode.leaf.signaturePublicKey,
   )
@@ -793,7 +769,14 @@ export async function joinGroup(
     throw new ValidationError("cipher suite in the GroupInfo does not match the cipher_suite in the KeyPackage")
 
   throwIfDefined(
-    await validateRatchetTree(tree, gi.groupContext, lifetimeConfig, authService, gi.groupContext.treeHash, cs),
+    await validateRatchetTree(
+      tree,
+      gi.groupContext,
+      clientConfig.lifetimeConfig,
+      clientConfig.authService,
+      gi.groupContext.treeHash,
+      cs,
+    ),
   )
 
   const newLeaf = findLeafIndex(tree, keyPackage.leafNode)
@@ -838,7 +821,7 @@ export async function joinGroup(
     secretTree,
     historicalReceiverData: new Map(),
     groupActiveState: { kind: "active" },
-    keyRetentionConfig,
+    clientConfig,
   }
 }
 
@@ -848,7 +831,7 @@ export async function createGroup(
   privateKeyPackage: PrivateKeyPackage,
   extensions: Extension[],
   cs: CiphersuiteImpl,
-  keyRetentionConfig: KeyRetentionConfig = defaultKeyRetentionConfig,
+  clientConfig: ClientConfig = defaultClientConfig,
 ): Promise<ClientState> {
   const ratchetTree: RatchetTree = [{ nodeType: "leaf", leaf: keyPackage.leafNode }]
 
@@ -888,7 +871,7 @@ export async function createGroup(
     groupContext,
     confirmationTag,
     groupActiveState: { kind: "active" },
-    keyRetentionConfig,
+    clientConfig,
   }
 }
 
@@ -920,6 +903,7 @@ async function applyTreeMutations(
   gc: GroupContext,
   sentByClient: boolean,
   authService: AuthenticationService,
+  lifetimeConfig: LifetimeConfig,
   s: Signature,
 ): Promise<[RatchetTree, [number, KeyPackage][]]> {
   const treeAfterUpdate = await grouped.update.reduce(async (acc, { senderLeafIndex, proposal }) => {
@@ -945,7 +929,7 @@ async function applyTreeMutations(
           gc,
           ratchetTree,
           sentByClient,
-          defaultLifetimeConfig,
+          lifetimeConfig,
           authService,
           s,
         ),
@@ -991,8 +975,8 @@ export function addHistoricalReceiverData(state: ClientState): Map<bigint, Epoch
   const epochs = [...withNew.keys()]
 
   const result =
-    epochs.length >= state.keyRetentionConfig.retainKeysForEpochs
-      ? removeOldHistoricalReceiverData(withNew, state.keyRetentionConfig.retainKeysForEpochs)
+    epochs.length >= state.clientConfig.keyRetentionConfig.retainKeysForEpochs
+      ? removeOldHistoricalReceiverData(withNew, state.clientConfig.keyRetentionConfig.retainKeysForEpochs)
       : withNew
 
   return result
