@@ -5,30 +5,27 @@ import { Credential } from "../../src/credential"
 import { CiphersuiteName, getCiphersuiteImpl, getCiphersuiteFromName, ciphersuites } from "../../src/crypto/ciphersuite"
 import { generateKeyPackage } from "../../src/keyPackage"
 import { ProposalAdd } from "../../src/proposal"
-import { defaultLifetime } from "./common"
+import { defaultCapabilities, defaultLifetime } from "./common"
 import { Capabilities } from "../../src/capabilities"
 import { Extension } from "../../src/extension"
-import { encodeRequiredCapabilities, RequiredCapabilities } from "../../src/requiredCapabilities"
 import { ValidationError } from "../../src/mlsError"
+import { createCustomExtension } from "../../src/customExtension"
+import { ExtensionTypeName } from "../../src/extensionType"
 
 for (const cs of Object.keys(ciphersuites)) {
-  test(`Required Capabilities extension ${cs}`, async () => {
-    await requiredCapatabilitiesTest(cs as CiphersuiteName)
+  test(`Custom Extensions ${cs}`, async () => {
+    await customExtensionTest(cs as CiphersuiteName)
   })
 }
 
-async function requiredCapatabilitiesTest(cipherSuite: CiphersuiteName) {
+async function customExtensionTest(cipherSuite: CiphersuiteName) {
   const impl = await getCiphersuiteImpl(getCiphersuiteFromName(cipherSuite))
 
-  const requiredCapabilities: RequiredCapabilities = {
-    extensionTypes: ["ratchet_tree", "application_id"],
-    credentialTypes: ["x509", "basic"],
-    proposalTypes: [],
-  }
+  const customExtensionType: ExtensionTypeName = createCustomExtension(7)
 
   const capabilities: Capabilities = {
-    extensions: ["ratchet_tree", "application_id", "required_capabilities"],
-    credentials: ["x509", "basic"],
+    extensions: [customExtensionType],
+    credentials: ["basic"],
     proposals: [],
     versions: ["mls10"],
     ciphersuites: [cipherSuite],
@@ -39,32 +36,17 @@ async function requiredCapatabilitiesTest(cipherSuite: CiphersuiteName) {
 
   const groupId = new TextEncoder().encode("group1")
 
-  const requiredCapabilitiesExtension: Extension = {
-    extensionType: "required_capabilities",
-    extensionData: encodeRequiredCapabilities(requiredCapabilities),
+  const extensionData = new TextEncoder().encode("custom extension data")
+
+  const customExtension: Extension = {
+    extensionType: customExtensionType,
+    extensionData: extensionData,
   }
 
-  let aliceGroup = await createGroup(
-    groupId,
-    alice.publicPackage,
-    alice.privatePackage,
-    [requiredCapabilitiesExtension],
-    impl,
-  )
+  let aliceGroup = await createGroup(groupId, alice.publicPackage, alice.privatePackage, [customExtension], impl)
 
   const bobCredential: Credential = { credentialType: "basic", identity: new TextEncoder().encode("bob") }
   const bob = await generateKeyPackage(bobCredential, capabilities, defaultLifetime, [], impl)
-
-  const minimalCapabilites: Capabilities = {
-    extensions: [],
-    credentials: ["basic"],
-    proposals: [],
-    versions: ["mls10"],
-    ciphersuites: [cipherSuite],
-  }
-
-  const charlieCredential: Credential = { credentialType: "basic", identity: new TextEncoder().encode("charlie") }
-  const charlie = await generateKeyPackage(charlieCredential, minimalCapabilites, defaultLifetime, [], impl)
 
   const addBobProposal: ProposalAdd = {
     proposalType: "add",
@@ -86,7 +68,13 @@ async function requiredCapatabilitiesTest(cipherSuite: CiphersuiteName) {
     aliceGroup.ratchetTree,
   )
 
-  expect(bobGroup.keySchedule.epochAuthenticator).toStrictEqual(aliceGroup.keySchedule.epochAuthenticator)
+  expect(bobGroup.groupContext.extensions.find((e) => e.extensionType === customExtensionType)).toStrictEqual(
+    customExtension,
+  )
+
+  //Charlie doesn't support the custom extension
+  const charlieCredential: Credential = { credentialType: "basic", identity: new TextEncoder().encode("charlie") }
+  const charlie = await generateKeyPackage(charlieCredential, defaultCapabilities, defaultLifetime, [], impl)
 
   const addCharlieProposal: ProposalAdd = {
     proposalType: "add",

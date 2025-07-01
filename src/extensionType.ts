@@ -3,7 +3,7 @@ import { Decoder, mapDecoderOption } from "./codec/tlsDecoder"
 import { contramapEncoder, Encoder } from "./codec/tlsEncoder"
 import { openEnumNumberEncoder, openEnumNumberToKey } from "./util/enumHelpers"
 
-const extensionTypes = {
+export const extensionTypes = {
   application_id: 1,
   ratchet_tree: 2,
   required_capabilities: 3,

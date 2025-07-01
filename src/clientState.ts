@@ -160,6 +160,7 @@ function flattenExtensions(groupContextExtensions: { proposal: ProposalGroupCont
 function validateProposals(
   p: Proposals,
   committerLeafIndex: number | undefined,
+  groupContext: GroupContext,
   config: KeyPackageEqualityConfig,
   tree: RatchetTree,
 ): MlsError | undefined {
@@ -217,6 +218,15 @@ function validateProposals(
 
   if (addsContainExistingKeypackage)
     return new ValidationError("Commit cannot contain an Add proposal for someone already in the group")
+
+  const everyLeafSupportsGroupExtensions = p.add.every(({ proposal }) =>
+    groupContext.extensions.every((ex) =>
+      proposal.add.keyPackage.leafNode.capabilities.extensions.includes(ex.extensionType),
+    ),
+  )
+
+  if (!everyLeafSupportsGroupExtensions)
+    return new ValidationError("Added leaf node that doesn't support extension in GroupContext")
 
   const multiplePskWithSamePskId = p.psk.some((a, indexA) =>
     p.psk.some(
@@ -576,7 +586,15 @@ export async function applyProposals(
       }
     }
 
-    validateProposals(grouped, committerLeafIndex, defaultKeyPackageEqualityConfig, state.ratchetTree)
+    throwIfDefined(
+      validateProposals(
+        grouped,
+        committerLeafIndex,
+        state.groupContext,
+        defaultKeyPackageEqualityConfig,
+        state.ratchetTree,
+      ),
+    )
 
     const newExtensions = flattenExtensions(grouped.group_context_extensions)
 
@@ -742,6 +760,12 @@ export async function joinGroup(
         throw new ValidationError("Extensions mismatch")
     }
   }
+
+  const allExtensionsSupported = gi.groupContext.extensions.every((ex) =>
+    keyPackage.leafNode.capabilities.extensions.includes(ex.extensionType),
+  )
+
+  if (!allExtensionsSupported) throw new UsageError("client does not support every extension in the GroupContext")
 
   const tree = ratchetTreeFromExtension(gi) ?? ratchetTree
 

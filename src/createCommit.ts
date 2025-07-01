@@ -416,6 +416,12 @@ export async function joinGroupExternal(
 
   if (externalPub === undefined) throw new UsageError("Could not find external_pub extension")
 
+  const allExtensionsSupported = groupInfo.groupContext.extensions.every((ex) =>
+    keyPackage.leafNode.capabilities.extensions.includes(ex.extensionType),
+  )
+
+  if (!allExtensionsSupported) throw new UsageError("client does not support every extension in the GroupContext")
+
   const { enc, secret: initSecret } = await exportSecret(externalPub.extensionData, cs)
 
   const ratchetTree = ratchetTreeFromExtension(groupInfo) ?? tree
