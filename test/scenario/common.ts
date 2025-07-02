@@ -5,6 +5,7 @@ import { processPrivateMessage } from "../../src/processMessages"
 import { CiphersuiteName, CiphersuiteImpl, ciphersuites } from "../../src/crypto/ciphersuite"
 import { Lifetime } from "../../src/lifetime"
 import { UsageError } from "../../src/mlsError"
+import { greaseCapabilities } from "../../src/grease"
 
 export async function testEveryoneCanMessageEveryone(
   clients: ClientState[],
@@ -46,13 +47,17 @@ export async function cannotMessageAnymore(state: ClientState, impl: Ciphersuite
   await expect(createApplicationMessage(state, new TextEncoder().encode("hello"), impl)).rejects.toThrow(UsageError)
 }
 
-export const defaultCapabilities: Capabilities = {
-  versions: ["mls10"],
-  ciphersuites: Object.keys(ciphersuites) as CiphersuiteName[],
-  extensions: [],
-  proposals: [],
-  credentials: ["basic", "x509"],
-}
+export const defaultCapabilities: Capabilities = greaseCapabilities(
+  { probabilityPerGreaseValue: 0.1 },
+  {
+    versions: ["mls10"],
+    ciphersuites: Object.keys(ciphersuites) as CiphersuiteName[],
+    extensions: [],
+    proposals: [],
+    credentials: ["basic", "x509"],
+  },
+)
+
 export const defaultLifetime: Lifetime = {
   notBefore: 0n,
   notAfter: 9223372036854775807n,
