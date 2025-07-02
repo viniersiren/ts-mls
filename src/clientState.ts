@@ -1,7 +1,7 @@
 import { AuthenticatedContent, makeProposalRef } from "./authenticatedContent"
 import { CiphersuiteImpl } from "./crypto/ciphersuite"
 import { Hash } from "./crypto/hash"
-import { Extension, extensionsEqual, extensionTypeToNumber, isDefaultExtension } from "./extension"
+import { Extension, extensionsEqual, extensionsSupportedByCapabilities } from "./extension"
 import { createConfirmationTag, FramedContentCommit } from "./framedContent"
 import { GroupContext } from "./groupContext"
 import { ratchetTreeFromExtension, verifyGroupInfoConfirmationTag, verifyGroupInfoSignature } from "./groupInfo"
@@ -198,11 +198,7 @@ function validateProposals(
     return new ValidationError("Commit cannot contain an Add proposal for someone already in the group")
 
   const everyLeafSupportsGroupExtensions = p.add.every(({ proposal }) =>
-    groupContext.extensions
-      .filter((ex) => !isDefaultExtension(ex.extensionType))
-      .every((ex) =>
-        proposal.add.keyPackage.leafNode.capabilities.extensions.includes(extensionTypeToNumber(ex.extensionType)),
-      ),
+    extensionsSupportedByCapabilities(groupContext.extensions, proposal.add.keyPackage.leafNode.capabilities),
   )
 
   if (!everyLeafSupportsGroupExtensions)
@@ -399,9 +395,7 @@ async function validateLeafNodeCommon(
   if (credentialUnsupported)
     return new ValidationError("LeafNode has credential that is not supported by member of the group")
 
-  const extensionsSupported = leafNode.extensions.every((ex) =>
-    leafNode.capabilities.extensions.includes(extensionTypeToNumber(ex.extensionType)),
-  )
+  const extensionsSupported = extensionsSupportedByCapabilities(leafNode.extensions, leafNode.capabilities)
 
   if (!extensionsSupported) return new ValidationError("LeafNode contains extension not listen in capabilities")
 
@@ -745,10 +739,10 @@ export async function joinGroup(
     }
   }
 
-  const allExtensionsSupported = gi.groupContext.extensions
-    .filter((ex) => !isDefaultExtension(ex.extensionType))
-    .every((ex) => keyPackage.leafNode.capabilities.extensions.includes(extensionTypeToNumber(ex.extensionType)))
-
+  const allExtensionsSupported = extensionsSupportedByCapabilities(
+    gi.groupContext.extensions,
+    keyPackage.leafNode.capabilities,
+  )
   if (!allExtensionsSupported) throw new UsageError("client does not support every extension in the GroupContext")
 
   const tree = ratchetTreeFromExtension(gi) ?? ratchetTree
