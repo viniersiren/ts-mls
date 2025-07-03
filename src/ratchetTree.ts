@@ -91,29 +91,6 @@ function nextFullBinaryTreeSize(n: number): number {
   return (1 << (d + 1)) - 1
 }
 
-export function stripToMinimalCompleteTree(tree: RatchetTree): RatchetTree {
-  const lastNonBlankIndex = findLastNonBlankIndex(tree)
-
-  // Find the smallest 2^(d+1)-1 that is >= lastNonBlankIndex + 1
-  // Then subtract one power to go to the next smaller full tree size
-  let fullSize = 1
-  while (fullSize <= lastNonBlankIndex) {
-    fullSize = 2 * fullSize + 1
-  }
-
-  // Go one step back to get the last complete tree size <= lastNonBlankIndex
-  let trimmedSize = Math.floor((fullSize - 1) / 2)
-
-  return tree.slice(0, trimmedSize + 1)
-}
-
-function findLastNonBlankIndex(tree: RatchetTree): number {
-  for (let i = tree.length - 1; i >= 0; i--) {
-    if (tree[i] !== undefined) return i
-  }
-  return 0
-}
-
 /**
  * If the tree has 2d leaves, then it has 2d+1 - 1 nodes.
  * The ratchet_tree vector logically has this number of entries, but the sender MUST NOT include blank nodes after the last non-blank node.
@@ -356,11 +333,4 @@ export function getSignaturePublicKeyFromLeafIndex(ratchetTree: RatchetTree, lea
   if (leafNode === undefined || leafNode.nodeType === "parent")
     throw new ValidationError("Unable to find leafnode for leafIndex")
   return leafNode.leaf.signaturePublicKey
-}
-
-export function getHpkePublicKeyFromNode(ratchetTree: RatchetTree, nodeIndex: number) {
-  const node = ratchetTree[nodeIndex]
-
-  if (node === undefined) throw new ValidationError("Unable to find node for nodeIndex")
-  return getHpkePublicKey(node)
 }

@@ -10,14 +10,14 @@ import { decodeWireformat, encodeWireformat } from "./wireformat"
 
 export type MLSMessage = MlsMessageProtocol & MlsMessageContent
 
-type MlsMessageProtocol = { version: ProtocolVersionName }
+export type MlsMessageProtocol = { version: ProtocolVersionName }
 
-type MlsMessageContent = MlsWelcome | MlsPrivateMessage | MlsGroupInfo | MlsKeyPackage | MlsPublicMessage
-type MlsWelcome = { wireformat: "mls_welcome"; welcome: Welcome }
-type MlsPrivateMessage = { wireformat: "mls_private_message"; privateMessage: PrivateMessage }
-type MlsGroupInfo = { wireformat: "mls_group_info"; groupInfo: GroupInfo }
-type MlsKeyPackage = { wireformat: "mls_key_package"; keyPackage: KeyPackage }
-type MlsPublicMessage = { wireformat: "mls_public_message"; publicMessage: PublicMessage }
+export type MlsMessageContent = MlsWelcome | MlsPrivateMessage | MlsGroupInfo | MlsKeyPackage | MlsPublicMessage
+export type MlsWelcome = { wireformat: "mls_welcome"; welcome: Welcome }
+export type MlsPrivateMessage = { wireformat: "mls_private_message"; privateMessage: PrivateMessage }
+export type MlsGroupInfo = { wireformat: "mls_group_info"; groupInfo: GroupInfo }
+export type MlsKeyPackage = { wireformat: "mls_key_package"; keyPackage: KeyPackage }
+export type MlsPublicMessage = { wireformat: "mls_public_message"; publicMessage: PublicMessage }
 
 export const encodeMlsMessageContent: Encoder<MlsMessageContent> = (mc) => {
   switch (mc.wireformat) {

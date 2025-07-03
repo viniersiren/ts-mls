@@ -159,19 +159,6 @@ export const encodeLeafNodeTBS: Encoder<LeafNodeTBS> = contramapEncoders(
   (tbs) => [tbs, tbs, tbs, tbs.info] as const,
 )
 
-export const decodeLeafNodeTBS: Decoder<LeafNodeTBS> = flatMapDecoder(decodeLeafNodeData, (leafNodeData) =>
-  flatMapDecoder(decodeLeafNodeInfo, (leafNodeInfo) =>
-    flatMapDecoder(decodeLeafNodeExtensions, (leafNodeExtensions) =>
-      mapDecoder(decodeLeafNodeGroupInfo(leafNodeInfo.leafNodeSource), (leafNodeGroupInfo) => ({
-        ...leafNodeData,
-        ...leafNodeInfo,
-        ...leafNodeExtensions,
-        info: leafNodeGroupInfo,
-      })),
-    ),
-  ),
-)
-
 export type LeafNode = LeafNodeData & LeafNodeInfo & LeafNodeExtensions & { signature: Uint8Array }
 
 export const encodeLeafNode: Encoder<LeafNode> = contramapEncoders(

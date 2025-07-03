@@ -1,7 +1,6 @@
 import { createGroup, joinGroup } from "../../src/clientState"
 import { createCommit } from "../../src/createCommit"
 import { createProposal } from "../../src/createMessage"
-import { processPrivateMessage } from "../../src/processMessages"
 import { emptyPskIndex } from "../../src/pskIndex"
 import { Credential } from "../../src/credential"
 import { CiphersuiteName, ciphersuites, getCiphersuiteFromName, getCiphersuiteImpl } from "../../src/crypto/ciphersuite"
@@ -11,19 +10,24 @@ import { checkHpkeKeysMatch } from "../crypto/keyMatch"
 import { cannotMessageAnymore, testEveryoneCanMessageEveryone } from "./common"
 import { defaultLifetime } from "../../src/lifetime"
 import { defaultCapabilities } from "../../src/defaultCapabilities"
+import { WireformatName } from "../../src/wireformat"
+import { processMessage } from "../../src/processMessages"
+import { acceptAll } from "../../src/IncomingMessageAction"
 
 for (const cs of Object.keys(ciphersuites)) {
   test(`Leave Proposal ${cs}`, async () => {
-    await leaveProposal(cs as CiphersuiteName)
+    await leaveProposal(cs as CiphersuiteName, true)
+    await leaveProposal(cs as CiphersuiteName, false)
   })
 }
 
-async function leaveProposal(cipherSuite: CiphersuiteName) {
+async function leaveProposal(cipherSuite: CiphersuiteName, publicMessage: boolean) {
   const impl = await getCiphersuiteImpl(getCiphersuiteFromName(cipherSuite))
 
   const aliceCredential: Credential = { credentialType: "basic", identity: new TextEncoder().encode("alice") }
   const alice = await generateKeyPackage(aliceCredential, defaultCapabilities(), defaultLifetime, [], impl)
 
+  const preferredWireformat: WireformatName = publicMessage ? "mls_public_message" : "mls_private_message"
   const groupId = new TextEncoder().encode("group1")
 
   let aliceGroup = await createGroup(groupId, alice.publicPackage, alice.privatePackage, [], impl)
@@ -51,7 +55,7 @@ async function leaveProposal(cipherSuite: CiphersuiteName) {
   const addBobAndCharlieCommitResult = await createCommit(
     aliceGroup,
     emptyPskIndex,
-    false,
+    publicMessage,
     [addBobProposal, addCharlieProposal],
     impl,
     true,
@@ -84,50 +88,55 @@ async function leaveProposal(cipherSuite: CiphersuiteName) {
     remove: { removed: aliceGroup.privatePath.leafIndex },
   }
 
-  const createLeaveProposalResult = await createProposal(aliceGroup, false, leaveProposal, impl)
+  const createLeaveProposalResult = await createProposal(aliceGroup, publicMessage, leaveProposal, impl)
 
   aliceGroup = createLeaveProposalResult.newState
 
-  if (createLeaveProposalResult.message.wireformat !== "mls_private_message")
-    throw new Error("Expected private message")
+  if (createLeaveProposalResult.message.wireformat !== preferredWireformat)
+    throw new Error(`Expected ${preferredWireformat} message`)
 
-  const bobProcessProposalResult = await processPrivateMessage(
+  const bobProcessProposalResult = await processMessage(
+    createLeaveProposalResult.message,
     bobGroup,
-    createLeaveProposalResult.message.privateMessage,
     emptyPskIndex,
+    acceptAll,
     impl,
   )
 
   bobGroup = bobProcessProposalResult.newState
 
-  const charlieProcessProposalResult = await processPrivateMessage(
+  const charlieProcessProposalResult = await processMessage(
+    createLeaveProposalResult.message,
     charlieGroup,
-    createLeaveProposalResult.message.privateMessage,
     emptyPskIndex,
+    acceptAll,
     impl,
   )
 
   charlieGroup = charlieProcessProposalResult.newState
 
   //bob commits to alice leaving
-  const bobCommitResult = await createCommit(bobGroup, emptyPskIndex, false, [], impl, false)
+  const bobCommitResult = await createCommit(bobGroup, emptyPskIndex, publicMessage, [], impl, false)
 
   bobGroup = bobCommitResult.newState
 
-  if (bobCommitResult.commit.wireformat !== "mls_private_message") throw new Error("Expected private message")
+  if (bobCommitResult.commit.wireformat !== preferredWireformat)
+    throw new Error(`Expected ${preferredWireformat} message`)
 
-  const aliceProcessCommitResult = await processPrivateMessage(
+  const aliceProcessCommitResult = await processMessage(
+    bobCommitResult.commit,
     aliceGroup,
-    bobCommitResult.commit.privateMessage,
     emptyPskIndex,
+    acceptAll,
     impl,
   )
   aliceGroup = aliceProcessCommitResult.newState
 
-  const charlieProcessCommitResult = await processPrivateMessage(
+  const charlieProcessCommitResult = await processMessage(
+    bobCommitResult.commit,
     charlieGroup,
-    bobCommitResult.commit.privateMessage,
     emptyPskIndex,
+    acceptAll,
     impl,
   )
   charlieGroup = charlieProcessCommitResult.newState

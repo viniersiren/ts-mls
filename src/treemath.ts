@@ -103,36 +103,3 @@ export function copath(nodeIndex: number, leafWidth: number): number[] {
 export function isAncestor(childNodeIndex: number, ancestor: number, nodeWidth: number): boolean {
   return directPath(childNodeIndex, leafWidth(nodeWidth)).includes(ancestor)
 }
-
-export function commonAncestorSemantic(x: number, y: number, n: number): number {
-  const dx = new Set<number>([x, ...directPath(x, n)])
-  const dy = new Set<number>([y, ...directPath(y, n)])
-
-  const intersection = Array.from(dx).filter((z) => dy.has(z))
-  if (intersection.length === 0) {
-    throw new InternalError("failed to find common ancestor")
-  }
-
-  return intersection.reduce((min, current) => {
-    return level(current) < level(min) ? current : min
-  })
-}
-
-export function commonAncestorDirect(x: number, y: number, _n: number): number {
-  const lx = level(x) + 1
-  const ly = level(y) + 1
-
-  if (lx <= ly && x >> ly === y >> ly) return y
-  if (ly <= lx && x >> lx === y >> lx) return x
-
-  let xn = x
-  let yn = y
-  let k = 0
-  while (xn !== yn) {
-    xn >>= 1
-    yn >>= 1
-    k++
-  }
-
-  return (xn << k) + (1 << (k - 1)) - 1
-}

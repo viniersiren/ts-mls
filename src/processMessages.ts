@@ -14,32 +14,27 @@ import { CiphersuiteImpl } from "./crypto/ciphersuite"
 import { Kdf, deriveSecret } from "./crypto/kdf"
 import { verifyConfirmationTag } from "./framedContent"
 import { GroupContext } from "./groupContext"
+import { acceptAll, IncomingMessageAction, IncomingMessageCallback } from "./IncomingMessageAction"
 import { initializeEpoch } from "./keySchedule"
+import { MlsPrivateMessage, MlsPublicMessage } from "./message"
 import { unprotectPrivateMessage } from "./messageProtection"
 import { unprotectPublicMessage } from "./messageProtectionPublic"
 import { CryptoVerificationError, InternalError, ValidationError } from "./mlsError"
 import { pathToRoot } from "./pathSecrets"
 import { PrivateKeyPath, mergePrivateKeyPaths, toPrivateKeyPath } from "./privateKeyPath"
 import { PrivateMessage } from "./privateMessage"
-import { PskIndex } from "./pskIndex"
+import { emptyPskIndex, PskIndex } from "./pskIndex"
 import { PublicMessage } from "./publicMessage"
 import { findBlankLeafNodeIndex, RatchetTree, addLeafNode } from "./ratchetTree"
 import { createSecretTree } from "./secretTree"
 import { getSenderLeafNodeIndex, Sender } from "./sender"
 import { treeHashRoot } from "./treeHash"
 import { leafToNodeIndex, leafWidth, nodeToLeafIndex, root } from "./treemath"
-import { ProposalWithSender } from "./unappliedProposals"
 import { UpdatePath, applyUpdatePath } from "./updatePath"
 import { addToMap } from "./util/addToMap"
 import { WireformatName } from "./wireformat"
 
-type IncomingMessageAction = "accept" | "reject"
-
-export type IncomingMessageCallback = (
-  incoming: { kind: "commit"; proposals: ProposalWithSender[] } | { kind: "proposal"; proposal: ProposalWithSender },
-) => IncomingMessageAction
-
-export type ProcessPrivateMessageResult =
+export type ProcessMessageResult =
   | {
       kind: "newState"
       newState: ClientState
@@ -55,8 +50,8 @@ export async function processPrivateMessage(
   pm: PrivateMessage,
   pskSearch: PskIndex,
   cs: CiphersuiteImpl,
-  callback: IncomingMessageCallback = () => "accept",
-): Promise<ProcessPrivateMessageResult> {
+  callback: IncomingMessageCallback = acceptAll,
+): Promise<ProcessMessageResult> {
   if (pm.epoch < state.groupContext.epoch) {
     const receiverData = state.historicalReceiverData.get(pm.epoch)
 
@@ -149,7 +144,7 @@ export async function processPublicMessage(
   pm: PublicMessage,
   pskSearch: PskIndex,
   cs: CiphersuiteImpl,
-  callback: IncomingMessageCallback = () => "accept",
+  callback: IncomingMessageCallback = acceptAll,
 ): Promise<NewStateWithActionTaken> {
   if (pm.content.epoch < state.groupContext.epoch) throw new ValidationError("Cannot process message, epoch too old")
 
@@ -371,4 +366,18 @@ async function updatePrivateKeyPath(
 
   const commitSecret = await deriveSecret(rootSecret, "path", cs.kdf)
   return [newPkp, commitSecret] as const
+}
+
+export async function processMessage(
+  message: MlsPrivateMessage | MlsPublicMessage,
+  state: ClientState,
+  pskIndex: PskIndex,
+  action: IncomingMessageCallback,
+  cs: CiphersuiteImpl,
+): Promise<ProcessMessageResult> {
+  if (message.wireformat === "mls_public_message") {
+    const result = await processPublicMessage(state, message.publicMessage, pskIndex, cs, action)
+
+    return { ...result, kind: "newState" }
+  } else return processPrivateMessage(state, message.privateMessage, emptyPskIndex, cs, action)
 }
