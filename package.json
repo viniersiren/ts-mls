@@ -65,7 +65,7 @@
   "type": "module",
   "scripts": {
     "build": "tsc",
-    "test": "jest",
+    "test": "jest --coverage",
     "format": "prettier -w .",
     "format:check": "prettier -c .",
     "postinstall": "patch-package",
