@@ -9,7 +9,8 @@ import { generateKeyPackage } from "../../src/keyPackage"
 import { decodeMlsMessage, encodeMlsMessage } from "../../src/message"
 import { ProposalAdd } from "../../src/proposal"
 import { checkHpkeKeysMatch } from "../crypto/keyMatch"
-import { defaultCapabilities, defaultLifetime } from "./common"
+import { defaultLifetime } from "../../src/lifetime"
+import { defaultCapabilities } from "../../src/defaultCapabilities"
 
 for (const cs of Object.keys(ciphersuites)) {
   test(`1:1 join ${cs}`, async () => {

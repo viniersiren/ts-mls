@@ -332,7 +332,7 @@ export function findLeafIndex(tree: RatchetTree, leaf: LeafNode): number | undef
   const foundIndex = tree.findIndex((node, nodeIndex) => {
     if (isLeaf(nodeIndex) && node !== undefined) {
       if (node.nodeType === "parent") throw new InternalError("Found parent node in leaf node position")
-      //todo is there a better comparison method?
+      //todo is there a better (faster) comparison method?
       return constantTimeEqual(encodeLeafNode(node.leaf), encodeLeafNode(leaf))
     }
 

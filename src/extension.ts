@@ -54,6 +54,6 @@ function isDefaultExtension(t: ExtensionType): boolean {
   return typeof t !== "number"
 }
 
-function extensionTypeToNumber(t: ExtensionType): number {
+export function extensionTypeToNumber(t: ExtensionType): number {
   return typeof t === "number" ? t : defaultExtensionTypes[t]
 }

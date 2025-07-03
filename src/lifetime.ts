@@ -13,3 +13,7 @@ export const decodeLifetime: Decoder<Lifetime> = mapDecoders([decodeUint64, deco
   notBefore,
   notAfter,
 }))
+export const defaultLifetime: Lifetime = {
+  notBefore: 0n,
+  notAfter: 9223372036854775807n,
+}

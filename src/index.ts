@@ -26,4 +26,6 @@ export { bytesToBase64 } from "./util/byteArray"
 export { generateKeyPackage } from "./keyPackage"
 export { decodeMlsMessage, encodeMlsMessage } from "./message"
 export { type ProposalAdd } from "./proposal"
-export { defaultCapabilities, defaultLifetime } from "../test/scenario/common" //todo
+export { type Lifetime, defaultLifetime } from "./lifetime"
+export { type Capabilities } from "./capabilities"
+export { defaultCapabilities } from "./defaultCapabilities"

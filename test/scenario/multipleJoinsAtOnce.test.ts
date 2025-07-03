@@ -6,7 +6,9 @@ import { CiphersuiteName, ciphersuites, getCiphersuiteFromName, getCiphersuiteIm
 import { generateKeyPackage } from "../../src/keyPackage"
 import { ProposalAdd } from "../../src/proposal"
 import { checkHpkeKeysMatch } from "../crypto/keyMatch"
-import { defaultCapabilities, defaultLifetime, testEveryoneCanMessageEveryone } from "./common"
+import { testEveryoneCanMessageEveryone } from "./common"
+import { defaultLifetime } from "../../src/lifetime"
+import { defaultCapabilities } from "../../src/defaultCapabilities"
 
 for (const cs of Object.keys(ciphersuites)) {
   test(`Multiple joins at once ${cs}`, async () => {

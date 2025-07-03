@@ -8,7 +8,9 @@ import { CiphersuiteName, ciphersuites, getCiphersuiteFromName, getCiphersuiteIm
 import { generateKeyPackage } from "../../src/keyPackage"
 import { Proposal, ProposalAdd } from "../../src/proposal"
 import { checkHpkeKeysMatch } from "../crypto/keyMatch"
-import { cannotMessageAnymore, defaultCapabilities, defaultLifetime, testEveryoneCanMessageEveryone } from "./common"
+import { cannotMessageAnymore, testEveryoneCanMessageEveryone } from "./common"
+import { defaultLifetime } from "../../src/lifetime"
+import { defaultCapabilities } from "../../src/defaultCapabilities"
 
 for (const cs of Object.keys(ciphersuites)) {
   test(`Leave Proposal ${cs}`, async () => {

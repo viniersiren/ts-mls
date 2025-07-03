@@ -12,7 +12,9 @@ import {
 import { generateKeyPackage, KeyPackage, PrivateKeyPackage } from "../../src/keyPackage"
 import { Credential } from "../../src/credential"
 import { ProposalAdd, ProposalRemove } from "../../src/proposal"
-import { defaultCapabilities, defaultLifetime, shuffledIndices, testEveryoneCanMessageEveryone } from "./common"
+import { shuffledIndices, testEveryoneCanMessageEveryone } from "./common"
+import { defaultLifetime } from "../../src/lifetime"
+import { defaultCapabilities } from "../../src/defaultCapabilities"
 
 import { randomInt } from "crypto"
 

@@ -22,17 +22,17 @@ export async function toPrivateKeyPath(
   leafIndex: number,
   cs: CiphersuiteImpl,
 ): Promise<PrivateKeyPath> {
-  //todo: Object.fromEntries is pretty bad
-  const privateKeys: Record<number, Uint8Array> = Object.fromEntries(
-    await Promise.all(
+
+  const asArray: [number, Uint8Array][] = await Promise.all(
       Object.entries(pathSecrets).map(async ([nodeIndex, pathSecret]) => {
         const nodeSecret = await deriveSecret(pathSecret, "node", cs.kdf)
         const { privateKey } = await cs.hpke.deriveKeyPair(nodeSecret)
 
-        return [Number(nodeIndex), await cs.hpke.exportPrivateKey(privateKey)]
+        return [Number(nodeIndex), await cs.hpke.exportPrivateKey(privateKey)] as const
       }),
-    ),
-  )
+    )
+
+  const privateKeys: Record<number, Uint8Array> = Object.fromEntries(asArray)
 
   return { leafIndex, privateKeys }
 }
