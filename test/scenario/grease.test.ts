@@ -25,7 +25,7 @@ async function greaseTest(cipherSuite: CiphersuiteName) {
   const aliceCredential: Credential = { credentialType: "basic", identity: new TextEncoder().encode("alice") }
   const greased = greaseExtensions(defaultGreaseConfig)
   const caps: Capabilities = {
-    ...defaultCapabilities,
+    ...defaultCapabilities(),
     extensions: greased.map((n) => extensionTypeToNumber(n.extensionType)),
   }
   const alice = await generateKeyPackage(aliceCredential, caps, defaultLifetime, greased, impl)
@@ -35,7 +35,7 @@ async function greaseTest(cipherSuite: CiphersuiteName) {
   let aliceGroup = await createGroup(groupId, alice.publicPackage, alice.privatePackage, [], impl)
 
   const bobCredential: Credential = { credentialType: "basic", identity: new TextEncoder().encode("bob") }
-  const bob = await generateKeyPackage(bobCredential, defaultCapabilities, defaultLifetime, [], impl)
+  const bob = await generateKeyPackage(bobCredential, defaultCapabilities(), defaultLifetime, [], impl)
 
   const addBobProposal: ProposalAdd = {
     proposalType: "add",

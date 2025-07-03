@@ -39,7 +39,7 @@ async function largeGroupFullLifecycle(cipherSuite: CiphersuiteName, initialSize
 
   const initialCreatorName = "member-0"
   const creatorCred = makeCredential(initialCreatorName)
-  const creatorKP = await generateKeyPackage(creatorCred, defaultCapabilities, defaultLifetime, [], impl)
+  const creatorKP = await generateKeyPackage(creatorCred, defaultCapabilities(), defaultLifetime, [], impl)
   const creatorGroup = await createGroup(groupId, creatorKP.publicPackage, creatorKP.privatePackage, [], impl)
 
   memberStates.push({
@@ -127,7 +127,7 @@ async function addMember(memberStates: MemberState[], index: number, impl: Ciphe
     credentialType: "basic" as const,
     identity: new TextEncoder().encode(newName),
   }
-  const newKP = await generateKeyPackage(newCred, defaultCapabilities, defaultLifetime, [], impl)
+  const newKP = await generateKeyPackage(newCred, defaultCapabilities(), defaultLifetime, [], impl)
 
   const adder = memberStates[adderIndex]!
 

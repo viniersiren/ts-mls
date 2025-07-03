@@ -89,7 +89,7 @@ const impl = await getCiphersuiteImpl(getCiphersuiteFromName("MLS_256_XWING_AES2
 
 // alice generates her key package
 const aliceCredential: Credential = { credentialType: "basic", identity: new TextEncoder().encode("alice") }
-const alice = await generateKeyPackage(aliceCredential, defaultCapabilities, defaultLifetime, [], impl)
+const alice = await generateKeyPackage(aliceCredential, defaultCapabilities(), defaultLifetime, [], impl)
 
 const groupId = new TextEncoder().encode("group1")
 
@@ -98,7 +98,7 @@ let aliceGroup = await createGroup(groupId, alice.publicPackage, alice.privatePa
 
 // bob generates her key package
 const bobCredential: Credential = { credentialType: "basic", identity: new TextEncoder().encode("bob") }
-const bob = await generateKeyPackage(bobCredential, defaultCapabilities, defaultLifetime, [], impl)
+const bob = await generateKeyPackage(bobCredential, defaultCapabilities(), defaultLifetime, [], impl)
 
 // bob sends keyPackage to alice
 const keyPackageMessage = encodeMlsMessage({

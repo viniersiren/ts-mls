@@ -22,14 +22,14 @@ async function reinit(cipherSuite: CiphersuiteName) {
   const impl = await getCiphersuiteImpl(getCiphersuiteFromName(cipherSuite))
 
   const aliceCredential: Credential = { credentialType: "basic", identity: new TextEncoder().encode("alice") }
-  const alice = await generateKeyPackage(aliceCredential, defaultCapabilities, defaultLifetime, [], impl)
+  const alice = await generateKeyPackage(aliceCredential, defaultCapabilities(), defaultLifetime, [], impl)
 
   const groupId = new TextEncoder().encode("group1")
 
   let aliceGroup = await createGroup(groupId, alice.publicPackage, alice.privatePackage, [], impl)
 
   const bobCredential: Credential = { credentialType: "basic", identity: new TextEncoder().encode("bob") }
-  const bob = await generateKeyPackage(bobCredential, defaultCapabilities, defaultLifetime, [], impl)
+  const bob = await generateKeyPackage(bobCredential, defaultCapabilities(), defaultLifetime, [], impl)
 
   const addBobProposal: ProposalAdd = {
     proposalType: "add",
@@ -72,11 +72,11 @@ async function reinit(cipherSuite: CiphersuiteName) {
 
   const newImpl = await getCiphersuiteImpl(getCiphersuiteFromName(newCiphersuite))
 
-  const bobNewKeyPackage = await generateKeyPackage(bobCredential, defaultCapabilities, defaultLifetime, [], newImpl)
+  const bobNewKeyPackage = await generateKeyPackage(bobCredential, defaultCapabilities(), defaultLifetime, [], newImpl)
 
   const aliceNewKeyPackage = await generateKeyPackage(
     aliceCredential,
-    defaultCapabilities,
+    defaultCapabilities(),
     defaultLifetime,
     [],
     newImpl,

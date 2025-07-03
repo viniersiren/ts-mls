@@ -42,12 +42,12 @@ import {
 // Setup ciphersuite and credentials
 const impl = await getCiphersuiteImpl(getCiphersuiteFromName("MLS_256_XWING_AES256GCM_SHA512_Ed25519"))
 const aliceCredential: Credential = { credentialType: "basic", identity: new TextEncoder().encode("alice") }
-const alice = await generateKeyPackage(aliceCredential, defaultCapabilities, defaultLifetime, [], impl)
+const alice = await generateKeyPackage(aliceCredential, defaultCapabilities(), defaultLifetime, [], impl)
 const groupId = new TextEncoder().encode("group1")
 let aliceGroup = await createGroup(groupId, alice.publicPackage, alice.privatePackage, [], impl)
 
 const bobCredential: Credential = { credentialType: "basic", identity: new TextEncoder().encode("bob") }
-const bob = await generateKeyPackage(bobCredential, defaultCapabilities, defaultLifetime, [], impl)
+const bob = await generateKeyPackage(bobCredential, defaultCapabilities(), defaultLifetime, [], impl)
 
 // Alice adds Bob
 const addBobProposal: Proposal = {

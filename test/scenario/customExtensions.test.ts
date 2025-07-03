@@ -73,7 +73,7 @@ async function customExtensionTest(cipherSuite: CiphersuiteName) {
 
   //Charlie doesn't support the custom extension
   const charlieCredential: Credential = { credentialType: "basic", identity: new TextEncoder().encode("charlie") }
-  const charlie = await generateKeyPackage(charlieCredential, defaultCapabilities, defaultLifetime, [], impl)
+  const charlie = await generateKeyPackage(charlieCredential, defaultCapabilities(), defaultLifetime, [], impl)
 
   const addCharlieProposal: ProposalAdd = {
     proposalType: "add",

@@ -43,14 +43,14 @@ import {
 
 const impl = await getCiphersuiteImpl(getCiphersuiteFromName("MLS_256_XWING_AES256GCM_SHA512_Ed25519"))
 const aliceCredential: Credential = { credentialType: "basic", identity: new TextEncoder().encode("alice") }
-const alice = await generateKeyPackage(aliceCredential, defaultCapabilities, defaultLifetime, [], impl)
+const alice = await generateKeyPackage(aliceCredential, defaultCapabilities(), defaultLifetime, [], impl)
 const groupId = new TextEncoder().encode("group1")
 
 // Alice creates the group (epoch 0)
 let aliceGroup = await createGroup(groupId, alice.publicPackage, alice.privatePackage, [], impl)
 
 const bobCredential: Credential = { credentialType: "basic", identity: new TextEncoder().encode("bob") }
-const bob = await generateKeyPackage(bobCredential, defaultCapabilities, defaultLifetime, [], impl)
+const bob = await generateKeyPackage(bobCredential, defaultCapabilities(), defaultLifetime, [], impl)
 
 // Alice adds Bob (epoch 1)
 const addBobProposal: Proposal = {
@@ -89,8 +89,14 @@ bobGroup = processReinitResult.newState
 
 // Alice and Bob generate new key packages for the new group
 const newImpl = await getCiphersuiteImpl(getCiphersuiteFromName(newCiphersuite))
-const bobNewKeyPackage = await generateKeyPackage(bobCredential, defaultCapabilities, defaultLifetime, [], newImpl)
-const aliceNewKeyPackage = await generateKeyPackage(aliceCredential, defaultCapabilities, defaultLifetime, [], newImpl)
+const bobNewKeyPackage = await generateKeyPackage(bobCredential, defaultCapabilities(), defaultLifetime, [], newImpl)
+const aliceNewKeyPackage = await generateKeyPackage(
+  aliceCredential,
+  defaultCapabilities(),
+  defaultLifetime,
+  [],
+  newImpl,
+)
 
 // Alice creates the new group using the new parameters
 const resumeGroupResult = await reinitCreateNewGroup(

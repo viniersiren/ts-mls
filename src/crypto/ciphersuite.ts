@@ -52,10 +52,6 @@ export const decodeCiphersuite: Decoder<CiphersuiteName> = mapDecoderOption(
   openEnumNumberToKey(ciphersuites),
 )
 
-export function getCiphersuite(name: CiphersuiteName): Ciphersuite {
-  return ciphersuiteValues[ciphersuites[name]]
-}
-
 export function getCiphersuiteNameFromId(id: CiphersuiteId): CiphersuiteName {
   return reverseMap(ciphersuites)[id] as CiphersuiteName
 }
