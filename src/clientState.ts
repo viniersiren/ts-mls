@@ -64,6 +64,7 @@ import { AuthenticationService } from "./authenticationService"
 import { LifetimeConfig } from "./lifetimeConfig"
 import { KeyPackageEqualityConfig } from "./keyPackageEqualityConfig"
 import { ClientConfig, defaultClientConfig } from "./clientConfig"
+import { decodeExternalSender } from "./externalSender"
 
 export type ClientState = {
   groupContext: GroupContext
@@ -135,13 +136,14 @@ function flattenExtensions(groupContextExtensions: { proposal: ProposalGroupCont
   }, [] as Extension[])
 }
 
-function validateProposals(
+async function validateProposals(
   p: Proposals,
   committerLeafIndex: number | undefined,
   groupContext: GroupContext,
   config: KeyPackageEqualityConfig,
+  authService: AuthenticationService,
   tree: RatchetTree,
-): MlsError | undefined {
+): Promise<MlsError | undefined> {
   const containsUpdateByCommitter = p.update.some(
     (o) => o.senderLeafIndex !== undefined && o.senderLeafIndex === committerLeafIndex,
   )
@@ -220,9 +222,9 @@ function validateProposals(
   if (multipleGroupContextExtensions)
     return new ValidationError("Commit cannot contain multiple GroupContextExtensions proposals")
 
-  const requiredCapabilities = p.group_context_extensions
-    .flatMap((p) => p.proposal.groupContextExtensions.extensions)
-    .find((e) => e.extensionType === "required_capabilities")
+  const allExtensions = flattenExtensions(p.group_context_extensions)
+
+  const requiredCapabilities = allExtensions.find((e) => e.extensionType === "required_capabilities")
 
   if (requiredCapabilities !== undefined) {
     const caps = decodeRequiredCapabilities(requiredCapabilities.extensionData, 0)
@@ -240,6 +242,22 @@ function validateProposals(
 
     if (!allAdditionsSupportCapabilities)
       return new ValidationError("Commit contains add proposals of member without required capabilities")
+  }
+
+  return await validateExternalSenders(allExtensions, authService)
+}
+
+async function validateExternalSenders(
+  extensions: Extension[],
+  authService: AuthenticationService,
+): Promise<MlsError | undefined> {
+  const externalSenders = extensions.filter((e) => e.extensionType === "external_senders")
+  for (const externalSender of externalSenders) {
+    const decoded = decodeExternalSender(externalSender.extensionData, 0)
+    if (decoded === undefined) return new CodecError("Could not decode external_senders")
+
+    const validCredential = await authService.validateCredential(decoded[0].credential, decoded[0].signaturePublicKey)
+    if (!validCredential) return new ValidationError("Could not validate external credential")
   }
 }
 
@@ -564,11 +582,12 @@ export async function applyProposals(
     }
 
     throwIfDefined(
-      validateProposals(
+      await validateProposals(
         grouped,
         committerLeafIndex,
         state.groupContext,
         state.clientConfig.keyPackageEqualityConfig,
+        state.clientConfig.authService,
         state.ratchetTree,
       ),
     )
@@ -853,6 +872,8 @@ export async function createGroup(
     extensions,
     confirmedTranscriptHash,
   }
+
+  throwIfDefined(await validateExternalSenders(extensions, clientConfig.authService))
 
   const epochSecret = cs.rng.randomBytes(cs.kdf.size)
 

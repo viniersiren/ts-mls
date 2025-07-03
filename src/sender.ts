@@ -21,9 +21,11 @@ export const encodeSenderType: Encoder<SenderTypeName> = contramapEncoder(encode
 
 export const decodeSenderType: Decoder<SenderTypeName> = mapDecoderOption(decodeUint8, enumNumberToKey(senderTypes))
 
-export type Sender = SenderMember | SenderExternal | SenderNewMemberProposal | SenderNewMemberCommit
+export type Sender = SenderMember | SenderNonMember
 
 export type SenderMember = { senderType: "member"; leafIndex: number }
+
+export type SenderNonMember = SenderExternal | SenderNewMemberProposal | SenderNewMemberCommit
 
 export type SenderExternal = { senderType: "external"; senderIndex: number }
 export type SenderNewMemberProposal = { senderType: "new_member_proposal" }

@@ -395,6 +395,7 @@ export async function applyUpdatePathSecret(
 
   throw new InternalError("No overlap between provided private keys and update path")
 }
+
 export async function joinGroupExternal(
   groupInfo: GroupInfo,
   keyPackage: KeyPackage,

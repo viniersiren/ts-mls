@@ -15,8 +15,9 @@ import {
 import { GroupContext } from "./groupContext"
 import { CryptoVerificationError, UsageError } from "./mlsError"
 import { Proposal } from "./proposal"
-import { findSignaturePublicKey, PublicMessage } from "./publicMessage"
+import { ExternalPublicMessage, findSignaturePublicKey, PublicMessage } from "./publicMessage"
 import { RatchetTree } from "./ratchetTree"
+import { SenderNonMember } from "./sender"
 
 export type ProtectProposalPublicResult = { publicMessage: PublicMessage }
 
@@ -55,6 +56,42 @@ export async function protectProposalPublic(
   }
 
   const msg = await protectPublicMessage(membershipKey, groupContext, authenticatedContent, cs)
+
+  return { publicMessage: msg }
+}
+
+export async function protectExternalProposalPublic(
+  signKey: Uint8Array,
+  groupContext: GroupContext,
+  authenticatedData: Uint8Array,
+  proposal: Proposal,
+  sender: SenderNonMember,
+  cs: CiphersuiteImpl,
+): Promise<ProtectProposalPublicResult> {
+  const framedContent: FramedContent = {
+    groupId: groupContext.groupId,
+    epoch: groupContext.epoch,
+    sender,
+    contentType: "proposal",
+    authenticatedData,
+    proposal,
+  }
+
+  const tbs = {
+    protocolVersion: groupContext.version,
+    wireformat: "mls_public_message",
+    content: framedContent,
+    senderType: sender.senderType,
+    context: groupContext,
+  } as const
+
+  const auth = await signFramedContentApplicationOrProposal(signKey, tbs, cs)
+
+  const msg: ExternalPublicMessage = {
+    content: framedContent,
+    auth,
+    senderType: sender.senderType,
+  }
 
   return { publicMessage: msg }
 }
