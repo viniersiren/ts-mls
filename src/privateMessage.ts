@@ -15,7 +15,6 @@ import {
   FramedContentCommitData,
   FramedContentProposalData,
 } from "./framedContent"
-import { GroupContext } from "./groupContext"
 import { CryptoError } from "./mlsError"
 import { byteLengthToPad, PaddingConfig } from "./paddingConfig"
 import { decodeProposal, encodeProposal } from "./proposal"
@@ -219,25 +218,6 @@ export function toAuthenticatedContent(
       ...content,
     },
     auth: content.auth,
-  }
-}
-
-export function privateMessageContentToAuthenticatedContent(
-  c: PrivateMessageContent,
-  groupContext: GroupContext,
-  leafIndex: number,
-  authenticatedData: Uint8Array,
-): AuthenticatedContent {
-  return {
-    wireformat: "mls_private_message",
-    content: {
-      ...c,
-      groupId: groupContext.groupId,
-      epoch: groupContext.epoch,
-      sender: { senderType: "member", leafIndex },
-      authenticatedData,
-    },
-    auth: c.auth,
   }
 }
 
