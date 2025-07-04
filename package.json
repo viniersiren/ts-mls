@@ -1,19 +1,23 @@
 {
   "name": "ts-mls",
-  "version": "0.2.0",
+  "version": "1.0.1",
   "description": "",
   "homepage": "https://github.com/LukaJCB/ts-mls#readme",
   "bugs": {
     "url": "https://github.com/LukaJCB/ts-mls/issues"
   },
-  "main": "dist/index.js",
-  "types": "dist/index.d.ts",
+  "main": "dist/src/index.js",
+  "types": "dist/src/index.d.ts",
   "exports": {
     ".": {
-      "import": "./dist/index.js",
-      "require": "./dist/index.js"
+      "import": "./dist/src/index.js",
+      "require": "./dist/src/index.js",
+      "types": "./dist/src/index.d.ts"
     }
   },
+  "files": [
+    "dist"
+  ],
   "dependencies": {
     "@hpke/core": "^1.7.2",
     "patch-package": "^8.0.0"
