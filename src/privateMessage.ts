@@ -15,10 +15,8 @@ import {
   FramedContentCommitData,
   FramedContentProposalData,
 } from "./framedContent"
-import { CryptoError } from "./mlsError"
 import { byteLengthToPad, PaddingConfig } from "./paddingConfig"
 import { decodeProposal, encodeProposal } from "./proposal"
-import { deriveNonce, GenerationSecret } from "./secretTree"
 import {
   decodeSenderData,
   encodeSenderData,
@@ -182,22 +180,6 @@ export async function encryptSenderData(
   const nonce = await expandSenderDataNonce(cs, senderDataSecret, ciphertext)
 
   return await cs.hpke.encryptAead(key, nonce, encodeSenderDataAAD(aad), encodeSenderData(senderData))
-}
-
-export async function derivePrivateMessageNonce(
-  secret: GenerationSecret,
-  reuseGuard: Uint8Array,
-  cs: CiphersuiteImpl,
-): Promise<Uint8Array> {
-  const nonce = await deriveNonce(secret.secret, secret.generation, cs)
-
-  if (nonce.length >= 4 && reuseGuard.length >= 4) {
-    for (let i = 0; i < 4; i++) {
-      nonce[i]! ^= reuseGuard[i]!
-    }
-  } else throw new CryptoError("Reuse guard or nonce incorrect length")
-
-  return nonce
 }
 
 export function toAuthenticatedContent(
