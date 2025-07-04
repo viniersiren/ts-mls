@@ -11,6 +11,7 @@ import { checkHpkeKeysMatch } from "../crypto/keyMatch"
 import { testEveryoneCanMessageEveryone } from "./common"
 import { defaultLifetime } from "../../src/lifetime"
 import { defaultCapabilities } from "../../src/defaultCapabilities"
+import { UsageError } from "../../src/mlsError"
 
 for (const cs of Object.keys(ciphersuites)) {
   test(`Reinit ${cs}`, async () => {
@@ -69,6 +70,12 @@ async function reinit(cipherSuite: CiphersuiteName) {
   )
 
   bobGroup = processReinitResult.newState
+
+  expect(bobGroup.groupActiveState.kind).toBe("suspendedPendingReinit")
+  expect(aliceGroup.groupActiveState.kind).toBe("suspendedPendingReinit")
+
+  //creating a message will fail now
+  await expect(createCommit(aliceGroup, emptyPskIndex, false, [], impl)).rejects.toThrow(UsageError)
 
   const newImpl = await getCiphersuiteImpl(getCiphersuiteFromName(newCiphersuite))
 

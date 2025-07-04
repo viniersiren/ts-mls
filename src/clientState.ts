@@ -415,7 +415,7 @@ async function validateLeafNodeCommon(
 
   const extensionsSupported = extensionsSupportedByCapabilities(leafNode.extensions, leafNode.capabilities)
 
-  if (!extensionsSupported) return new ValidationError("LeafNode contains extension not listen in capabilities")
+  if (!extensionsSupported) return new ValidationError("LeafNode contains extension not listed in capabilities")
 
   const keysAreNotUnique = tree.some(
     (node, nodeIndex) =>

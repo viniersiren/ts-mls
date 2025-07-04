@@ -8,7 +8,8 @@ import { Proposal, ProposalAdd } from "../../src/proposal"
 import { testEveryoneCanMessageEveryone } from "./common"
 import { defaultLifetime } from "../../src/lifetime"
 import { Capabilities } from "../../src/capabilities"
-import { createProposal, processPrivateMessage } from "../../src"
+import { createApplicationMessage, createProposal, processPrivateMessage } from "../../src"
+import { UsageError } from "../../src/mlsError"
 
 for (const cs of Object.keys(ciphersuites)) {
   test(`Custom Proposals ${cs}`, async () => {
@@ -85,6 +86,9 @@ async function customProposalTest(cipherSuite: CiphersuiteName) {
   )
 
   aliceGroup = processProposalResult.newState
+
+  //creating an application message will fail now
+  expect(createApplicationMessage(aliceGroup, new Uint8Array([1, 2, 3]), impl)).rejects.toThrow(UsageError)
 
   const createCommitResult = await createCommit(aliceGroup, emptyPskIndex, false, [], impl)
 

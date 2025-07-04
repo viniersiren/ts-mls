@@ -1,12 +1,14 @@
 import { Decoder, flatMapDecoder, mapDecoder } from "./codec/tlsDecoder"
 import { contramapEncoders, Encoder } from "./codec/tlsEncoder"
 import { decodeVarLenData, decodeVarLenType, encodeVarLenData, encodeVarLenType } from "./codec/variableLength"
-import { decodeCredentialType, encodeCredentialType } from "./credentialType"
+import { CredentialTypeName, decodeCredentialType, encodeCredentialType } from "./credentialType"
 
 export type Credential = CredentialBasic | CredentialX509
 
-type CredentialBasic = { credentialType: "basic"; identity: Uint8Array }
-type CredentialX509 = { credentialType: "x509"; certificates: Uint8Array[] }
+export type CredentialBasic = { credentialType: "basic"; identity: Uint8Array }
+export type CredentialX509 = { credentialType: "x509"; certificates: Uint8Array[] }
+
+export type CredentialCustom = { credentialType: CredentialTypeName; data: Uint8Array }
 
 export const encodeCredentialBasic: Encoder<CredentialBasic> = contramapEncoders(
   [encodeCredentialType, encodeVarLenData],
@@ -18,12 +20,19 @@ export const encodeCredentialX509: Encoder<CredentialX509> = contramapEncoders(
   (c) => [c.credentialType, c.certificates] as const,
 )
 
+export const encodeCredentialCustom: Encoder<CredentialCustom> = contramapEncoders(
+  [encodeCredentialType, encodeVarLenData],
+  (c) => [c.credentialType, c.data] as const,
+)
+
 export const encodeCredential: Encoder<Credential> = (c) => {
   switch (c.credentialType) {
     case "basic":
       return encodeCredentialBasic(c)
     case "x509":
       return encodeCredentialX509(c)
+    default:
+      return encodeCredentialCustom(c as CredentialCustom)
   }
 }
 

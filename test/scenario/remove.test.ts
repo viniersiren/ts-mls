@@ -10,6 +10,7 @@ import { checkHpkeKeysMatch } from "../crypto/keyMatch"
 import { cannotMessageAnymore, testEveryoneCanMessageEveryone } from "./common"
 import { defaultLifetime } from "../../src/lifetime"
 import { defaultCapabilities } from "../../src/defaultCapabilities"
+import { UsageError } from "../../src/mlsError"
 
 for (const cs of Object.keys(ciphersuites)) {
   test(`Remove ${cs}`, async () => {
@@ -112,6 +113,9 @@ async function remove(cipherSuite: CiphersuiteName) {
   charlieGroup = charlieProcessCommitResult.newState
 
   expect(bobGroup.groupActiveState).toStrictEqual({ kind: "removedFromGroup" })
+
+  //creating a message will fail now
+  expect(createCommit(bobGroup, emptyPskIndex, false, [], impl)).rejects.toThrow(UsageError)
 
   await cannotMessageAnymore(bobGroup, impl)
 
