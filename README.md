@@ -1,6 +1,6 @@
 # ts-mls: A TypeScript MLS (Messaging Layer Security - RFC 9420) implementation
 
-[![CI](https://github.com/LukaJCB/ts-mls/actions/workflows/ci.yml/badge.svg)](https://github.com/LukaJCB/ts-mls/actions/workflows/ci.yml) [![npm version](https://badge.fury.io/js/ts-mls.svg)](https://badge.fury.io/js/ts-mls)
+[![CI](https://github.com/LukaJCB/ts-mls/actions/workflows/ci.yml/badge.svg)](https://github.com/LukaJCB/ts-mls/actions/workflows/ci.yml) [![npm version](https://badge.fury.io/js/ts-mls.svg)](https://badge.fury.io/js/ts-mls) [![Coverage Status](https://coveralls.io/repos/github/LukaJCB/ts-mls/badge.svg?branch=main)](https://coveralls.io/github/LukaJCB/ts-mls?branch=main)
 
 Typescript implementation of Messaging Layer Security (RFC 9420, MLS).
 
