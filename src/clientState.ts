@@ -65,6 +65,7 @@ import { LifetimeConfig } from "./lifetimeConfig"
 import { KeyPackageEqualityConfig } from "./keyPackageEqualityConfig"
 import { ClientConfig, defaultClientConfig } from "./clientConfig"
 import { decodeExternalSender } from "./externalSender"
+import { arraysEqual } from "./util/array"
 
 export type ClientState = {
   groupContext: GroupContext
@@ -283,7 +284,9 @@ export async function validateRatchetTree(
 
   if (!treeIsStructurallySound) return new ValidationError("Received Ratchet Tree is not structurally sound")
 
-  if (!verifyParentHashes(tree, cs.hash)) return new CryptoVerificationError("Unable to verify parent hash")
+  const parentHashesVerified = await verifyParentHashes(tree, cs.hash)
+
+  if (!parentHashesVerified) return new CryptoVerificationError("Unable to verify parent hash")
 
   if (!constantTimeEqual(treeHash, await treeHashRoot(tree, cs.hash)))
     return new ValidationError("Unable to verify tree hash")
@@ -300,10 +303,13 @@ export async function validateRatchetTree(
 
         for (const parentIdx of dp) {
           const dpNode = tree[parentIdx]
-          if (dpNode?.nodeType !== "parent") return new InternalError("Expected parent node")
 
-          if (dpNode.parent.unmergedLeaves !== n.parent.unmergedLeaves)
-            return new ValidationError("non-blank intermediate node must list leaf node in its unmerged_leaves")
+          if (dpNode !== undefined) {
+            if (dpNode.nodeType !== "parent") return new InternalError("Expected parent node")
+
+            if (!arraysEqual(dpNode.parent.unmergedLeaves, n.parent.unmergedLeaves))
+              return new ValidationError("non-blank intermediate node must list leaf node in its unmerged_leaves")
+          }
         }
       }
     }

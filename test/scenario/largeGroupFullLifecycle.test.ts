@@ -20,7 +20,7 @@ import { randomInt } from "crypto"
 
 for (const cs of Object.keys(ciphersuites)) {
   test(`Large Group, Full Lifecycle ${cs}`, async () => {
-    await largeGroupFullLifecycle(cs as CiphersuiteName, 4, 8)
+    await largeGroupFullLifecycle(cs as CiphersuiteName, 5, 8)
   }, 60000)
 }
 
@@ -52,6 +52,10 @@ async function largeGroupFullLifecycle(cipherSuite: CiphersuiteName, initialSize
   // Add first M members
   for (let i = 1; i < initialSize; i++) {
     await addMember(memberStates, i, impl)
+  }
+
+  for (const index of shuffledIndices(memberStates)) {
+    await update(memberStates, index, impl)
   }
 
   // Until group size is N
@@ -100,7 +104,7 @@ async function largeGroupFullLifecycle(cipherSuite: CiphersuiteName, initialSize
 
     // Apply the commit to all members (except removed and remover)
     for (let i = 0; i < memberStates.length; i++) {
-      if (i === removedIndex || i === removerIndex) continue
+      if (i === removerIndex) continue
       const m = memberStates[i]!
       const result = await processPrivateMessage(
         m.state,

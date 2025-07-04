@@ -51,31 +51,47 @@ async function externalPsk(cipherSuite: CiphersuiteName) {
     aliceGroup.ratchetTree,
   )
 
-  const pskSecret = impl.rng.randomBytes(impl.kdf.size)
-  const pskNonce = impl.rng.randomBytes(impl.kdf.size)
+  const pskSecret1 = impl.rng.randomBytes(impl.kdf.size)
+  const pskSecret2 = impl.rng.randomBytes(impl.kdf.size)
+  const pskNonce1 = impl.rng.randomBytes(impl.kdf.size)
+  const pskNonce2 = impl.rng.randomBytes(impl.kdf.size)
 
-  const pskId = new TextEncoder().encode("psk-1")
+  const pskId1 = new TextEncoder().encode("psk-1")
+  const pskId2 = new TextEncoder().encode("psk-1")
 
-  const pskProposal: Proposal = {
+  const pskProposal1: Proposal = {
     proposalType: "psk",
     psk: {
       preSharedKeyId: {
         psktype: "external",
-        pskId,
-        pskNonce,
+        pskId: pskId1,
+        pskNonce: pskNonce1,
       },
     },
   }
 
-  const base64PskId = bytesToBase64(pskId)
+  const pskProposal2: Proposal = {
+    proposalType: "psk",
+    psk: {
+      preSharedKeyId: {
+        psktype: "external",
+        pskId: pskId2,
+        pskNonce: pskNonce2,
+      },
+    },
+  }
 
-  const sharedPsks = { [base64PskId]: pskSecret }
+  const base64PskId1 = bytesToBase64(pskId1)
+
+  const base64PskId2 = bytesToBase64(pskId2)
+
+  const sharedPsks = { [base64PskId1]: pskSecret1, [base64PskId2]: pskSecret2 }
 
   const pskCommitResult = await createCommit(
     aliceGroup,
     makePskIndex(aliceGroup, sharedPsks),
     false,
-    [pskProposal],
+    [pskProposal1, pskProposal2],
     impl,
   )
 

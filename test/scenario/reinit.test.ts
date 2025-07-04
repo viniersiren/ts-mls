@@ -8,7 +8,7 @@ import { CiphersuiteName, ciphersuites, getCiphersuiteFromName, getCiphersuiteIm
 import { generateKeyPackage } from "../../src/keyPackage"
 import { ProposalAdd } from "../../src/proposal"
 import { checkHpkeKeysMatch } from "../crypto/keyMatch"
-import { testEveryoneCanMessageEveryone } from "./common"
+import { getRandomElement, testEveryoneCanMessageEveryone } from "./common"
 import { defaultLifetime } from "../../src/lifetime"
 import { defaultCapabilities } from "../../src/defaultCapabilities"
 import { UsageError } from "../../src/mlsError"
@@ -112,9 +112,4 @@ async function reinit(cipherSuite: CiphersuiteName) {
   await testEveryoneCanMessageEveryone([aliceGroup, bobGroup], newImpl)
   await checkHpkeKeysMatch(aliceGroup, newImpl)
   await checkHpkeKeysMatch(bobGroup, newImpl)
-}
-
-function getRandomElement<T>(arr: T[]): T {
-  const index = Math.floor(Math.random() * arr.length)
-  return arr[index]!
 }

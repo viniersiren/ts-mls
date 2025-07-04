@@ -54,3 +54,7 @@ export function shuffledIndices<T>(arr: T[]): number[] {
 
   return indices
 }
+export function getRandomElement<T>(arr: T[]): T {
+  const index = Math.floor(Math.random() * arr.length)
+  return arr[index]!
+}

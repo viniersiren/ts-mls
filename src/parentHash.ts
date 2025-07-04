@@ -113,15 +113,20 @@ export async function calculateParentHash(
   nodeIndex: number,
   h: Hash,
 ): Promise<[Uint8Array, number | undefined]> {
-  if (nodeIndex === root(leafWidth(tree.length))) {
+  const rootIndex = root(leafWidth(tree.length))
+  if (nodeIndex === rootIndex) {
     return [new Uint8Array(), undefined]
   }
 
   const parentNodeIndex = findFirstNonBlankAncestor(tree, nodeIndex)
 
-  const siblingIndex = nodeIndex < parentNodeIndex ? right(parentNodeIndex) : left(parentNodeIndex)
-
   const parentNode = tree[parentNodeIndex]
+
+  if (parentNodeIndex === rootIndex && parentNode === undefined) {
+    return [new Uint8Array(), parentNodeIndex]
+  }
+
+  const siblingIndex = nodeIndex < parentNodeIndex ? right(parentNodeIndex) : left(parentNodeIndex)
 
   if (parentNode === undefined || parentNode.nodeType === "leaf")
     throw new InternalError("Expected non-blank parent Node")

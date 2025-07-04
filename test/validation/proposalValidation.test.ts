@@ -16,7 +16,7 @@ import { createCustomCredential } from "../../src/customCredential"
 import { Extension } from "../../src/extension"
 import { LeafNode } from "../../src/leafNode"
 
-for (const cs of Object.keys(ciphersuites).slice(0, 1)) {
+for (const cs of Object.keys(ciphersuites)) {
   test(`Proposal Validation ${cs}`, async () => {
     await remove(cs as CiphersuiteName)
   })
