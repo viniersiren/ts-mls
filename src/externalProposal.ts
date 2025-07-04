@@ -14,6 +14,7 @@ export async function proposeAddExternal(
   keyPackage: KeyPackage,
   privateKeyPackage: PrivateKeyPackage,
   cs: CiphersuiteImpl,
+  authenticatedData: Uint8Array = new Uint8Array(),
 ): Promise<MLSMessage> {
   const allExtensionsSupported = extensionsSupportedByCapabilities(
     groupInfo.groupContext.extensions,
@@ -27,8 +28,6 @@ export async function proposeAddExternal(
       keyPackage,
     },
   }
-
-  const authenticatedData = new Uint8Array()
 
   const result = await protectExternalProposalPublic(
     privateKeyPackage.signaturePrivateKey,
@@ -53,7 +52,7 @@ export async function proposeExternal(
   signaturePrivateKey: Uint8Array,
   cs: CiphersuiteImpl,
 ): Promise<MLSMessage> {
-  const authenticatedData = new Uint8Array()
+  const authenticatedData: Uint8Array = new Uint8Array()
 
   const externalSenderExtensionIndex = groupInfo.extensions.findIndex((ex: Extension): boolean => {
     if (ex.extensionType !== "external_senders") return false

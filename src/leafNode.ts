@@ -1,14 +1,6 @@
 import { Capabilities, decodeCapabilities, encodeCapabilities } from "./capabilities"
 import { encodeUint32, decodeUint32 } from "./codec/number"
-import {
-  Decoder,
-  mapDecoders,
-  mapDecoder,
-  flatMapDecoder,
-  succeedDecoder,
-  decodeVoid,
-  mapDecoderOption,
-} from "./codec/tlsDecoder"
+import { Decoder, mapDecoders, mapDecoder, flatMapDecoder, succeedDecoder, mapDecoderOption } from "./codec/tlsDecoder"
 import { Encoder, contramapEncoders, contramapEncoder } from "./codec/tlsEncoder"
 import { encodeVarLenData, decodeVarLenData, encodeVarLenType, decodeVarLenType } from "./codec/variableLength"
 import { encodeCredential, decodeCredential, Credential } from "./credential"
@@ -132,17 +124,6 @@ export const encodeLeafNodeGroupInfo: Encoder<LeafNodeGroupInfo> = (info) => {
     case "update":
     case "commit":
       return encodeGroupIdLeafIndex(info)
-  }
-}
-
-export function decodeLeafNodeGroupInfo(leafNodeSource: LeafNodeSourceName): Decoder<LeafNodeGroupInfo> {
-  switch (leafNodeSource) {
-    case "key_package":
-      return mapDecoder(decodeVoid, () => ({ leafNodeSource }))
-    case "update":
-      return decodeGroupIdLeafIndex(leafNodeSource)
-    case "commit":
-      return decodeGroupIdLeafIndex(leafNodeSource)
   }
 }
 

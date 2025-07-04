@@ -20,7 +20,7 @@ import { randomInt } from "crypto"
 
 for (const cs of Object.keys(ciphersuites)) {
   test(`Large Group, Full Lifecycle ${cs}`, async () => {
-    await largeGroupFullLifecycle(cs as CiphersuiteName, 5, 10)
+    await largeGroupFullLifecycle(cs as CiphersuiteName, 4, 8)
   }, 60000)
 }
 

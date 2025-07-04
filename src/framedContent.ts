@@ -1,5 +1,5 @@
 import { decodeUint64, encodeUint64 } from "./codec/number"
-import { Decoder, flatMapDecoder, mapDecoder, mapDecoders, succeedDecoder } from "./codec/tlsDecoder"
+import { Decoder, flatMapDecoder, mapDecoder, mapDecoders } from "./codec/tlsDecoder"
 import { contramapEncoder, contramapEncoders, Encoder } from "./codec/tlsEncoder"
 import { decodeVarLenData, encodeVarLenData } from "./codec/variableLength"
 import { Commit, decodeCommit, encodeCommit } from "./commit"
@@ -7,13 +7,12 @@ import { ContentTypeName, decodeContentType, encodeContentType } from "./content
 import { CiphersuiteImpl } from "./crypto/ciphersuite"
 import { Hash } from "./crypto/hash"
 import { Signature, signWithLabel, verifyWithLabel } from "./crypto/signature"
-import { decodeGroupContext, encodeGroupContext, GroupContext } from "./groupContext"
-import { decodeWireformat, encodeWireformat, WireformatName } from "./wireformat"
+import { encodeGroupContext, GroupContext } from "./groupContext"
+import { encodeWireformat, WireformatName } from "./wireformat"
 import { decodeProposal, encodeProposal, Proposal } from "./proposal"
-import { decodeProtocolVersion, encodeProtocolVersion, ProtocolVersionName } from "./protocolVersion"
+import { encodeProtocolVersion, ProtocolVersionName } from "./protocolVersion"
 import {
   decodeSender,
-  decodeSenderType,
   encodeSender,
   Sender,
   SenderExternal,
@@ -138,22 +137,6 @@ export const encodeSenderInfo: Encoder<SenderInfo> = (info) => {
   }
 }
 
-export const decodeSenderInfo: Decoder<SenderInfo> = flatMapDecoder(
-  decodeSenderType,
-  (senderType): Decoder<SenderInfo> => {
-    switch (senderType) {
-      case "member":
-        return mapDecoder(decodeGroupContext, (context): SenderInfo => ({ senderType, context }))
-      case "new_member_commit":
-        return mapDecoder(decodeGroupContext, (context): SenderInfo => ({ senderType, context }))
-      case "external":
-        return succeedDecoder({ senderType })
-      case "new_member_proposal":
-        return succeedDecoder({ senderType })
-    }
-  },
-)
-
 export type FramedContentTBS = {
   protocolVersion: ProtocolVersionName
   wireformat: WireformatName
@@ -168,11 +151,6 @@ export type FramedContentTBSExternal = FramedContentTBS &
 export const encodeFramedContentTBS: Encoder<FramedContentTBS> = contramapEncoders(
   [encodeProtocolVersion, encodeWireformat, encodeFramedContent, encodeSenderInfo],
   (f) => [f.protocolVersion, f.wireformat, f.content, f] as const,
-)
-
-export const decodeFramedContentTBS: Decoder<FramedContentTBS> = mapDecoders(
-  [decodeProtocolVersion, decodeWireformat, decodeFramedContent, decodeSenderInfo],
-  (protocolVersion, wireformat, content, senderContext) => ({ protocolVersion, wireformat, content, ...senderContext }),
 )
 
 export type FramedContentAuthData = FramedContentAuthDataCommit | FramedContentAuthDataApplicationOrProposal
@@ -230,20 +208,6 @@ export function decodeFramedContentAuthData(contentType: ContentTypeName): Decod
   }
 }
 
-export async function signFramedContent(
-  signKey: Uint8Array,
-  confirmationKey: Uint8Array,
-  confirmedTranscriptHash: Uint8Array,
-  tbs: FramedContentTBS,
-  cs: CiphersuiteImpl,
-): Promise<FramedContentAuthData> {
-  if (tbs.content.contentType == "commit") {
-    return signFramedContentCommit(signKey, confirmationKey, confirmedTranscriptHash, tbs as FramedContentTBSCommit, cs)
-  } else {
-    return signFramedContentApplicationOrProposal(signKey, tbs as FramedContentTBSApplicationOrProposal, cs)
-  }
-}
-
 export async function verifyFramedContentSignature(
   signKey: Uint8Array,
   wireformat: WireformatName,
@@ -259,22 +223,6 @@ export async function verifyFramedContentSignature(
     auth.signature,
     s,
   )
-}
-
-export async function signFramedContentCommit(
-  signKey: Uint8Array,
-  confirmationKey: Uint8Array,
-  confirmedTranscriptHash: Uint8Array,
-  tbs: FramedContentTBSCommit,
-  cs: CiphersuiteImpl,
-): Promise<FramedContentAuthDataCommit> {
-  const signature = await signFramedContentTBS(signKey, tbs, cs.signature)
-
-  return {
-    contentType: tbs.content.contentType,
-    signature,
-    confirmationTag: await createConfirmationTag(confirmationKey, confirmedTranscriptHash, cs.hash),
-  }
 }
 
 export function signFramedContentTBS(signKey: Uint8Array, tbs: FramedContentTBS, s: Signature): Promise<Uint8Array> {

@@ -7,10 +7,8 @@ import { decodeCommit, encodeCommit } from "./commit"
 import { ContentTypeName, decodeContentType, encodeContentType } from "./contentType"
 import { CiphersuiteImpl } from "./crypto/ciphersuite"
 import {
-  decodeFramedContent,
   decodeFramedContentAuthDataCommit,
   encodeFramedContentAuthData,
-  FramedContent,
   FramedContentApplicationData,
   FramedContentAuthDataApplicationOrProposal,
   FramedContentAuthDataCommit,
@@ -21,7 +19,7 @@ import { GroupContext } from "./groupContext"
 import { CryptoError } from "./mlsError"
 import { byteLengthToPad, PaddingConfig } from "./paddingConfig"
 import { decodeProposal, encodeProposal } from "./proposal"
-import { deriveKey, deriveNonce, GenerationSecret } from "./secretTree"
+import { deriveNonce, GenerationSecret } from "./secretTree"
 import {
   decodeSenderData,
   encodeSenderData,
@@ -185,27 +183,6 @@ export async function encryptSenderData(
   const nonce = await expandSenderDataNonce(cs, senderDataSecret, ciphertext)
 
   return await cs.hpke.encryptAead(key, nonce, encodeSenderDataAAD(aad), encodeSenderData(senderData))
-}
-
-export async function decryptContent(
-  msg: PrivateMessage,
-  secret: GenerationSecret,
-  reuseGuard: Uint8Array,
-  cs: CiphersuiteImpl,
-): Promise<FramedContent | undefined> {
-  const key = await deriveKey(secret.secret, secret.generation, cs)
-  const nonce = await derivePrivateMessageNonce(secret, reuseGuard, cs)
-
-  const aad: PrivateContentAAD = {
-    groupId: msg.groupId,
-    epoch: msg.epoch,
-    contentType: msg.contentType,
-    authenticatedData: msg.authenticatedData,
-  }
-
-  const decrypted = await cs.hpke.decryptAead(key, nonce, encodePrivateContentAAD(aad), msg.ciphertext)
-
-  return decodeFramedContent(decrypted, 0)?.[0]
 }
 
 export async function derivePrivateMessageNonce(

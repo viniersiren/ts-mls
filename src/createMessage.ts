@@ -11,9 +11,8 @@ export async function createProposal(
   publicMessage: boolean,
   proposal: Proposal,
   cs: CiphersuiteImpl,
+  authenticatedData: Uint8Array = new Uint8Array(),
 ): Promise<{ newState: ClientState; message: MLSMessage }> {
-  const authenticatedData = new Uint8Array()
-
   if (publicMessage) {
     const result = await protectProposalPublic(
       state.signaturePrivateKey,
@@ -65,14 +64,19 @@ export async function createProposal(
   }
 }
 
-export async function createApplicationMessage(state: ClientState, message: Uint8Array, cs: CiphersuiteImpl) {
+export async function createApplicationMessage(
+  state: ClientState,
+  message: Uint8Array,
+  cs: CiphersuiteImpl,
+  authenticatedData: Uint8Array = new Uint8Array(),
+) {
   checkCanSendApplicationMessages(state)
 
   const result = await protectApplicationData(
     state.signaturePrivateKey,
     state.keySchedule.senderDataSecret,
     message,
-    new Uint8Array(),
+    authenticatedData,
     state.groupContext,
     state.secretTree,
     state.privatePath.leafIndex,

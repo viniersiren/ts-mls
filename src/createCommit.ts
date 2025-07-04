@@ -9,7 +9,6 @@ import {
   checkCanSendHandshakeMessages,
   GroupActiveState,
 } from "./clientState"
-import { encodeCredential } from "./credential"
 import { CiphersuiteImpl } from "./crypto/ciphersuite"
 import { decryptWithLabel } from "./crypto/hpke"
 import { deriveSecret } from "./crypto/kdf"
@@ -44,7 +43,6 @@ import { treeHashRoot } from "./treeHash"
 import { leafWidth, nodeToLeafIndex } from "./treemath"
 import { createUpdatePath, PathSecret, firstCommonAncestor, UpdatePath, firstMatchAncestor } from "./updatePath"
 import { base64ToBytes } from "./util/byteArray"
-import { constantTimeEqual } from "./util/constantTimeCompare"
 import { Welcome, encryptGroupInfo, EncryptedGroupSecrets, encryptGroupSecrets } from "./welcome"
 import { CryptoVerificationError, InternalError, UsageError, ValidationError } from "./mlsError"
 import { ClientConfig, defaultClientConfig } from "./clientConfig"
@@ -59,6 +57,7 @@ export async function createCommit(
   extraProposals: Proposal[],
   cs: CiphersuiteImpl,
   ratchetTreeExtension: boolean = false,
+  authenticatedData: Uint8Array = new Uint8Array(),
 ): Promise<CreateCommitResult> {
   checkCanSendHandshakeMessages(state)
 
@@ -96,8 +95,6 @@ export async function createCommit(
     lastPathSecret === undefined
       ? new Uint8Array(cs.kdf.size)
       : await deriveSecret(lastPathSecret.secret, "path", cs.kdf)
-
-  const authenticatedData = new Uint8Array()
 
   const { signature, framedContent } = await createContentCommitSignature(
     state.groupContext,
@@ -404,6 +401,7 @@ export async function joinGroupExternal(
   cs: CiphersuiteImpl,
   tree?: RatchetTree,
   clientConfig: ClientConfig = defaultClientConfig,
+  authenticatedData: Uint8Array = new Uint8Array(),
 ) {
   const externalPub = groupInfo.extensions.find((ex) => ex.extensionType === "external_pub")
 
@@ -448,10 +446,7 @@ export async function joinGroupExternal(
     ? nodeToLeafIndex(
         ratchetTree.findIndex((n) => {
           if (n !== undefined && n.nodeType === "leaf") {
-            return constantTimeEqual(
-              encodeCredential(n.leaf.credential),
-              encodeCredential(keyPackage.leafNode.credential),
-            )
+            return clientConfig.keyPackageEqualityConfig.compareKeyPackageToLeafNode(keyPackage, n.leaf)
           }
           return false
         }),
@@ -500,7 +495,7 @@ export async function joinGroupExternal(
     {
       senderType: "new_member_commit",
     },
-    new Uint8Array(),
+    authenticatedData,
     privateKeys.signaturePrivateKey,
     cs.signature,
   )

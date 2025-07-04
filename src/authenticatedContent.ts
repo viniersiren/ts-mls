@@ -4,7 +4,6 @@ import { Hash, refhash } from "./crypto/hash"
 import {
   decodeFramedContent,
   decodeFramedContentAuthData,
-  decodeFramedContentTBS,
   encodeFramedContent,
   encodeFramedContentAuthData,
   encodeFramedContentTBS,
@@ -71,15 +70,6 @@ export type AuthenticatedContentTBM = {
 export const encodeAuthenticatedContentTBM: Encoder<AuthenticatedContentTBM> = contramapEncoders(
   [encodeFramedContentTBS, encodeFramedContentAuthData],
   (t) => [t.contentTbs, t.auth] as const,
-)
-
-export const decodeAuthenticatedContentTBM: Decoder<AuthenticatedContentTBM> = flatMapDecoder(
-  decodeFramedContentTBS,
-  (contentTbs) =>
-    mapDecoder(decodeFramedContentAuthData(contentTbs.content.contentType), (auth) => ({
-      contentTbs,
-      auth,
-    })),
 )
 
 export function createMembershipTag(
