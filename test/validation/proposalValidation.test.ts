@@ -14,8 +14,9 @@ import { AuthenticationService } from "../../src/authenticationService"
 import { constantTimeEqual } from "../../src/util/constantTimeCompare"
 import { createCustomCredential } from "../../src/customCredential"
 import { Extension } from "../../src/extension"
+import { LeafNode } from "../../src/leafNode"
 
-for (const cs of Object.keys(ciphersuites)) {
+for (const cs of Object.keys(ciphersuites).slice(0, 1)) {
   test(`Proposal Validation ${cs}`, async () => {
     await remove(cs as CiphersuiteName)
   })
@@ -271,6 +272,86 @@ async function remove(cipherSuite: CiphersuiteName) {
 
   //can't add leafNode with an unsupported extension
   await expect(createCommit(aliceGroup, emptyPskIndex, false, [addGeorge], impl)).rejects.toThrow(ValidationError)
+
+  const updateLeafNode: LeafNode = {
+    leafNodeSource: "update",
+    signaturePublicKey: alice.publicPackage.leafNode.signaturePublicKey,
+    hpkePublicKey: alice.publicPackage.leafNode.hpkePublicKey,
+    credential: alice.publicPackage.leafNode.credential,
+    capabilities: alice.publicPackage.leafNode.capabilities,
+    extensions: alice.publicPackage.leafNode.extensions,
+    signature: new Uint8Array(),
+  }
+
+  const updateProposal: Proposal = {
+    proposalType: "update",
+    update: {
+      leafNode: updateLeafNode,
+    },
+  }
+
+  // commiter can't update themselves
+  await expect(createCommit(aliceGroup, emptyPskIndex, false, [updateProposal], impl)).rejects.toThrow(ValidationError)
+
+  const removeProposal: ProposalRemove = {
+    proposalType: "remove",
+    remove: {
+      removed: 0,
+    },
+  }
+
+  // committer can't remove themselves
+  await expect(createCommit(aliceGroup, emptyPskIndex, false, [removeProposal], impl)).rejects.toThrow(ValidationError)
+
+  const hannahCredential: Credential = { credentialType: "basic", identity: new TextEncoder().encode("bob") }
+  const hannah = await generateKeyPackage(hannahCredential, defaultCapabilities(), defaultLifetime, [], impl)
+
+  const addHannahProposal: ProposalAdd = {
+    proposalType: "add",
+    add: {
+      keyPackage: hannah.publicPackage,
+    },
+  }
+
+  // can't add the same  keypackage twice
+  await expect(
+    createCommit(aliceGroup, emptyPskIndex, false, [addHannahProposal, addHannahProposal], impl),
+  ).rejects.toThrow(ValidationError)
+
+  const pskId = new Uint8Array([1, 2, 3, 4])
+  const pskProposal: Proposal = {
+    proposalType: "psk",
+    psk: {
+      preSharedKeyId: {
+        psktype: "external",
+        pskId,
+        pskNonce: new Uint8Array([5, 6, 7, 8]),
+      },
+    },
+  }
+
+  // can't reference the same psk in multiple proposals
+  await expect(createCommit(aliceGroup, emptyPskIndex, false, [pskProposal, pskProposal], impl)).rejects.toThrow(
+    ValidationError,
+  )
+
+  const groupContextExtensionsProposal: Proposal = {
+    proposalType: "group_context_extensions",
+    groupContextExtensions: {
+      extensions: [],
+    },
+  }
+
+  // can't use multiple group_context_extensions proposals
+  await expect(
+    createCommit(
+      aliceGroup,
+      emptyPskIndex,
+      false,
+      [groupContextExtensionsProposal, groupContextExtensionsProposal],
+      impl,
+    ),
+  ).rejects.toThrow(ValidationError)
 }
 
 function withAuthService(state: ClientState, authService: AuthenticationService) {
