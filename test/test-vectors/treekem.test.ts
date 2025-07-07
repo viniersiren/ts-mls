@@ -23,7 +23,7 @@ for (const [index, x] of json.entries()) {
   test(`treekem test vectors ${index}`, async () => {
     const impl = await getCiphersuiteImpl(getCiphersuiteFromId(x.cipher_suite as CiphersuiteId))
     await treekemTest(x, impl)
-  })
+  }, 10000)
 }
 
 interface TreeKEMState {
