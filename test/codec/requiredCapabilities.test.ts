@@ -8,7 +8,7 @@ import { createRoundtripTest } from "./roundtrip"
 describe("RequiredCapabilities roundtrip", () => {
   const roundtrip = createRoundtripTest(encodeRequiredCapabilities, decodeRequiredCapabilities)
 
-  it("roundtrips empty arrays", () => {
+  test("roundtrips empty arrays", () => {
     const rc: RequiredCapabilities = {
       extensionTypes: [],
       proposalTypes: [],
@@ -17,7 +17,7 @@ describe("RequiredCapabilities roundtrip", () => {
     roundtrip(rc)
   })
 
-  it("roundtrips non-empty arrays", () => {
+  test("roundtrips non-empty arrays", () => {
     const rc: RequiredCapabilities = {
       extensionTypes: [7, 8],
       proposalTypes: [9, 10, 11],
@@ -26,7 +26,7 @@ describe("RequiredCapabilities roundtrip", () => {
     roundtrip(rc)
   })
 
-  it("roundtrips single-element arrays", () => {
+  test("roundtrips single-element arrays", () => {
     const rc: RequiredCapabilities = {
       extensionTypes: [8],
       proposalTypes: [9],

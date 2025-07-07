@@ -1,7 +1,7 @@
 import { Extension, extensionsEqual } from "../src/extension"
 
 describe("extensionsEqual", () => {
-  it("should return true for identical extensions", () => {
+  test("should return true for identical extensions", () => {
     const ext1: Extension = {
       extensionType: "application_id",
       extensionData: new Uint8Array([1, 2, 3]),
@@ -14,7 +14,7 @@ describe("extensionsEqual", () => {
     expect(extensionsEqual([ext1], [ext2])).toBe(true)
   })
 
-  it("should return false for different extension types", () => {
+  test("should return false for different extension types", () => {
     const ext1: Extension = {
       extensionType: "application_id",
       extensionData: new Uint8Array([1, 2, 3]),
@@ -27,7 +27,7 @@ describe("extensionsEqual", () => {
     expect(extensionsEqual([ext1], [ext2])).toBe(false)
   })
 
-  it("should return false for different extension data", () => {
+  test("should return false for different extension data", () => {
     const ext1: Extension = {
       extensionType: "application_id",
       extensionData: new Uint8Array([1, 2, 3]),
@@ -40,7 +40,7 @@ describe("extensionsEqual", () => {
     expect(extensionsEqual([ext1], [ext2])).toBe(false)
   })
 
-  it("should return false for different array lengths", () => {
+  test("should return false for different array lengths", () => {
     const ext1: Extension = {
       extensionType: "application_id",
       extensionData: new Uint8Array([1, 2, 3]),
@@ -53,7 +53,7 @@ describe("extensionsEqual", () => {
     expect(extensionsEqual([ext1], [ext1, ext2])).toBe(false)
   })
 
-  it("should return true for empty arrays", () => {
+  test("should return true for empty arrays", () => {
     expect(extensionsEqual([], [])).toBe(true)
   })
 })
