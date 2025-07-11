@@ -120,6 +120,16 @@ This command runs all the previously mentioned checks in sequence:
 4. **Circular Dependency Check** (`npm run verify-madge`)
 5. **Test Suite** (`npm run test`)
 
+## Releasing a new version
+
+Releases are made via GitHub Actions and we utilize npm provenance, meaning that the release is signed by Sigstore public good servers and logged in a public ledger, where users can verify the build information on the Transparency Log. To generate a new release run:
+
+```bash
+npm version patch
+
+git push --follow-tags
+```
+
 ## Making Changes
 
 ### Code Style Guidelines
