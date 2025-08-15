@@ -1,36 +1,42 @@
 import { utf8ToBytes } from "@noble/ciphers/utils"
 import { encodeVarLenData } from "../codec/variableLength"
-import { bytesToBuffer } from "../util/byteArray"
+import { sha256, sha384, sha512 } from '@noble/hashes/sha2'
+import { hmac } from '@noble/hashes/hmac'
 
 export type HashAlgorithm = "SHA-512" | "SHA-384" | "SHA-256"
 
-export function makeHashImpl(sc: SubtleCrypto, h: HashAlgorithm): Hash {
+export function makeHashImpl(_sc: SubtleCrypto | null, h: HashAlgorithm): Hash {
   return {
     async digest(data) {
-      const result = await sc.digest(h, bytesToBuffer(data))
-      return new Uint8Array(result)
+      switch (h) {
+        case "SHA-256":
+          return sha256(data)
+        case "SHA-384":
+          return sha384(data)
+        case "SHA-512":
+          return sha512(data)
+        default:
+          throw new Error(`Unsupported hash algorithm: ${h}`)
+      }
     },
     async mac(key, data) {
-      const result = await sc.sign("HMAC", await importMacKey(key, h), bytesToBuffer(data))
-      return new Uint8Array(result)
+      switch (h) {
+        case "SHA-256":
+          return hmac(sha256, key, data)
+        case "SHA-384":
+          return hmac(sha384, key, data)
+        case "SHA-512":
+          return hmac(sha512, key, data)
+        default:
+          throw new Error(`Unsupported hash algorithm: ${h}`)
+      }
     },
     async verifyMac(key, mac, data) {
-      return sc.verify("HMAC", await importMacKey(key, h), bytesToBuffer(mac), bytesToBuffer(data))
+      const expectedMac = await this.mac(key, data)
+      return mac.length === expectedMac.length &&
+             mac.every((byte, i) => byte === expectedMac[i])
     },
   }
-}
-
-function importMacKey(rawKey: Uint8Array, h: HashAlgorithm): Promise<CryptoKey> {
-  return crypto.subtle.importKey(
-    "raw",
-    bytesToBuffer(rawKey),
-    {
-      name: "HMAC",
-      hash: { name: h },
-    },
-    false,
-    ["sign", "verify"],
-  )
 }
 
 export interface Hash {

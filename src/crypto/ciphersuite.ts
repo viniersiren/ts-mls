@@ -65,10 +65,9 @@ export function getCiphersuiteFromName(name: CiphersuiteName): Ciphersuite {
 }
 
 export async function getCiphersuiteImpl(cs: Ciphersuite): Promise<CiphersuiteImpl> {
-  const sc = crypto.subtle
   return {
     kdf: makeKdfImpl(makeKdf(cs.hpke.kdf)),
-    hash: makeHashImpl(sc, cs.hash),
+    hash: makeHashImpl(null, cs.hash), // Our new implementation doesn't need SubtleCrypto
     signature: await makeNobleSignatureImpl(cs.signature),
     hpke: await makeHpke(cs.hpke),
     rng: webCryptoRng,

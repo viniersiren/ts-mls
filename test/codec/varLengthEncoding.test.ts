@@ -1,4 +1,4 @@
-import { randomBytes } from "@noble/ciphers/webcrypto"
+import { webCryptoRng } from "../../src/crypto/rng"
 import {
   decodeVarLenData,
   decodeVarLenType,
@@ -15,55 +15,55 @@ import { decodeOptional, encodeOptional } from "../../src/codec/optional"
 import { CodecError } from "../../src/mlsError"
 
 test("encode and decode works for 1 random byte", () => {
-  varLenRoundtrip(randomBytes(1))
+  varLenRoundtrip(webCryptoRng.randomBytes(1))
 })
 
 test("encode and decode works for 2 random bytes", () => {
-  varLenRoundtrip(randomBytes(2))
+  varLenRoundtrip(webCryptoRng.randomBytes(2))
 })
 
 test("encode and decode works for 3 random bytes", () => {
-  varLenRoundtrip(randomBytes(3))
+  varLenRoundtrip(webCryptoRng.randomBytes(3))
 })
 
 test("encode and decode works for 4 random bytes", () => {
-  varLenRoundtrip(randomBytes(4))
+  varLenRoundtrip(webCryptoRng.randomBytes(4))
 })
 
 test("encode and decode works for 8 random bytes", () => {
-  varLenRoundtrip(randomBytes(8))
+  varLenRoundtrip(webCryptoRng.randomBytes(8))
 })
 
 test("encode and decode works for 16 random bytes", () => {
-  varLenRoundtrip(randomBytes(16))
+  varLenRoundtrip(webCryptoRng.randomBytes(16))
 })
 
 test("encode and decode works for 64 random bytes", () => {
-  varLenRoundtrip(randomBytes(64))
+  varLenRoundtrip(webCryptoRng.randomBytes(64))
 })
 
 test("encode and decode works for 256 random bytes", () => {
-  varLenRoundtrip(randomBytes(256))
+  varLenRoundtrip(webCryptoRng.randomBytes(256))
 })
 
 test("encode and decode works for 1024 random bytes", () => {
-  varLenRoundtrip(randomBytes(1024))
+  varLenRoundtrip(webCryptoRng.randomBytes(1024))
 })
 
 test("encode and decode works for 9999 random bytes", () => {
-  varLenRoundtrip(randomBytes(9999))
+  varLenRoundtrip(webCryptoRng.randomBytes(9999))
 })
 
 test("encode and decode works for 9999 random bytes", () => {
-  varLenRoundtrip(randomBytes(9999))
+  varLenRoundtrip(webCryptoRng.randomBytes(9999))
 })
 
 test("encode and decode works for array of random bytes", () => {
   arrayRoundtrip(encodeVarLenData, decodeVarLenData, [
-    randomBytes(9999),
-    randomBytes(9999),
-    randomBytes(9999),
-    randomBytes(9999),
+    webCryptoRng.randomBytes(9999),
+    webCryptoRng.randomBytes(9999),
+    webCryptoRng.randomBytes(9999),
+    webCryptoRng.randomBytes(9999),
   ])
 })
 
@@ -77,13 +77,13 @@ test("encode and decode works for array of uint64", () => {
 
 test("encode and decode works for array of optional random bytes", () => {
   arrayRoundtrip(encodeOptional(encodeVarLenData), decodeOptional(decodeVarLenData), [
-    randomBytes(99),
+    webCryptoRng.randomBytes(99),
     undefined,
-    randomBytes(99),
+    webCryptoRng.randomBytes(99),
     undefined,
     undefined,
-    randomBytes(99),
-    randomBytes(99),
+    webCryptoRng.randomBytes(99),
+    webCryptoRng.randomBytes(99),
   ])
 })
 
@@ -104,7 +104,7 @@ test("determineLength doesn't work if offset is ffsd large", () => {
 })
 
 test("decode doesn't work if length is too large", () => {
-  const e = encodeVarLenData(randomBytes(64))
+  const e = encodeVarLenData(webCryptoRng.randomBytes(64))
   e[1] = 0xff
   expect(() => decodeVarLenData(e, 0)).toThrow(CodecError)
 })
@@ -112,7 +112,7 @@ test("decode doesn't work if length is too large", () => {
 test("decodeVarLenType doesn't work if underlying decoder doesn't work", () => {
   const brokenDecoder: Decoder<number> = () => undefined
 
-  expect(decodeVarLenType(brokenDecoder)(encodeVarLenData(randomBytes(16)), 0)).toBeUndefined()
+  expect(decodeVarLenType(brokenDecoder)(encodeVarLenData(webCryptoRng.randomBytes(16)), 0)).toBeUndefined()
 })
 
 const varLenRoundtrip = createRoundtripTest(encodeVarLenData, decodeVarLenData)

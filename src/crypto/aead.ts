@@ -1,7 +1,7 @@
-import { Aes128Gcm, Aes256Gcm } from "@hpke/core"
-import { AeadInterface } from "@hpke/core"
-import { bytesToBuffer } from "../util/byteArray"
-import { DependencyError } from "../mlsError"
+import { Chacha20Poly1305 } from "@hpke/chacha20poly1305"
+import { AeadInterface, Aes128Gcm, Aes256Gcm } from "@hpke/core"
+import { gcm } from "@noble/ciphers/aes"
+import { chacha20poly1305 } from "@noble/ciphers/chacha"
 
 export type AeadAlgorithm = "AES128GCM" | "CHACHA20POLY1305" | "AES256GCM"
 
@@ -38,24 +38,16 @@ export async function makeAead(aeadAlg: AeadAlgorithm): Promise<Aead> {
         },
       }
     case "CHACHA20POLY1305":
-      try {
-        const { Chacha20Poly1305 } = await import("@hpke/chacha20poly1305")
-        const { chacha20poly1305 } = await import("@noble/ciphers/chacha")
-        return {
-          hpkeInterface() {
-            return new Chacha20Poly1305()
-          },
-          async encrypt(key, nonce, aad, plaintext) {
-            return chacha20poly1305(key, nonce, aad).encrypt(plaintext)
-          },
-          async decrypt(key, nonce, aad, ciphertext) {
-            return chacha20poly1305(key, nonce, aad).decrypt(ciphertext)
-          },
-        }
-      } catch (err) {
-        throw new DependencyError(
-          "Optional dependency '@hpke/chacha20poly1305' is not installed. Please install it to use this feature.",
-        )
+      return {
+        hpkeInterface() {
+          return new Chacha20Poly1305()
+        },
+        async encrypt(key, nonce, aad, plaintext) {
+          return chacha20poly1305(key, nonce, aad).encrypt(plaintext)
+        },
+        async decrypt(key, nonce, aad, ciphertext) {
+          return chacha20poly1305(key, nonce, aad).decrypt(ciphertext)
+        },
       }
   }
 }
@@ -66,17 +58,8 @@ async function encryptAesGcm(
   aad: Uint8Array,
   plaintext: Uint8Array,
 ): Promise<Uint8Array> {
-  const cryptoKey = await crypto.subtle.importKey("raw", bytesToBuffer(key), { name: "AES-GCM" }, false, ["encrypt"])
-  const result = await crypto.subtle.encrypt(
-    {
-      name: "AES-GCM",
-      iv: bytesToBuffer(nonce),
-      additionalData: aad.length > 0 ? bytesToBuffer(aad) : undefined,
-    },
-    cryptoKey,
-    bytesToBuffer(plaintext),
-  )
-  return new Uint8Array(result)
+  const cipher = gcm(key, nonce, aad)
+  return cipher.encrypt(plaintext)
 }
 
 async function decryptAesGcm(
@@ -85,15 +68,6 @@ async function decryptAesGcm(
   aad: Uint8Array,
   ciphertext: Uint8Array,
 ): Promise<Uint8Array> {
-  const cryptoKey = await crypto.subtle.importKey("raw", bytesToBuffer(key), { name: "AES-GCM" }, false, ["decrypt"])
-  const result = await crypto.subtle.decrypt(
-    {
-      name: "AES-GCM",
-      iv: bytesToBuffer(nonce),
-      additionalData: aad.length > 0 ? bytesToBuffer(aad) : undefined,
-    },
-    cryptoKey,
-    bytesToBuffer(ciphertext),
-  )
-  return new Uint8Array(result)
+  const cipher = gcm(key, nonce, aad)
+  return cipher.decrypt(ciphertext)
 }

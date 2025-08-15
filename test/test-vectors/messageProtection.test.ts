@@ -1,5 +1,6 @@
 import json from "../../test_vectors/message-protection.json"
 import { hexToBytes } from "@noble/ciphers/utils"
+import { webCryptoRng } from "../../src/crypto/rng"
 import { GroupContext } from "../../src/groupContext"
 import {
   CiphersuiteId,
@@ -136,7 +137,7 @@ async function protectThenUnprotectCommitPublic(data: MessageProtectionData, gc:
   const c = decodeCommit(hexToBytes(data.commit), 0)
   if (c === undefined) throw new Error("could not decode commit")
 
-  const confirmationTag = crypto.getRandomValues(new Uint8Array(impl.hpke.keyLength)) // should I be getting this elsewhere?
+  const confirmationTag = webCryptoRng.randomBytes(impl.hpke.keyLength) // should I be getting this elsewhere?
 
   const { framedContent, signature } = await createContentCommitSignature(
     gc,
@@ -367,7 +368,7 @@ async function protectThenUnprotectCommit(data: MessageProtectionData, gc: Group
 
   const secretTree = await createSecretTree(2, hexToBytes(data.encryption_secret), impl.kdf)
 
-  const confirmationTag = crypto.getRandomValues(new Uint8Array(impl.hpke.keyLength)) // should I be getting this elsewhere?
+  const confirmationTag = webCryptoRng.randomBytes(impl.hpke.keyLength) // should I be getting this elsewhere?
 
   const { framedContent, signature } = await createContentCommitSignature(
     gc,

@@ -1,4 +1,5 @@
-import { randomBytes } from "@noble/ciphers/webcrypto"
+// import { randomBytes } from "@noble/ciphers/webcrypto"
+import { webCryptoRng  } from "../../src/crypto/rng"
 import {
   decodeUint16,
   decodeUint32,
@@ -16,14 +17,14 @@ test("composite codec roundtrip [uint8(0), uint32(48948430)]", () => {
   compositeRoundTrip(0, 48948430, encodeUint8, decodeUint8, encodeUint32, decodeUint32)
 })
 
-test("composite codec roundtrip [uint16(256), randombytes(16)]", () => {
-  compositeRoundTrip(256, randomBytes(16), encodeUint16, decodeUint16, encodeVarLenData, decodeVarLenData)
+test("composite codec roundtrip [uint16(256), webCryptoRng.randomBytes(16)]", () => {
+  compositeRoundTrip(256, webCryptoRng.randomBytes(16), encodeUint16, decodeUint16, encodeVarLenData, decodeVarLenData)
 })
 
-test("composite codec roundtrip [randombytes(100), randombytes(16)]", () => {
+test("composite codec roundtrip [webCryptoRng.randomBytes(100), webCryptoRng.randomBytes(16)]", () => {
   compositeRoundTrip(
-    randomBytes(100),
-    randomBytes(16),
+    webCryptoRng.randomBytes(100),
+    webCryptoRng.randomBytes(16),
     encodeVarLenData,
     decodeVarLenData,
     encodeVarLenData,
@@ -31,10 +32,10 @@ test("composite codec roundtrip [randombytes(100), randombytes(16)]", () => {
   )
 })
 
-test("composite codec roundtrip [randombytes(100), optional randombytes(16)]", () => {
+test("composite codec roundtrip [webCryptoRng.randomBytes(100), optional webCryptoRng.randomBytes(16)]", () => {
   compositeRoundTrip(
-    randomBytes(100),
-    randomBytes(16),
+    webCryptoRng.randomBytes(100),
+    webCryptoRng.randomBytes(16),
     encodeVarLenData,
     decodeVarLenData,
     encodeOptional(encodeVarLenData),
@@ -42,9 +43,9 @@ test("composite codec roundtrip [randombytes(100), optional randombytes(16)]", (
   )
 })
 
-test("composite codec roundtrip [randombytes(100), undefined]", () => {
+test("composite codec roundtrip [webCryptoRng.randomBytes(100), undefined]", () => {
   compositeRoundTrip(
-    randomBytes(100),
+    webCryptoRng.randomBytes(100),
     undefined,
     encodeVarLenData,
     decodeVarLenData,
@@ -75,9 +76,9 @@ test("composite codec roundtrip [undefined, uint16(128)]", () => {
   )
 })
 
-test("composite codec roundtrip [randombytes(8), undefined, uint32(99999)]", () => {
+test("composite codec roundtrip [webCryptoRng.randomBytes(8), undefined, uint32(99999)]", () => {
   compositeRoundTrip3(
-    randomBytes(8),
+    webCryptoRng.randomBytes(8),
     undefined,
     99999,
     encodeVarLenData,
@@ -89,12 +90,12 @@ test("composite codec roundtrip [randombytes(8), undefined, uint32(99999)]", () 
   )
 })
 
-test("composite codec roundtrip [uint8(0), undefined, undefined, randomBytes(128)]", () => {
+test("composite codec roundtrip [uint8(0), undefined, undefined, webCryptoRng.randomBytes(128)]", () => {
   compositeRoundTrip4(
     0,
     undefined,
     undefined,
-    randomBytes(8),
+    webCryptoRng.randomBytes(8),
     encodeUint8,
     decodeUint8,
     encodeOptional(encodeUint8),
@@ -106,12 +107,12 @@ test("composite codec roundtrip [uint8(0), undefined, undefined, randomBytes(128
   )
 })
 
-test("composite codec roundtrip [undefined, undefined, undefined, randomBytes(999)]", () => {
+test("composite codec roundtrip [undefined, undefined, undefined, webCryptoRng.randomBytes(999)]", () => {
   compositeRoundTrip4(
     undefined,
     undefined,
     undefined,
-    randomBytes(999),
+    webCryptoRng.randomBytes(999),
     encodeOptional(encodeUint8),
     decodeOptional(decodeUint8),
     encodeOptional(encodeUint8),
@@ -123,12 +124,12 @@ test("composite codec roundtrip [undefined, undefined, undefined, randomBytes(99
   )
 })
 
-test("composite codec roundtrip [randomBytes(999), randomBytes(999), undefined, randomBytes(999)]", () => {
+test("composite codec roundtrip [webCryptoRng.randomBytes(999), webCryptoRng.randomBytes(999), undefined, webCryptoRng.randomBytes(999)]", () => {
   compositeRoundTrip4(
-    randomBytes(999),
-    randomBytes(999),
+    webCryptoRng.randomBytes(999),
+    webCryptoRng.randomBytes(999),
     undefined,
-    randomBytes(999),
+    webCryptoRng.randomBytes(999),
     encodeVarLenData,
     decodeVarLenData,
     encodeVarLenData,

@@ -19,39 +19,23 @@
     "dist"
   ],
   "dependencies": {
-    "@hpke/core": "^1.7.3"
-  },
-  "peerDependencies": {
+    "@hpke/core": "^1.7.3",
+    "hpke-js": "^1.6.3",
+    "@noble/curves": "^1.9.6",
+    "@noble/post-quantum": "0.4.1",
     "@hpke/chacha20poly1305": "1.7.0",
     "@hpke/hybridkem-x-wing": "0.6.0",
-    "@hpke/ml-kem": "0.2.0",
-    "@noble/curves": "^1.9.2",
-    "@noble/post-quantum": "0.4.1"
+    "@hpke/ml-kem": "0.2.0"
+  },
+  "peerDependencies": {
   },
   "peerDependenciesMeta": {
-    "@hpke/chacha20poly1305": {
-      "optional": true
-    },
-    "@hpke/hybridkem-x-wing": {
-      "optional": true
-    },
-    "@hpke/ml-kem": {
-      "optional": true
-    },
-    "@noble/curves": {
-      "optional": true
-    },
-    "@noble/post-quantum": {
-      "optional": true
-    }
   },
   "devDependencies": {
     "@hpke/chacha20poly1305": "1.7.0",
     "@hpke/hybridkem-x-wing": "0.6.0",
     "@hpke/ml-kem": "0.2.0",
     "@noble/ciphers": "^1.3.0",
-    "@noble/curves": "^1.9.2",
-    "@noble/post-quantum": "0.4.1",
     "@types/jest": "^30.0.0",
     "madge": "^8.0.0",
     "prettier": "3.6.2",
