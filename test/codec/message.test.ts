@@ -45,7 +45,8 @@ describe("MLSMessage roundtrip", () => {
       wireformat: "mls_key_package",
       keyPackage: {
         version: "mls10",
-        cipherSuite: "MLS_256_XWING_AES256GCM_SHA512_Ed25519",
+        // cipherSuite: "MLS_256_XWING_AES256GCM_SHA512_Ed25519",
+        cipherSuite: "MLS_128_DHKEMX25519_AES128GCM_SHA256_Ed25519",
         initKey: new Uint8Array([]),
         leafNode: {
           hpkePublicKey: new Uint8Array([]),
@@ -88,7 +89,8 @@ describe("MLSMessage roundtrip", () => {
       groupInfo: {
         groupContext: {
           version: "mls10",
-          cipherSuite: "MLS_256_XWING_AES256GCM_SHA512_Ed25519",
+          // cipherSuite: "MLS_256_XWING_AES256GCM_SHA512_Ed25519",
+          cipherSuite: "MLS_128_DHKEMX25519_AES128GCM_SHA256_Ed25519",
           groupId: new Uint8Array([1, 2, 3]),
           epoch: 0n,
           treeHash: new Uint8Array([4, 5]),

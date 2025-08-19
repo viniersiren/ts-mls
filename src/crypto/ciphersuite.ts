@@ -25,18 +25,18 @@ export const ciphersuites = {
   MLS_256_DHKEMP521_AES256GCM_SHA512_P521: 5,
   MLS_256_DHKEMX448_CHACHA20POLY1305_SHA512_Ed448: 6,
   MLS_256_DHKEMP384_AES256GCM_SHA384_P384: 7,
-  MLS_128_MLKEM512_AES128GCM_SHA256_Ed25519: 77,
-  MLS_128_MLKEM512_CHACHA20POLY1305_SHA256_Ed25519: 78,
-  MLS_256_MLKEM768_AES256GCM_SHA384_Ed25519: 79,
-  MLS_256_MLKEM768_CHACHA20POLY1305_SHA384_Ed25519: 80,
-  MLS_256_MLKEM1024_AES256GCM_SHA512_Ed25519: 81,
-  MLS_256_MLKEM1024_CHACHA20POLY1305_SHA512_Ed25519: 82,
-  MLS_256_XWING_AES256GCM_SHA512_Ed25519: 83,
-  MLS_256_XWING_CHACHA20POLY1305_SHA512_Ed25519: 84,
-  MLS_256_MLKEM1024_AES256GCM_SHA512_MLDSA87: 85,
-  MLS_256_MLKEM1024_CHACHA20POLY1305_SHA512_MLDSA87: 86,
-  MLS_256_XWING_AES256GCM_SHA512_MLDSA87: 87,
-  MLS_256_XWING_CHACHA20POLY1305_SHA512_MLDSA87: 88,
+  // MLS_128_MLKEM512_AES128GCM_SHA256_Ed25519: 77,
+  // MLS_128_MLKEM512_CHACHA20POLY1305_SHA256_Ed25519: 78,
+  // MLS_256_MLKEM768_AES256GCM_SHA384_Ed25519: 79,
+  // MLS_256_MLKEM768_CHACHA20POLY1305_SHA384_Ed25519: 80,
+  // MLS_256_MLKEM1024_AES256GCM_SHA512_Ed25519: 81,
+  // MLS_256_MLKEM1024_CHACHA20POLY1305_SHA512_Ed25519: 82,
+  // MLS_256_XWING_AES256GCM_SHA512_Ed25519: 83,
+  // MLS_256_XWING_CHACHA20POLY1305_SHA512_Ed25519: 84,
+  // MLS_256_MLKEM1024_AES256GCM_SHA512_MLDSA87: 85,
+  // MLS_256_MLKEM1024_CHACHA20POLY1305_SHA512_MLDSA87: 86,
+  // MLS_256_XWING_AES256GCM_SHA512_MLDSA87: 87,
+  // MLS_256_XWING_CHACHA20POLY1305_SHA512_MLDSA87: 88,
 } as const
 
 export type CiphersuiteName = keyof typeof ciphersuites
@@ -147,126 +147,126 @@ const ciphersuiteValues: Record<CiphersuiteId, Ciphersuite> = {
     name: "MLS_256_DHKEMP384_AES256GCM_SHA384_P384",
   },
 
-  77: {
-    hash: "SHA-256",
-    hpke: {
-      kem: "ML-KEM-512",
-      aead: "AES256GCM",
-      kdf: "HKDF-SHA512",
-    },
-    signature: "Ed25519",
-    name: "MLS_128_MLKEM512_AES128GCM_SHA256_Ed25519",
-  },
-  78: {
-    hash: "SHA-256",
-    hpke: {
-      kem: "ML-KEM-512",
-      aead: "CHACHA20POLY1305",
-      kdf: "HKDF-SHA512",
-    },
-    signature: "Ed25519",
-    name: "MLS_128_MLKEM512_CHACHA20POLY1305_SHA256_Ed25519",
-  },
-  79: {
-    hash: "SHA-384",
-    hpke: {
-      kem: "ML-KEM-768",
-      aead: "AES256GCM",
-      kdf: "HKDF-SHA512",
-    },
-    signature: "Ed25519",
-    name: "MLS_256_MLKEM768_AES256GCM_SHA384_Ed25519",
-  },
-  80: {
-    hash: "SHA-384",
-    hpke: {
-      kem: "ML-KEM-768",
-      aead: "CHACHA20POLY1305",
-      kdf: "HKDF-SHA512",
-    },
-    signature: "Ed25519",
-    name: "MLS_256_MLKEM768_CHACHA20POLY1305_SHA384_Ed25519",
-  },
-  81: {
-    hash: "SHA-512",
-    hpke: {
-      kem: "ML-KEM-1024",
-      aead: "AES256GCM",
-      kdf: "HKDF-SHA512",
-    },
-    signature: "Ed25519",
-    name: "MLS_256_MLKEM1024_AES256GCM_SHA512_Ed25519",
-  },
-  82: {
-    hash: "SHA-512",
-    hpke: {
-      kem: "ML-KEM-1024",
-      aead: "CHACHA20POLY1305",
-      kdf: "HKDF-SHA512",
-    },
-    signature: "Ed25519",
-    name: "MLS_256_MLKEM1024_CHACHA20POLY1305_SHA512_Ed25519",
-  },
-  83: {
-    hash: "SHA-512",
-    hpke: {
-      kem: "X-Wing",
-      aead: "AES256GCM",
-      kdf: "HKDF-SHA512",
-    },
-    signature: "Ed25519",
-    name: "MLS_256_XWING_AES256GCM_SHA512_Ed25519",
-  },
-  84: {
-    hash: "SHA-512",
-    hpke: {
-      kem: "X-Wing",
-      aead: "CHACHA20POLY1305",
-      kdf: "HKDF-SHA512",
-    },
-    signature: "Ed25519",
-    name: "MLS_256_XWING_CHACHA20POLY1305_SHA512_Ed25519",
-  },
-  85: {
-    hash: "SHA-512",
-    hpke: {
-      kem: "ML-KEM-1024",
-      aead: "AES256GCM",
-      kdf: "HKDF-SHA512",
-    },
-    signature: "ML-DSA-87",
-    name: "MLS_256_MLKEM1024_AES256GCM_SHA512_MLDSA87",
-  },
-  86: {
-    hash: "SHA-512",
-    hpke: {
-      kem: "ML-KEM-1024",
-      aead: "CHACHA20POLY1305",
-      kdf: "HKDF-SHA512",
-    },
-    signature: "ML-DSA-87",
-    name: "MLS_256_MLKEM1024_CHACHA20POLY1305_SHA512_MLDSA87",
-  },
-  87: {
-    hash: "SHA-512",
-    hpke: {
-      kem: "X-Wing",
-      aead: "AES256GCM",
-      kdf: "HKDF-SHA512",
-    },
-    signature: "ML-DSA-87",
-    name: "MLS_256_XWING_AES256GCM_SHA512_MLDSA87",
-  },
-  88: {
-    hash: "SHA-512",
-    hpke: {
-      kem: "X-Wing",
-      aead: "CHACHA20POLY1305",
-      kdf: "HKDF-SHA512",
-    },
-    signature: "ML-DSA-87",
-    name: "MLS_256_XWING_CHACHA20POLY1305_SHA512_MLDSA87",
-  },
+  // 77: {
+  //   hash: "SHA-256",
+  //   hpke: {
+  //     kem: "ML-KEM-512",
+  //     aead: "AES256GCM",
+  //     kdf: "HKDF-SHA512",
+  //   },
+  //   signature: "Ed25519",
+  //   name: "MLS_128_MLKEM512_AES128GCM_SHA256_Ed25519",
+  // },
+  // 78: {
+  //   hash: "SHA-256",
+  //   hpke: {
+  //     kem: "ML-KEM-512",
+  //     aead: "CHACHA20POLY1305",
+  //     kdf: "HKDF-SHA512",
+  //   },
+  //   signature: "Ed25519",
+  //   name: "MLS_128_MLKEM512_CHACHA20POLY1305_SHA256_Ed25519",
+  // },
+  // 79: {
+  //   hash: "SHA-384",
+  //   hpke: {
+  //     kem: "ML-KEM-768",
+  //     aead: "AES256GCM",
+  //     kdf: "HKDF-SHA512",
+  //   },
+  //   signature: "Ed25519",
+  //   name: "MLS_256_MLKEM768_AES256GCM_SHA384_Ed25519",
+  // },
+  // 80: {
+  //   hash: "SHA-384",
+  //   hpke: {
+  //     kem: "ML-KEM-768",
+  //     aead: "CHACHA20POLY1305",
+  //     kdf: "HKDF-SHA512",
+  //   },
+  //   signature: "Ed25519",
+  //   name: "MLS_256_MLKEM768_CHACHA20POLY1305_SHA384_Ed25519",
+  // },
+  // 81: {
+  //   hash: "SHA-512",
+  //   hpke: {
+  //     kem: "ML-KEM-1024",
+  //     aead: "AES256GCM",
+  //     kdf: "HKDF-SHA512",
+  //   },
+  //   signature: "Ed25519",
+  //   name: "MLS_256_MLKEM1024_AES256GCM_SHA512_Ed25519",
+  // },
+  // 82: {
+  //   hash: "SHA-512",
+  //   hpke: {
+  //     kem: "ML-KEM-1024",
+  //     aead: "CHACHA20POLY1305",
+  //     kdf: "HKDF-SHA512",
+  //   },
+  //   signature: "Ed25519",
+  //   name: "MLS_256_MLKEM1024_CHACHA20POLY1305_SHA512_Ed25519",
+  // },
+  // 83: {
+  //   hash: "SHA-512",
+  //   hpke: {
+  //     kem: "X-Wing",
+  //     aead: "AES256GCM",
+  //     kdf: "HKDF-SHA512",
+  //   },
+  //   signature: "Ed25519",
+  //   name: "MLS_256_XWING_AES256GCM_SHA512_Ed25519",
+  // },
+  // 84: {
+  //   hash: "SHA-512",
+  //   hpke: {
+  //     kem: "X-Wing",
+  //     aead: "CHACHA20POLY1305",
+  //     kdf: "HKDF-SHA512",
+  //   },
+  //   signature: "Ed25519",
+  //   name: "MLS_256_XWING_CHACHA20POLY1305_SHA512_Ed25519",
+  // },
+  // 85: {
+  //   hash: "SHA-512",
+  //   hpke: {
+  //     kem: "ML-KEM-1024",
+  //     aead: "AES256GCM",
+  //     kdf: "HKDF-SHA512",
+  //   },
+  //   signature: "ML-DSA-87",
+  //   name: "MLS_256_MLKEM1024_AES256GCM_SHA512_MLDSA87",
+  // },
+  // 86: {
+  //   hash: "SHA-512",
+  //   hpke: {
+  //     kem: "ML-KEM-1024",
+  //     aead: "CHACHA20POLY1305",
+  //     kdf: "HKDF-SHA512",
+  //   },
+  //   signature: "ML-DSA-87",
+  //   name: "MLS_256_MLKEM1024_CHACHA20POLY1305_SHA512_MLDSA87",
+  // },
+  // 87: {
+  //   hash: "SHA-512",
+  //   hpke: {
+  //     kem: "X-Wing",
+  //     aead: "AES256GCM",
+  //     kdf: "HKDF-SHA512",
+  //   },
+  //   signature: "ML-DSA-87",
+  //   name: "MLS_256_XWING_AES256GCM_SHA512_MLDSA87",
+  // },
+  // 88: {
+  //   hash: "SHA-512",
+  //   hpke: {
+  //     kem: "X-Wing",
+  //     aead: "CHACHA20POLY1305",
+  //     kdf: "HKDF-SHA512",
+  //   },
+  //   signature: "ML-DSA-87",
+  //   name: "MLS_256_XWING_CHACHA20POLY1305_SHA512_MLDSA87",
+  // },
 } as const
 
 type Ciphersuite = {

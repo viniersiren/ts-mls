@@ -1,6 +1,5 @@
-import { KdfInterface } from "@hpke/core"
+import { KdfInterface, KdfId, KemId, CipherSuite, AeadId } from "hpke-js"
 import { utf8ToBytes } from "@noble/ciphers/utils"
-import { HkdfSha256, HkdfSha384, HkdfSha512 } from "@hpke/core"
 import { encodeVarLenData } from "../codec/variableLength"
 import { encodeUint16, encodeUint32 } from "../codec/number"
 import { bytesToBuffer } from "../util/byteArray"
@@ -30,11 +29,23 @@ export function makeKdfImpl(k: KdfInterface): Kdf {
 export function makeKdf(kdfAlg: KdfAlgorithm): KdfInterface {
   switch (kdfAlg) {
     case "HKDF-SHA256":
-      return new HkdfSha256()
+      return new CipherSuite({
+        kem: KemId.DhkemP256HkdfSha256,
+        kdf: KdfId.HkdfSha256,
+        aead: AeadId.Aes128Gcm,
+      }).kdf
     case "HKDF-SHA384":
-      return new HkdfSha384()
+      return new CipherSuite({
+        kem: KemId.DhkemP384HkdfSha384,
+        kdf: KdfId.HkdfSha384,
+        aead: AeadId.Aes128Gcm,
+      }).kdf
     case "HKDF-SHA512":
-      return new HkdfSha512()
+      return new CipherSuite({
+        kem: KemId.DhkemP521HkdfSha512,
+        kdf: KdfId.HkdfSha512,
+        aead: AeadId.Aes128Gcm,
+      }).kdf
   }
 }
 

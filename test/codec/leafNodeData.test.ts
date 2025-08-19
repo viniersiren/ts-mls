@@ -27,7 +27,8 @@ describe("LeafNodeData roundtrip", () => {
       credential: { credentialType: "x509", certificates: [new Uint8Array([20, 21]), new Uint8Array([22, 23, 24])] },
       capabilities: {
         versions: ["mls10"],
-        ciphersuites: ["MLS_256_XWING_AES256GCM_SHA512_Ed25519"],
+        // ciphersuites: ["MLS_256_XWING_AES256GCM_SHA512_Ed25519"],
+        ciphersuites: ["MLS_128_DHKEMX25519_AES128GCM_SHA256_Ed25519"],
         extensions: [],
         proposals: [73, 101],
         credentials: ["basic", "x509"],

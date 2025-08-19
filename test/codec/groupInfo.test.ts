@@ -11,7 +11,9 @@ import { GroupContext } from "../../src/groupContext"
 
 const dummyGroupContext: GroupContext = {
   version: "mls10",
-  cipherSuite: "MLS_256_XWING_AES256GCM_SHA512_Ed25519",
+  //  cipherSuite: "MLS_256_XWING_AES256GCM_SHA512_Ed25519",
+
+  cipherSuite: "MLS_128_DHKEMX25519_AES128GCM_SHA256_Ed25519",
   groupId: new Uint8Array([1, 2, 3]),
   epoch: 0n,
   treeHash: new Uint8Array([4, 5]),

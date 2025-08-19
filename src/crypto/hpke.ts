@@ -1,4 +1,4 @@
-import { CipherSuite } from "@hpke/core"
+import { CipherSuite } from "hpke-js"
 import { AeadAlgorithm, makeAead } from "./aead"
 import { KdfAlgorithm, makeKdf } from "./kdf"
 import { KemAlgorithm, makeDhKem } from "./kem"

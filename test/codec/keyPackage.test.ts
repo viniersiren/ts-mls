@@ -3,7 +3,8 @@ import { createRoundtripTest } from "./roundtrip"
 
 const minimalKeyPackage: KeyPackage = {
   version: "mls10",
-  cipherSuite: "MLS_256_XWING_AES256GCM_SHA512_Ed25519",
+  // cipherSuite: "MLS_256_XWING_AES256GCM_SHA512_Ed25519",
+  cipherSuite: "MLS_128_DHKEMX25519_AES128GCM_SHA256_Ed25519",
   initKey: new Uint8Array([]),
   leafNode: {
     hpkePublicKey: new Uint8Array([]),
@@ -27,7 +28,8 @@ const minimalKeyPackage: KeyPackage = {
 
 const nontrivialKeyPackage: KeyPackage = {
   version: "mls10",
-  cipherSuite: "MLS_256_XWING_AES256GCM_SHA512_Ed25519",
+  // cipherSuite: "MLS_256_XWING_AES256GCM_SHA512_Ed25519",
+  cipherSuite: "MLS_128_DHKEMX25519_AES128GCM_SHA256_Ed25519",
   initKey: new Uint8Array([1, 2, 3]),
   leafNode: {
     hpkePublicKey: new Uint8Array([4, 5]),
@@ -35,7 +37,8 @@ const nontrivialKeyPackage: KeyPackage = {
     credential: { credentialType: "basic", identity: new Uint8Array([8, 9]) },
     capabilities: {
       versions: ["mls10"],
-      ciphersuites: ["MLS_256_XWING_AES256GCM_SHA512_Ed25519"],
+      // ciphersuites: ["MLS_256_XWING_AES256GCM_SHA512_Ed25519"],
+      ciphersuites: ["MLS_128_DHKEMX25519_AES128GCM_SHA256_Ed25519"],
       extensions: [8],
       proposals: [9],
       credentials: ["basic"],

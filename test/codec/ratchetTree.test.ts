@@ -11,7 +11,8 @@ describe("RatchetTree roundtrip", () => {
           credential: { credentialType: "basic", identity: new Uint8Array([3]) },
           capabilities: {
             versions: ["mls10"],
-            ciphersuites: ["MLS_256_XWING_AES256GCM_SHA512_Ed25519"],
+            // ciphersuites: ["MLS_256_XWING_AES256GCM_SHA512_Ed25519"],
+            ciphersuites: ["MLS_128_DHKEMX25519_AES128GCM_SHA256_Ed25519"],
             extensions: [],
             proposals: [],
             credentials: [],
@@ -38,7 +39,8 @@ describe("RatchetTree roundtrip", () => {
           credential: { credentialType: "basic", identity: new Uint8Array([3]) },
           capabilities: {
             versions: ["mls10"],
-            ciphersuites: ["MLS_256_XWING_AES256GCM_SHA512_Ed25519"],
+            // ciphersuites: ["MLS_256_XWING_AES256GCM_SHA512_Ed25519"],
+            ciphersuites: ["MLS_128_DHKEMX25519_AES128GCM_SHA256_Ed25519"],
             extensions: [],
             proposals: [],
             credentials: [],
@@ -65,7 +67,8 @@ describe("RatchetTree roundtrip", () => {
           credential: { credentialType: "basic", identity: new Uint8Array([7]) },
           capabilities: {
             versions: ["mls10"],
-            ciphersuites: ["MLS_256_XWING_AES256GCM_SHA512_Ed25519"],
+            // ciphersuites: ["MLS_256_XWING_AES256GCM_SHA512_Ed25519"],
+            ciphersuites: ["MLS_128_DHKEMX25519_AES128GCM_SHA256_Ed25519"],
             extensions: [],
             proposals: [],
             credentials: [],

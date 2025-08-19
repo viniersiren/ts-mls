@@ -6,7 +6,8 @@ const dummyProposalAdd: Proposal = {
   add: {
     keyPackage: {
       version: "mls10",
-      cipherSuite: "MLS_256_XWING_AES256GCM_SHA512_Ed25519",
+      // cipherSuite: "MLS_256_XWING_AES256GCM_SHA512_Ed25519",
+      cipherSuite: "MLS_128_DHKEMX25519_AES128GCM_SHA256_Ed25519",
       initKey: new Uint8Array([]),
       leafNode: {
         hpkePublicKey: new Uint8Array([]),

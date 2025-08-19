@@ -1,5 +1,4 @@
-import { Chacha20Poly1305 } from "@hpke/chacha20poly1305"
-import { AeadInterface, Aes128Gcm, Aes256Gcm } from "@hpke/core"
+import { AeadInterface, AeadId, CipherSuite, KemId, KdfId } from "hpke-js"
 import { gcm } from "@noble/ciphers/aes"
 import { chacha20poly1305 } from "@noble/ciphers/chacha"
 
@@ -16,7 +15,11 @@ export async function makeAead(aeadAlg: AeadAlgorithm): Promise<Aead> {
     case "AES128GCM":
       return {
         hpkeInterface() {
-          return new Aes128Gcm()
+          return new CipherSuite({
+            kem: KemId.DhkemP256HkdfSha256,
+            kdf: KdfId.HkdfSha256,
+            aead: AeadId.Aes128Gcm,
+          }).aead
         },
         encrypt(key, nonce, aad, plaintext) {
           return encryptAesGcm(key, nonce, aad, plaintext)
@@ -28,7 +31,11 @@ export async function makeAead(aeadAlg: AeadAlgorithm): Promise<Aead> {
     case "AES256GCM":
       return {
         hpkeInterface() {
-          return new Aes256Gcm()
+          return new CipherSuite({
+            kem: KemId.DhkemP256HkdfSha256,
+            kdf: KdfId.HkdfSha256,
+            aead: AeadId.Aes256Gcm,
+          }).aead
         },
         encrypt(key, nonce, aad, plaintext) {
           return encryptAesGcm(key, nonce, aad, plaintext)
@@ -40,7 +47,11 @@ export async function makeAead(aeadAlg: AeadAlgorithm): Promise<Aead> {
     case "CHACHA20POLY1305":
       return {
         hpkeInterface() {
-          return new Chacha20Poly1305()
+          return new CipherSuite({
+            kem: KemId.DhkemP256HkdfSha256,
+            kdf: KdfId.HkdfSha256,
+            aead: AeadId.Chacha20Poly1305,
+          }).aead
         },
         async encrypt(key, nonce, aad, plaintext) {
           return chacha20poly1305(key, nonce, aad).encrypt(plaintext)
