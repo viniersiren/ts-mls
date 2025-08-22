@@ -1,12 +1,12 @@
-import { makeNobleSignatureImpl, Signature, SignatureAlgorithm } from "./signature"
-import { Hash, HashAlgorithm, makeHashImpl } from "./hash"
-import { Kdf, makeKdf, makeKdfImpl } from "./kdf"
-import { Hpke, HpkeAlgorithm, makeHpke } from "./hpke"
+import { Signature, SignatureAlgorithm } from "./signature"
+import { Hash, HashAlgorithm } from "./hash"
+import { Kdf } from "./kdf"
+import { Hpke, HpkeAlgorithm } from "./hpke"
 import { contramapEncoder, Encoder } from "../codec/tlsEncoder"
 import { decodeUint16, encodeUint16 } from "../codec/number"
 import { Decoder, mapDecoderOption } from "../codec/tlsDecoder"
 import { openEnumNumberEncoder, openEnumNumberToKey, reverseMap } from "../util/enumHelpers"
-import { Rng, webCryptoRng } from "./rng"
+import { Rng } from "./rng"
 
 export interface CiphersuiteImpl {
   hash: Hash
@@ -64,42 +64,6 @@ export function getCiphersuiteFromName(name: CiphersuiteName): Ciphersuite {
   return ciphersuiteValues[ciphersuites[name]]
 }
 
-// export async function getCiphersuiteImpl(cs: Ciphersuite): Promise<CiphersuiteImpl> {
-//   const sc = crypto.subtle
-//   return {
-//     kdf: makeKdfImpl(makeKdf(cs.hpke.kdf)),
-//     hash: makeHashImpl(sc, cs.hash),
-//     signature: await makeNobleSignatureImpl(cs.signature),
-//     hpke: await makeHpke(cs.hpke),
-//     rng: webCryptoRng,
-//     name: cs.name,
-//   }
-// }
-export async function getCiphersuiteImpl(
-  cs: Ciphersuite,
-  provider: "webcrypto" | "noble" | "custom" = "webcrypto",
-  customProvider?: () => Promise<CiphersuiteImpl>
-): Promise<CiphersuiteImpl> {
-  if (provider === "noble") {
-    // Use built-in noble implementation
-    const { getNobleCiphersuiteImpl } = await import("./nobleCiphersuite")
-    return getNobleCiphersuiteImpl(cs as any)
-  } else if (provider === "custom" && customProvider) {
-    // Use user's custom implementation
-    return customProvider()
-  } else {
-    // Use existing WebCrypto implementation
-    const sc = crypto.subtle
-    return {
-      kdf: makeKdfImpl(makeKdf(cs.hpke.kdf)),
-      hash: makeHashImpl(sc, cs.hash),
-      signature: await makeNobleSignatureImpl(cs.signature),
-      hpke: await makeHpke(cs.hpke),
-      rng: webCryptoRng,
-      name: cs.name,
-    }
-  }
-}
 
 const ciphersuiteValues: Record<CiphersuiteId, Ciphersuite> = {
   1: {
@@ -295,7 +259,7 @@ const ciphersuiteValues: Record<CiphersuiteId, Ciphersuite> = {
   },
 } as const
 
-type Ciphersuite = {
+export type Ciphersuite = {
   hash: HashAlgorithm
   hpke: HpkeAlgorithm
   signature: SignatureAlgorithm

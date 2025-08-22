@@ -4,7 +4,8 @@ import { createCommit } from "../../src/createCommit"
 import { processPublicMessage } from "../../src/processMessages"
 import { emptyPskIndex } from "../../src/pskIndex"
 import { Credential } from "../../src/credential"
-import { CiphersuiteName, getCiphersuiteImpl, getCiphersuiteFromName, ciphersuites } from "../../src/crypto/ciphersuite"
+import { CiphersuiteName, getCiphersuiteFromName, ciphersuites } from "../../src/crypto/ciphersuite"
+import { getCiphersuiteImpl } from "../../src/crypto/getCiphersuiteImpl"
 import { generateKeyPackage } from "../../src/keyPackage"
 import { ProposalAdd } from "../../src/proposal"
 import { checkHpkeKeysMatch } from "../crypto/keyMatch"
@@ -56,7 +57,7 @@ async function externalJoin(cipherSuite: CiphersuiteName) {
 
   expect(bobGroup.keySchedule.epochAuthenticator).toStrictEqual(aliceGroup.keySchedule.epochAuthenticator)
 
-  const groupInfo = await createGroupInfoWithExternalPubAndRatchetTree(aliceGroup, impl)
+  const groupInfo = await createGroupInfoWithExternalPubAndRatchetTree(aliceGroup, [], impl)
 
   const charlieJoinGroupCommitResult = await joinGroupExternal(
     groupInfo,
