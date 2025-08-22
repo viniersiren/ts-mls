@@ -64,15 +64,35 @@ export function getCiphersuiteFromName(name: CiphersuiteName): Ciphersuite {
   return ciphersuiteValues[ciphersuites[name]]
 }
 
-export async function getCiphersuiteImpl(cs: Ciphersuite): Promise<CiphersuiteImpl> {
-  const sc = crypto.subtle
-  return {
-    kdf: makeKdfImpl(makeKdf(cs.hpke.kdf)),
-    hash: makeHashImpl(sc, cs.hash),
-    signature: await makeNobleSignatureImpl(cs.signature),
-    hpke: await makeHpke(cs.hpke),
-    rng: webCryptoRng,
-    name: cs.name,
+// export async function getCiphersuiteImpl(cs: Ciphersuite): Promise<CiphersuiteImpl> {
+//   const sc = crypto.subtle
+//   return {
+//     kdf: makeKdfImpl(makeKdf(cs.hpke.kdf)),
+//     hash: makeHashImpl(sc, cs.hash),
+//     signature: await makeNobleSignatureImpl(cs.signature),
+//     hpke: await makeHpke(cs.hpke),
+//     rng: webCryptoRng,
+//     name: cs.name,
+//   }
+// }
+
+export async function getCiphersuiteImpl(
+  cs: Ciphersuite,
+  provider: "webcrypto" | "noble" = "webcrypto"
+): Promise<CiphersuiteImpl> {
+  if (provider === "noble") {
+    const { getNobleCiphersuiteImpl } = await import("./nobleCiphersuite")
+    return getNobleCiphersuiteImpl(cs as any)
+  } else {
+    const sc = crypto.subtle
+    return {
+      kdf: makeKdfImpl(makeKdf(cs.hpke.kdf)),
+      hash: makeHashImpl(sc, cs.hash),
+      signature: await makeNobleSignatureImpl(cs.signature),
+      hpke: await makeHpke(cs.hpke),
+      rng: webCryptoRng,
+      name: cs.name,
+    }
   }
 }
 

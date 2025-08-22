@@ -1,0 +1,699 @@
+import { KdfInterface, KdfId, KemId, CipherSuite, AeadId } from "hpke-js"
+import { utf8ToBytes } from "@noble/ciphers/utils"
+import { encodeVarLenData } from "../codec/variableLength"
+import { encodeUint16, encodeUint32 } from "../codec/number"
+import { bytesToBuffer } from "../util/byteArray"
+
+export interface Kdf {
+  extract(salt: Uint8Array, ikm: Uint8Array): Promise<Uint8Array>
+  expand(prk: Uint8Array, info: Uint8Array, len: number): Promise<Uint8Array>
+  size: number
+}
+
+export type KdfAlgorithm = "HKDF-SHA256" | "HKDF-SHA384" | "HKDF-SHA512"
+
+export function makeKdfImpl(k: KdfInterface): Kdf {
+  return {
+    async extract(salt: Uint8Array, ikm: Uint8Array): Promise<Uint8Array> {
+      const result = await k.extract(bytesToBuffer(salt), bytesToBuffer(ikm))
+      return new Uint8Array(result)
+    },
+    async expand(prk: Uint8Array, info: Uint8Array, len: number): Promise<Uint8Array> {
+      const result = await k.expand(bytesToBuffer(prk), bytesToBuffer(info), len)
+      return new Uint8Array(result)
+    },
+    size: k.hashSize,
+  }
+}
+
+export function makeKdf(kdfAlg: KdfAlgorithm): KdfInterface {
+  switch (kdfAlg) {
+    case "HKDF-SHA256":
+      return new CipherSuite({
+        kem: KemId.DhkemP256HkdfSha256,
+        kdf: KdfId.HkdfSha256,
+        aead: AeadId.Aes128Gcm,
+      }).kdf
+    case "HKDF-SHA384":
+      return new CipherSuite({
+        kem: KemId.DhkemP384HkdfSha384,
+        kdf: KdfId.HkdfSha384,
+        aead: AeadId.Aes128Gcm,
+      }).kdf
+    case "HKDF-SHA512":
+      return new CipherSuite({
+        kem: KemId.DhkemP521HkdfSha512,
+        kdf: KdfId.HkdfSha512,
+        aead: AeadId.Aes128Gcm,
+      }).kdf
+  }
+}
+
+export function expandWithLabel(
+  secret: Uint8Array,
+  label: string,
+  context: Uint8Array,
+  length: number,
+  kdf: Kdf,
+): Promise<Uint8Array> {
+  return kdf.expand(
+    secret,
+    new Uint8Array([
+      ...encodeUint16(length),
+      ...encodeVarLenData(utf8ToBytes(`MLS 1.0 ${label}`)),
+      ...encodeVarLenData(context),
+    ]),
+    length,
+  )
+}
+
+export async function deriveSecret(secret: Uint8Array, label: string, kdf: Kdf): Promise<Uint8Array> {
+  return expandWithLabel(secret, label, new Uint8Array(), kdf.size, kdf)
+}
+
+export async function deriveTreeSecret(
+  secret: Uint8Array,
+  label: string,
+  generation: number,
+  length: number,
+  kdf: Kdf,
+): Promise<Uint8Array> {
+  return expandWithLabel(secret, label, encodeUint32(generation), length, kdf)
+}
+
+
+import { KemId, KemInterface, CipherSuite, KdfId, AeadId } from "hpke-js"
+// import { XWing } from "@hpke/hybridkem-x-wing"
+// import { ml_kem512, ml_kem768, ml_kem1024 } from '@noble/post-quantum/ml-kem';
+
+
+export type KemAlgorithm =
+  | "DHKEM-P256-HKDF-SHA256"
+  | "DHKEM-X25519-HKDF-SHA256"
+  | "DHKEM-X448-HKDF-SHA512"
+  | "DHKEM-P521-HKDF-SHA512"
+  | "DHKEM-P384-HKDF-SHA384"
+  // | "ML-KEM-512"
+  // | "ML-KEM-768"
+  // | "ML-KEM-1024"
+  // | "X-Wing"
+
+export async function makeDhKem(kemAlg: KemAlgorithm): Promise<KemInterface> {
+  switch (kemAlg) {
+    case "DHKEM-P256-HKDF-SHA256":
+      return new CipherSuite({
+        kem: KemId.DhkemP256HkdfSha256,
+        kdf: KdfId.HkdfSha256,
+        aead: AeadId.Aes128Gcm,
+      }).kem
+    case "DHKEM-X25519-HKDF-SHA256":
+      return new CipherSuite({
+        kem: KemId.DhkemX25519HkdfSha256,
+        kdf: KdfId.HkdfSha256,
+        aead: AeadId.Aes128Gcm,
+      }).kem
+    case "DHKEM-X448-HKDF-SHA512":
+      return new CipherSuite({
+        kem: KemId.DhkemX448HkdfSha512,
+        kdf: KdfId.HkdfSha512,
+        aead: AeadId.Aes128Gcm,
+      }).kem
+    case "DHKEM-P521-HKDF-SHA512":
+      return new CipherSuite({
+        kem: KemId.DhkemP521HkdfSha512,
+        kdf: KdfId.HkdfSha512,
+        aead: AeadId.Aes128Gcm,
+      }).kem
+    case "DHKEM-P384-HKDF-SHA384":
+      return new CipherSuite({
+        kem: KemId.DhkemP384HkdfSha384,
+        kdf: KdfId.HkdfSha384,
+        aead: AeadId.Aes128Gcm,
+      }).kem
+    // case "ML-KEM-512":
+    //   return new ml_kem512()
+
+    // case "ML-KEM-768":
+    //   return new ml_kem768()
+
+    // case "ML-KEM-1024":
+    //   return  ml_kem1024;
+
+    // case "X-Wing":
+    //   return new XWing()
+  }
+}
+
+export interface Rng {
+  randomBytes(n: number): Uint8Array
+}
+
+import { randomBytes } from "@noble/hashes/utils"
+
+export const webCryptoRng: Rng = {
+  randomBytes(n) {
+    return randomBytes(n)
+  },
+}
+import { encodeVarLenData } from "../codec/variableLength"
+import { webCryptoRng } from "./rng"
+// Static imports for @noble packages since they are now regular dependencies
+import { ed25519 } from "@noble/curves/ed25519"
+import { ed448 } from "@noble/curves/ed448"
+import { p256, p384, p521 } from "@noble/curves/nist"
+import { ml_dsa87 } from "@noble/post-quantum/ml-dsa"
+
+export interface Signature {
+  sign(signKey: Uint8Array, message: Uint8Array): Promise<Uint8Array>
+  verify(publicKey: Uint8Array, message: Uint8Array, signature: Uint8Array): Promise<boolean>
+  keygen(): Promise<{ publicKey: Uint8Array; signKey: Uint8Array }>
+}
+
+export type SignatureAlgorithm = "Ed25519" | "Ed448" | "P256" | "P384" | "P521" | "ML-DSA-87"
+
+export async function signWithLabel(
+  signKey: Uint8Array,
+  label: string,
+  content: Uint8Array,
+  s: Signature,
+): Promise<Uint8Array> {
+  return s.sign(
+    signKey,
+    new Uint8Array([...encodeVarLenData(new TextEncoder().encode(`MLS 1.0 ${label}`)), ...encodeVarLenData(content)]),
+  )
+}
+
+export async function verifyWithLabel(
+  publicKey: Uint8Array,
+  label: string,
+  content: Uint8Array,
+  signature: Uint8Array,
+  s: Signature,
+): Promise<boolean> {
+  return s.verify(
+    publicKey,
+    new Uint8Array([...encodeVarLenData(new TextEncoder().encode(`MLS 1.0 ${label}`)), ...encodeVarLenData(content)]),
+    signature,
+  )
+}
+
+export async function makeNobleSignatureImpl(alg: SignatureAlgorithm): Promise<Signature> {
+  switch (alg) {
+    case "Ed25519":
+      return {
+        async sign(signKey, message) {
+          return ed25519.sign(message, signKey)
+        },
+        async verify(publicKey, message, signature) {
+          return ed25519.verify(signature, message, publicKey)
+        },
+        async keygen() {
+          const signKey = ed25519.utils.randomPrivateKey()
+          return { signKey, publicKey: ed25519.getPublicKey(signKey) }
+        },
+      }
+
+    case "Ed448":
+      return {
+        async sign(signKey, message) {
+          return ed448.sign(message, signKey)
+        },
+        async verify(publicKey, message, signature) {
+          return ed448.verify(signature, message, publicKey)
+        },
+        async keygen() {
+          const signKey = ed448.utils.randomPrivateKey()
+          return { signKey, publicKey: ed448.getPublicKey(signKey) }
+        },
+      }
+
+    case "P256":
+      return {
+        async sign(signKey, message) {
+          return p256.sign(message, signKey, { prehash: true }).toCompactRawBytes()
+        },
+        async verify(publicKey, message, signature) {
+          return p256.verify(signature, message, publicKey, { prehash: true })
+        },
+        async keygen() {
+          const signKey = p256.utils.randomPrivateKey()
+          return { signKey, publicKey: p256.getPublicKey(signKey) }
+        },
+      }
+    case "P384":
+      return {
+        async sign(signKey, message) {
+          return p384.sign(message, signKey, { prehash: true }).toCompactRawBytes()
+        },
+        async verify(publicKey, message, signature) {
+          return p384.verify(signature, message, publicKey, { prehash: true })
+        },
+        async keygen() {
+          const signKey = p384.utils.randomPrivateKey()
+          return { signKey, publicKey: p384.getPublicKey(signKey) }
+        },
+      }
+    case "P521":
+      return {
+        async sign(signKey, message) {
+          return p521.sign(message, signKey, { prehash: true }).toCompactRawBytes()
+        },
+        async verify(publicKey, message, signature) {
+          return p521.verify(signature, message, publicKey, { prehash: true })
+        },
+        async keygen() {
+          const signKey = p521.utils.randomPrivateKey()
+          return { signKey, publicKey: p521.getPublicKey(signKey) }
+        },
+      }
+    case "ML-DSA-87":
+      return {
+        async sign(signKey, message) {
+          return ml_dsa87.sign(signKey, message)
+        },
+        async verify(publicKey, message, signature) {
+          return ml_dsa87.verify(publicKey, message, signature)
+        },
+        async keygen() {
+          const keys = ml_dsa87.keygen(webCryptoRng.randomBytes(32))
+          return { signKey: keys.secretKey, publicKey: keys.publicKey }
+        },
+      }
+  }
+}
+import { utf8ToBytes } from "@noble/ciphers/utils"
+import { encodeVarLenData } from "../codec/variableLength"
+import { sha256, sha384, sha512 } from '@noble/hashes/sha2'
+import { hmac } from '@noble/hashes/hmac'
+
+export type HashAlgorithm = "SHA-512" | "SHA-384" | "SHA-256"
+
+export function makeHashImpl(_sc: SubtleCrypto | null, h: HashAlgorithm): Hash {
+  return {
+    async digest(data) {
+      switch (h) {
+        case "SHA-256":
+          return sha256(data)
+        case "SHA-384":
+          return sha384(data)
+        case "SHA-512":
+          return sha512(data)
+        default:
+          throw new Error(`Unsupported hash algorithm: ${h}`)
+      }
+    },
+    async mac(key, data) {
+      switch (h) {
+        case "SHA-256":
+          return hmac(sha256, key, data)
+        case "SHA-384":
+          return hmac(sha384, key, data)
+        case "SHA-512":
+          return hmac(sha512, key, data)
+        default:
+          throw new Error(`Unsupported hash algorithm: ${h}`)
+      }
+    },
+    async verifyMac(key, mac, data) {
+      const expectedMac = await this.mac(key, data)
+      return mac.length === expectedMac.length &&
+             mac.every((byte, i) => byte === expectedMac[i])
+    },
+  }
+}
+
+export interface Hash {
+  digest(data: Uint8Array): Promise<Uint8Array>
+  mac(key: Uint8Array, data: Uint8Array): Promise<Uint8Array>
+  verifyMac(key: Uint8Array, mac: Uint8Array, data: Uint8Array): Promise<boolean>
+}
+
+export function refhash(label: string, value: Uint8Array, h: Hash) {
+  return h.digest(encodeRefHash(label, value))
+}
+
+function encodeRefHash(label: string, value: Uint8Array) {
+  const labelBytes = utf8ToBytes(label)
+  return new Uint8Array([...encodeVarLenData(labelBytes), ...encodeVarLenData(value)])
+}
+import { makeNobleSignatureImpl, Signature, SignatureAlgorithm } from "./signature"
+import { Hash, HashAlgorithm, makeHashImpl } from "./hash"
+import { Kdf, makeKdf, makeKdfImpl } from "./kdf"
+import { Hpke, HpkeAlgorithm, makeHpke } from "./hpke"
+import { contramapEncoder, Encoder } from "../codec/tlsEncoder"
+import { decodeUint16, encodeUint16 } from "../codec/number"
+import { Decoder, mapDecoderOption } from "../codec/tlsDecoder"
+import { openEnumNumberEncoder, openEnumNumberToKey, reverseMap } from "../util/enumHelpers"
+import { Rng, webCryptoRng } from "./rng"
+
+export type CiphersuiteImpl = {
+  hash: Hash
+  hpke: Hpke
+  signature: Signature
+  kdf: Kdf
+  rng: Rng
+  name: CiphersuiteName
+}
+
+export const ciphersuites = {
+  MLS_128_DHKEMX25519_AES128GCM_SHA256_Ed25519: 1,
+  MLS_128_DHKEMP256_AES128GCM_SHA256_P256: 2,
+  MLS_128_DHKEMX25519_CHACHA20POLY1305_SHA256_Ed25519: 3,
+  MLS_256_DHKEMX448_AES256GCM_SHA512_Ed448: 4,
+  MLS_256_DHKEMP521_AES256GCM_SHA512_P521: 5,
+  MLS_256_DHKEMX448_CHACHA20POLY1305_SHA512_Ed448: 6,
+  MLS_256_DHKEMP384_AES256GCM_SHA384_P384: 7,
+  // MLS_128_MLKEM512_AES128GCM_SHA256_Ed25519: 77,
+  // MLS_128_MLKEM512_CHACHA20POLY1305_SHA256_Ed25519: 78,
+  // MLS_256_MLKEM768_AES256GCM_SHA384_Ed25519: 79,
+  // MLS_256_MLKEM768_CHACHA20POLY1305_SHA384_Ed25519: 80,
+  // MLS_256_MLKEM1024_AES256GCM_SHA512_Ed25519: 81,
+  // MLS_256_MLKEM1024_CHACHA20POLY1305_SHA512_Ed25519: 82,
+  // MLS_256_XWING_AES256GCM_SHA512_Ed25519: 83,
+  // MLS_256_XWING_CHACHA20POLY1305_SHA512_Ed25519: 84,
+  // MLS_256_MLKEM1024_AES256GCM_SHA512_MLDSA87: 85,
+  // MLS_256_MLKEM1024_CHACHA20POLY1305_SHA512_MLDSA87: 86,
+  // MLS_256_XWING_AES256GCM_SHA512_MLDSA87: 87,
+  // MLS_256_XWING_CHACHA20POLY1305_SHA512_MLDSA87: 88,
+} as const
+
+export type CiphersuiteName = keyof typeof ciphersuites
+export type CiphersuiteId = (typeof ciphersuites)[CiphersuiteName]
+
+export const encodeCiphersuite: Encoder<CiphersuiteName> = contramapEncoder(
+  encodeUint16,
+  openEnumNumberEncoder(ciphersuites),
+)
+
+export const decodeCiphersuite: Decoder<CiphersuiteName> = mapDecoderOption(
+  decodeUint16,
+  openEnumNumberToKey(ciphersuites),
+)
+
+export function getCiphersuiteNameFromId(id: CiphersuiteId): CiphersuiteName {
+  return reverseMap(ciphersuites)[id] as CiphersuiteName
+}
+
+export function getCiphersuiteFromId(id: CiphersuiteId): Ciphersuite {
+  return ciphersuiteValues[id]
+}
+
+export function getCiphersuiteFromName(name: CiphersuiteName): Ciphersuite {
+  return ciphersuiteValues[ciphersuites[name]]
+}
+
+export async function getCiphersuiteImpl(cs: Ciphersuite): Promise<CiphersuiteImpl> {
+  return {
+    kdf: makeKdfImpl(makeKdf(cs.hpke.kdf)),
+    hash: makeHashImpl(null, cs.hash), // Our new implementation doesn't need SubtleCrypto
+    signature: await makeNobleSignatureImpl(cs.signature),
+    hpke: await makeHpke(cs.hpke),
+    rng: webCryptoRng,
+    name: cs.name,
+  }
+}
+
+const ciphersuiteValues: Record<CiphersuiteId, Ciphersuite> = {
+  1: {
+    hash: "SHA-256",
+    hpke: {
+      kem: "DHKEM-X25519-HKDF-SHA256",
+      aead: "AES128GCM",
+      kdf: "HKDF-SHA256",
+    },
+    signature: "Ed25519",
+    name: "MLS_128_DHKEMX25519_AES128GCM_SHA256_Ed25519",
+  },
+  2: {
+    hash: "SHA-256",
+    hpke: {
+      kem: "DHKEM-P256-HKDF-SHA256",
+      aead: "AES128GCM",
+      kdf: "HKDF-SHA256",
+    },
+    signature: "P256",
+    name: "MLS_128_DHKEMP256_AES128GCM_SHA256_P256",
+  },
+  3: {
+    hash: "SHA-256",
+    hpke: {
+      kem: "DHKEM-X25519-HKDF-SHA256",
+      aead: "CHACHA20POLY1305",
+      kdf: "HKDF-SHA256",
+    },
+    signature: "Ed25519",
+    name: "MLS_128_DHKEMX25519_CHACHA20POLY1305_SHA256_Ed25519",
+  },
+  4: {
+    hash: "SHA-512",
+    hpke: {
+      kem: "DHKEM-X448-HKDF-SHA512",
+      aead: "AES256GCM",
+      kdf: "HKDF-SHA512",
+    },
+    signature: "Ed448",
+    name: "MLS_256_DHKEMX448_AES256GCM_SHA512_Ed448",
+  },
+  5: {
+    hash: "SHA-512",
+    hpke: {
+      kem: "DHKEM-P521-HKDF-SHA512",
+      aead: "AES256GCM",
+      kdf: "HKDF-SHA512",
+    },
+    signature: "P521",
+    name: "MLS_256_DHKEMP521_AES256GCM_SHA512_P521",
+  },
+  6: {
+    hash: "SHA-512",
+    hpke: {
+      kem: "DHKEM-X448-HKDF-SHA512",
+      aead: "CHACHA20POLY1305",
+      kdf: "HKDF-SHA512",
+    },
+    signature: "Ed448",
+    name: "MLS_256_DHKEMX448_CHACHA20POLY1305_SHA512_Ed448",
+  },
+  7: {
+    hash: "SHA-384",
+    hpke: {
+      kem: "DHKEM-P384-HKDF-SHA384",
+      aead: "AES256GCM",
+      kdf: "HKDF-SHA384",
+    },
+    signature: "P384",
+    name: "MLS_256_DHKEMP384_AES256GCM_SHA384_P384",
+  },
+
+  // 77: {
+  //   hash: "SHA-256",
+  //   hpke: {
+  //     kem: "ML-KEM-512",
+  //     aead: "AES256GCM",
+  //     kdf: "HKDF-SHA512",
+  //   },
+  //   signature: "Ed25519",
+  //   name: "MLS_128_MLKEM512_AES128GCM_SHA256_Ed25519",
+  // },
+  // 78: {
+  //   hash: "SHA-256",
+  //   hpke: {
+  //     kem: "ML-KEM-512",
+  //     aead: "CHACHA20POLY1305",
+  //     kdf: "HKDF-SHA512",
+  //   },
+  //   signature: "Ed25519",
+  //   name: "MLS_128_MLKEM512_CHACHA20POLY1305_SHA256_Ed25519",
+  // },
+  // 79: {
+  //   hash: "SHA-384",
+  //   hpke: {
+  //     kem: "ML-KEM-768",
+  //     aead: "AES256GCM",
+  //     kdf: "HKDF-SHA512",
+  //   },
+  //   signature: "Ed25519",
+  //   name: "MLS_256_MLKEM768_AES256GCM_SHA384_Ed25519",
+  // },
+  // 80: {
+  //   hash: "SHA-384",
+  //   hpke: {
+  //     kem: "ML-KEM-768",
+  //     aead: "CHACHA20POLY1305",
+  //     kdf: "HKDF-SHA512",
+  //   },
+  //   signature: "Ed25519",
+  //   name: "MLS_256_MLKEM768_CHACHA20POLY1305_SHA384_Ed25519",
+  // },
+  // 81: {
+  //   hash: "SHA-512",
+  //   hpke: {
+  //     kem: "ML-KEM-1024",
+  //     aead: "AES256GCM",
+  //     kdf: "HKDF-SHA512",
+  //   },
+  //   signature: "Ed25519",
+  //   name: "MLS_256_MLKEM1024_AES256GCM_SHA512_Ed25519",
+  // },
+  // 82: {
+  //   hash: "SHA-512",
+  //   hpke: {
+  //     kem: "ML-KEM-1024",
+  //     aead: "CHACHA20POLY1305",
+  //     kdf: "HKDF-SHA512",
+  //   },
+  //   signature: "Ed25519",
+  //   name: "MLS_256_MLKEM1024_CHACHA20POLY1305_SHA512_Ed25519",
+  // },
+  // 83: {
+  //   hash: "SHA-512",
+  //   hpke: {
+  //     kem: "X-Wing",
+  //     aead: "AES256GCM",
+  //     kdf: "HKDF-SHA512",
+  //   },
+  //   signature: "Ed25519",
+  //   name: "MLS_256_XWING_AES256GCM_SHA512_Ed25519",
+  // },
+  // 84: {
+  //   hash: "SHA-512",
+  //   hpke: {
+  //     kem: "X-Wing",
+  //     aead: "CHACHA20POLY1305",
+  //     kdf: "HKDF-SHA512",
+  //   },
+  //   signature: "Ed25519",
+  //   name: "MLS_256_XWING_CHACHA20POLY1305_SHA512_Ed25519",
+  // },
+  // 85: {
+  //   hash: "SHA-512",
+  //   hpke: {
+  //     kem: "ML-KEM-1024",
+  //     aead: "AES256GCM",
+  //     kdf: "HKDF-SHA512",
+  //   },
+  //   signature: "ML-DSA-87",
+  //   name: "MLS_256_MLKEM1024_AES256GCM_SHA512_MLDSA87",
+  // },
+  // 86: {
+  //   hash: "SHA-512",
+  //   hpke: {
+  //     kem: "ML-KEM-1024",
+  //     aead: "CHACHA20POLY1305",
+  //     kdf: "HKDF-SHA512",
+  //   },
+  //   signature: "ML-DSA-87",
+  //   name: "MLS_256_MLKEM1024_CHACHA20POLY1305_SHA512_MLDSA87",
+  // },
+  // 87: {
+  //   hash: "SHA-512",
+  //   hpke: {
+  //     kem: "X-Wing",
+  //     aead: "AES256GCM",
+  //     kdf: "HKDF-SHA512",
+  //   },
+  //   signature: "ML-DSA-87",
+  //   name: "MLS_256_XWING_AES256GCM_SHA512_MLDSA87",
+  // },
+  // 88: {
+  //   hash: "SHA-512",
+  //   hpke: {
+  //     kem: "X-Wing",
+  //     aead: "CHACHA20POLY1305",
+  //     kdf: "HKDF-SHA512",
+  //   },
+  //   signature: "ML-DSA-87",
+  //   name: "MLS_256_XWING_CHACHA20POLY1305_SHA512_MLDSA87",
+  // },
+} as const
+
+type Ciphersuite = {
+  hash: HashAlgorithm
+  hpke: HpkeAlgorithm
+  signature: SignatureAlgorithm
+  name: CiphersuiteName
+}
+import { AeadInterface, AeadId, CipherSuite, KemId, KdfId } from "hpke-js"
+import { gcm } from "@noble/ciphers/aes"
+import { chacha20poly1305 } from "@noble/ciphers/chacha"
+
+export type AeadAlgorithm = "AES128GCM" | "CHACHA20POLY1305" | "AES256GCM"
+
+export interface Aead {
+  hpkeInterface(): AeadInterface
+  encrypt(key: Uint8Array, nonce: Uint8Array, aad: Uint8Array, plaintext: Uint8Array): Promise<Uint8Array>
+  decrypt(key: Uint8Array, nonce: Uint8Array, aad: Uint8Array, ciphertext: Uint8Array): Promise<Uint8Array>
+}
+
+export async function makeAead(aeadAlg: AeadAlgorithm): Promise<Aead> {
+  switch (aeadAlg) {
+    case "AES128GCM":
+      return {
+        hpkeInterface() {
+          return new CipherSuite({
+            kem: KemId.DhkemP256HkdfSha256,
+            kdf: KdfId.HkdfSha256,
+            aead: AeadId.Aes128Gcm,
+          }).aead
+        },
+        encrypt(key, nonce, aad, plaintext) {
+          return encryptAesGcm(key, nonce, aad, plaintext)
+        },
+        decrypt(key, nonce, aad, ciphertext) {
+          return decryptAesGcm(key, nonce, aad, ciphertext)
+        },
+      }
+    case "AES256GCM":
+      return {
+        hpkeInterface() {
+          return new CipherSuite({
+            kem: KemId.DhkemP256HkdfSha256,
+            kdf: KdfId.HkdfSha256,
+            aead: AeadId.Aes256Gcm,
+          }).aead
+        },
+        encrypt(key, nonce, aad, plaintext) {
+          return encryptAesGcm(key, nonce, aad, plaintext)
+        },
+        decrypt(key, nonce, aad, ciphertext) {
+          return decryptAesGcm(key, nonce, aad, ciphertext)
+        },
+      }
+    case "CHACHA20POLY1305":
+      return {
+        hpkeInterface() {
+          return new CipherSuite({
+            kem: KemId.DhkemP256HkdfSha256,
+            kdf: KdfId.HkdfSha256,
+            aead: AeadId.Chacha20Poly1305,
+          }).aead
+        },
+        async encrypt(key, nonce, aad, plaintext) {
+          return chacha20poly1305(key, nonce, aad).encrypt(plaintext)
+        },
+        async decrypt(key, nonce, aad, ciphertext) {
+          return chacha20poly1305(key, nonce, aad).decrypt(ciphertext)
+        },
+      }
+  }
+}
+
+async function encryptAesGcm(
+  key: Uint8Array,
+  nonce: Uint8Array,
+  aad: Uint8Array,
+  plaintext: Uint8Array,
+): Promise<Uint8Array> {
+  const cipher = gcm(key, nonce, aad)
+  return cipher.encrypt(plaintext)
+}
+
+async function decryptAesGcm(
+  key: Uint8Array,
+  nonce: Uint8Array,
+  aad: Uint8Array,
+  ciphertext: Uint8Array,
+): Promise<Uint8Array> {
+  const cipher = gcm(key, nonce, aad)
+  return cipher.decrypt(ciphertext)
+}
