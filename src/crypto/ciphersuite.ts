@@ -75,15 +75,20 @@ export function getCiphersuiteFromName(name: CiphersuiteName): Ciphersuite {
 //     name: cs.name,
 //   }
 // }
-
 export async function getCiphersuiteImpl(
   cs: Ciphersuite,
-  provider: "webcrypto" | "noble" = "webcrypto"
+  provider: "webcrypto" | "noble" | "custom" = "webcrypto",
+  customProvider?: () => Promise<CiphersuiteImpl>
 ): Promise<CiphersuiteImpl> {
   if (provider === "noble") {
+    // Use built-in noble implementation
     const { getNobleCiphersuiteImpl } = await import("./nobleCiphersuite")
     return getNobleCiphersuiteImpl(cs as any)
+  } else if (provider === "custom" && customProvider) {
+    // Use user's custom implementation
+    return customProvider()
   } else {
+    // Use existing WebCrypto implementation
     const sc = crypto.subtle
     return {
       kdf: makeKdfImpl(makeKdf(cs.hpke.kdf)),
